@@ -17,7 +17,13 @@
     "db:restart": "docker compose restart postgres",
     "db:status": "docker compose ps",
     "db:logs": "docker compose logs -f postgres",
-    "db:reset-container": "docker compose down -v"
+    "db:reset-container": "docker compose down -v",
+    "db:generate": "pnpm --filter @clutcha/database db:generate",
+    "db:migrate": "pnpm --filter @clutcha/database db:migrate",
+    "db:deploy": "pnpm --filter @clutcha/database db:deploy",
+    "db:studio": "pnpm --filter @clutcha/database db:studio",
+    "db:validate": "pnpm --filter @clutcha/database db:validate",
+    "db:format": "pnpm --filter @clutcha/database db:format"
   },
   "devDependencies": {
     "prettier": "^3.9.6",
