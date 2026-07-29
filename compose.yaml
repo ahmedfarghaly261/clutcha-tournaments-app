@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: clutcha-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: clutcha
+      POSTGRES_PASSWORD: clutcha_password
+      POSTGRES_DB: clutcha
+
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    volumes:
+      - clutcha_postgres_data:/var/lib/postgresql
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clutcha -d clutcha"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  clutcha_postgres_data:
