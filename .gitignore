@@ -13,6 +13,8 @@ coverage/
 .env.development
 .env.production
 .env.test
+apps/api/.env
+packages/database/.env
 
 # Keep environment examples
 !.env.example
