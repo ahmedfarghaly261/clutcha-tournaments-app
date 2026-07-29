@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  PLATFORM_ADMIN
+  ORGANIZER
+  CAPTAIN
+  TOURNAMENT_STAFF
+  REFEREE
+  CHECK_IN_STAFF
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum TeamStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum RosterType {
+  STARTER
+  SUBSTITUTE
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum EligibilityStatus {
+  ELIGIBLE
+  INELIGIBLE
+  PENDING_REVIEW
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  displayName  String
+  role         UserRole
+  status       UserStatus @default(PENDING_VERIFICATION)
+
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+
+  captainTeams Team[] @relation("TeamCaptain")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+model Team {
+  id      String     @id @default(uuid())
+  name    String
+  slug    String     @unique
+  logoUrl String?
+  region  String?
+  gameKey String
+  status  TeamStatus @default(ACTIVE)
+
+  captainId String
+  captain   User   @relation("TeamCaptain", fields: [captainId], references: [id], onDelete: Restrict)
+
+  rosterPlayers RosterPlayer[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([captainId])
+  @@index([gameKey])
+  @@map("teams")
+}
+
+model RosterPlayer {
+  id            String  @id @default(uuid())
+  gamerTag      String
+  realName      String?
+  gameAccountId String
+  playerRole    String?
+  rank          String?
+  country       String?
+
+  rosterType         RosterType         @default(STARTER)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  eligibilityStatus  EligibilityStatus  @default(PENDING_REVIEW)
+
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, gameAccountId])
+  @@index([teamId])
+  @@map("roster_players")
+}
