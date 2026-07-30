@@ -9,6 +9,7 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
+import { OrganizersModule } from './modules/organizers/organizers.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { RolesGuard } from './modules/auth/guards/roles.guard';
     ]),
     DatabaseModule,
     AuthModule,
+    OrganizersModule,
   ],
   controllers: [AppController],
   providers: [
