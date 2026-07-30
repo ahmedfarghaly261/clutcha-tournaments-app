@@ -78,7 +78,7 @@ export class AuthController {
   @Throttle({ default: { limit: 3, ttl: 600000 } })
   @ApiOperation({
     summary: 'Register a tournament organizer',
-    description: 'Creates a pending-verification organizer account.',
+    description: 'Creates an active authenticated organizer account.',
   })
   @ApiCreatedResponse({
     description: 'Organizer account created and authenticated.',

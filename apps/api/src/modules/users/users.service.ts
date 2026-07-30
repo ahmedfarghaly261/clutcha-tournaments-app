@@ -87,7 +87,7 @@ export class UsersService {
     return this.createUser({
       ...data,
       role: UserRole.ORGANIZER,
-      status: UserStatus.PENDING_VERIFICATION,
+      status: UserStatus.ACTIVE,
     });
   }
 

@@ -80,12 +80,7 @@ export class AuthService {
     dto: RegisterOrganizerDto,
     context: RequestContext,
   ): Promise<{ response: AuthResponseDto; refreshToken: string }> {
-    return this.register(
-      dto,
-      UserRole.ORGANIZER,
-      UserStatus.PENDING_VERIFICATION,
-      context,
-    );
+    return this.register(dto, UserRole.ORGANIZER, UserStatus.ACTIVE, context);
   }
 
   async login(

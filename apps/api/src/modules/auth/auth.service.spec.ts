@@ -253,7 +253,7 @@ describe('AuthService', () => {
     ).resolves.toBe(true);
   });
 
-  it('registers organizers as pending ORGANIZER users', async () => {
+  it('registers organizers as active ORGANIZER users', async () => {
     const result = await authService.registerOrganizer(
       {
         displayName: 'Organizer One',
@@ -264,7 +264,7 @@ describe('AuthService', () => {
     );
 
     expect(result.response.user.role).toBe(UserRole.ORGANIZER);
-    expect(result.response.user.status).toBe(UserStatus.PENDING_VERIFICATION);
+    expect(result.response.user.status).toBe(UserStatus.ACTIVE);
   });
 
   it('does not let clients choose roles through registration DTO overflow', async () => {
