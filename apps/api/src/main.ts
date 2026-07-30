@@ -1,11 +1,31 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
+import { ValidationPipe } from '@nestjs/common';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
+
   app.setGlobalPrefix('api');
   app.enableShutdownHooks();
+  app.use(cookieParser());
+  app.enableCors({
+    origin: configService.getOrThrow<string>('WEB_URL'),
+    credentials: true,
+  });
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('CLUTCHA API')
@@ -22,15 +42,27 @@ async function bootstrap() {
       },
       'access-token',
     )
+    .addCookieAuth(
+      'clutcha_refresh',
+      {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'clutcha_refresh',
+        description: 'HttpOnly refresh-token cookie',
+      },
+      'refresh-token',
+    )
     .build();
 
+  const swaggerApp = app;
+
   const swaggerDocumentFactory = () =>
-    SwaggerModule.createDocument(app, swaggerConfig, {
+    SwaggerModule.createDocument(swaggerApp, swaggerConfig, {
       operationIdFactory: (controllerKey: string, methodKey: string): string =>
         `${controllerKey}_${methodKey}`,
     });
 
-  SwaggerModule.setup('docs', app, swaggerDocumentFactory, {
+  SwaggerModule.setup('docs', swaggerApp, swaggerDocumentFactory, {
     customSiteTitle: 'CLUTCHA API Documentation',
     jsonDocumentUrl: 'docs/openapi.json',
     yamlDocumentUrl: 'docs/openapi.yaml',
@@ -43,6 +75,6 @@ async function bootstrap() {
     },
   });
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(configService.getOrThrow<number>('PORT'));
 }
-bootstrap();
+void bootstrap();
