@@ -7,8 +7,10 @@ import {
 } from '@nestjs/swagger';
 import { DatabaseService } from './database.service';
 import { DatabaseHealthResponseDto } from './dto/database-health-response.dto';
+import { Public } from '../modules/auth/decorators/public.decorator';
 
 @ApiTags('Database')
+@Public()
 @Controller('database')
 export class DatabaseController {
   constructor(private readonly databaseService: DatabaseService) {}
