@@ -58,7 +58,8 @@ model User {
   emailVerifiedAt DateTime?
   lastLoginAt     DateTime?
 
-  captainTeams Team[] @relation("TeamCaptain")
+  captainTeams Team[]        @relation("TeamCaptain")
+  authSessions AuthSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -112,4 +113,26 @@ model RosterPlayer {
   @@unique([teamId, gameAccountId])
   @@index([teamId])
   @@map("roster_players")
+}
+
+model AuthSession {
+  id               String    @id @default(uuid())
+  userId           String
+  refreshTokenHash String    @db.Text
+  tokenVersion     Int       @default(0)
+  expiresAt        DateTime
+  lastUsedAt       DateTime?
+  revokedAt        DateTime?
+  userAgent        String?   @db.VarChar(512)
+  ipAddress        String?   @db.VarChar(64)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("auth_sessions")
 }
