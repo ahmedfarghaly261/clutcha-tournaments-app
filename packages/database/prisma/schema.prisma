@@ -58,8 +58,9 @@ model User {
   emailVerifiedAt DateTime?
   lastLoginAt     DateTime?
 
-  captainTeams Team[]        @relation("TeamCaptain")
-  authSessions AuthSession[]
+  captainTeams     Team[]            @relation("TeamCaptain")
+  authSessions     AuthSession[]
+  organizerProfile OrganizerProfile?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -135,4 +136,28 @@ model AuthSession {
   @@index([expiresAt])
   @@index([revokedAt])
   @@map("auth_sessions")
+}
+
+model OrganizerProfile {
+  id               String  @id @default(uuid())
+  userId           String  @unique
+  organizationName String?
+  logoUrl          String?
+  coverUrl         String?
+  description      String?
+  contactEmail     String?
+  supportPhone     String?
+  country          String?
+  city             String?
+  websiteUrl       String?
+  facebookUrl      String?
+  instagramUrl     String?
+  discordUrl       String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("organizer_profiles")
 }
