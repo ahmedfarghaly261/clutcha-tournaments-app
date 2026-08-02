@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -20,6 +21,7 @@ import {
 import { type OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
 import { type OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
 import { type TournamentResponseDto } from './dto/tournament-response.dto';
+import { type UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
 import { toTournamentResponse } from './mappers/tournament.mapper';
 
 type ValidationIssue = {
@@ -114,6 +116,61 @@ const tournamentDetailSelect = {
 @Injectable()
 export class TournamentsService {
   constructor(private readonly databaseService: DatabaseService) {}
+
+  async updateOrganizerTournamentDraft(
+    organizerId: string,
+    tournamentId: string,
+    dto: UpdateTournamentDraftDto,
+  ): Promise<TournamentResponseDto> {
+    const tournament = await this.findOwnedTournamentOrThrow(
+      organizerId,
+      tournamentId,
+    );
+    this.assertDraftLifecycle(tournament.status, 'updated');
+
+    const merged = this.mergeTournamentDraft(tournament, dto);
+    this.validateCreateDraft(merged);
+
+    const updated = await this.databaseService.client.$transaction(
+      async (transaction) => {
+        const slug =
+          typeof dto.name === 'string' && dto.name !== tournament.name
+            ? await this.generateUniqueSlug(
+                dto.name,
+                transaction,
+                tournament.id,
+              )
+            : undefined;
+
+        return transaction.tournament.update({
+          where: { id: tournament.id },
+          data: {
+            ...this.toTournamentUpdateData(dto),
+            ...(slug ? { slug } : {}),
+          },
+          select: tournamentSelect,
+        });
+      },
+    );
+
+    return toTournamentResponse(updated);
+  }
+
+  async deleteOrganizerTournamentDraft(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<void> {
+    const tournament = await this.findOwnedTournamentOrThrow(
+      organizerId,
+      tournamentId,
+    );
+    this.assertDraftLifecycle(tournament.status, 'deleted');
+
+    await this.databaseService.client.tournament.delete({
+      where: { id: tournament.id },
+      select: { id: true },
+    });
+  }
 
   async getOrganizerTournamentDetails(
     organizerId: string,
@@ -398,6 +455,189 @@ export class TournamentsService {
     };
   }
 
+  private async findOwnedTournamentOrThrow(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<Prisma.TournamentGetPayload<{ select: typeof tournamentSelect }>> {
+    const tournament = await this.databaseService.client.tournament.findFirst({
+      where: {
+        id: tournamentId,
+        organizerId,
+      },
+      select: tournamentSelect,
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament was not found');
+    }
+
+    return tournament;
+  }
+
+  private assertDraftLifecycle(
+    status: TournamentStatus,
+    action: 'updated' | 'deleted',
+  ): void {
+    if (status !== TournamentStatus.DRAFT) {
+      throw new ConflictException(`Only draft tournaments can be ${action}`);
+    }
+  }
+
+  private mergeTournamentDraft(
+    tournament: Prisma.TournamentGetPayload<{
+      select: typeof tournamentSelect;
+    }>,
+    dto: UpdateTournamentDraftDto,
+  ): CreateTournamentDto {
+    return {
+      name: dto.name ?? tournament.name,
+      shortDescription:
+        dto.shortDescription ?? tournament.shortDescription ?? undefined,
+      description: dto.description ?? tournament.description ?? undefined,
+      logoUrl: dto.logoUrl ?? tournament.logoUrl ?? undefined,
+      coverUrl: dto.coverUrl ?? tournament.coverUrl ?? undefined,
+      gameKey: dto.gameKey ?? tournament.gameKey,
+      mode: dto.mode ?? tournament.mode,
+      visibility: dto.visibility ?? tournament.visibility,
+      format: dto.format ?? tournament.format,
+      minimumTeams: dto.minimumTeams ?? tournament.minimumTeams,
+      maximumTeams: dto.maximumTeams ?? tournament.maximumTeams,
+      minimumStarters: dto.minimumStarters ?? tournament.minimumStarters,
+      maximumStarters: dto.maximumStarters ?? tournament.maximumStarters,
+      maximumSubstitutes:
+        dto.maximumSubstitutes ?? tournament.maximumSubstitutes,
+      defaultBestOf: dto.defaultBestOf ?? tournament.defaultBestOf,
+      finalBestOf: dto.finalBestOf ?? tournament.finalBestOf,
+      seedingMethod: dto.seedingMethod ?? tournament.seedingMethod,
+      thirdPlaceMatch: dto.thirdPlaceMatch ?? tournament.thirdPlaceMatch,
+      requiredGameAccountId:
+        dto.requiredGameAccountId ?? tournament.requiredGameAccountId,
+      allowedRegion: dto.allowedRegion ?? tournament.allowedRegion ?? undefined,
+      allowedCountries: dto.allowedCountries ?? tournament.allowedCountries,
+      allowedPlatforms: dto.allowedPlatforms ?? tournament.allowedPlatforms,
+      minimumPlayerAge:
+        dto.minimumPlayerAge ?? tournament.minimumPlayerAge ?? undefined,
+      minimumRank: dto.minimumRank ?? tournament.minimumRank ?? undefined,
+      maximumRank: dto.maximumRank ?? tournament.maximumRank ?? undefined,
+      registrationFee:
+        dto.registrationFee ?? Number(tournament.registrationFee.toString()),
+      currency: dto.currency ?? tournament.currency,
+      prizePool: dto.prizePool ?? Number(tournament.prizePool.toString()),
+      prizeDistribution:
+        dto.prizeDistribution ??
+        this.toRecord(tournament.prizeDistribution) ??
+        undefined,
+      refundPolicy: dto.refundPolicy ?? tournament.refundPolicy ?? undefined,
+      cancellationPolicy:
+        dto.cancellationPolicy ?? tournament.cancellationPolicy ?? undefined,
+      rules: dto.rules ?? tournament.rules,
+      rulesVersion: dto.rulesVersion ?? tournament.rulesVersion,
+      rosterChangeRules:
+        dto.rosterChangeRules ?? tournament.rosterChangeRules ?? undefined,
+      checkInRules: dto.checkInRules ?? tournament.checkInRules ?? undefined,
+      matchReportingRules:
+        dto.matchReportingRules ?? tournament.matchReportingRules ?? undefined,
+      evidenceRequirements:
+        dto.evidenceRequirements ??
+        tournament.evidenceRequirements ??
+        undefined,
+      disputeDeadlineMinutes:
+        dto.disputeDeadlineMinutes ??
+        tournament.disputeDeadlineMinutes ??
+        undefined,
+      forfeitRules: dto.forfeitRules ?? tournament.forfeitRules ?? undefined,
+      codeOfConduct: dto.codeOfConduct ?? tournament.codeOfConduct ?? undefined,
+      registrationOpensAt:
+        dto.registrationOpensAt ?? tournament.registrationOpensAt,
+      registrationClosesAt:
+        dto.registrationClosesAt ?? tournament.registrationClosesAt,
+      rosterLocksAt: dto.rosterLocksAt ?? tournament.rosterLocksAt ?? undefined,
+      checkInOpensAt:
+        dto.checkInOpensAt ?? tournament.checkInOpensAt ?? undefined,
+      checkInClosesAt:
+        dto.checkInClosesAt ?? tournament.checkInClosesAt ?? undefined,
+      startsAt: dto.startsAt ?? tournament.startsAt,
+      endsAt: dto.endsAt ?? tournament.endsAt ?? undefined,
+      timezone: dto.timezone ?? tournament.timezone,
+      waitlistEnabled: dto.waitlistEnabled ?? tournament.waitlistEnabled,
+      maximumWaitlistSize:
+        dto.maximumWaitlistSize ?? tournament.maximumWaitlistSize ?? undefined,
+      manualApprovalRequired:
+        dto.manualApprovalRequired ?? tournament.manualApprovalRequired,
+    };
+  }
+
+  private toTournamentUpdateData(
+    dto: UpdateTournamentDraftDto,
+  ): Prisma.TournamentUncheckedUpdateInput {
+    return {
+      name: dto.name,
+      shortDescription: dto.shortDescription,
+      description: dto.description,
+      logoUrl: dto.logoUrl,
+      coverUrl: dto.coverUrl,
+      gameKey: dto.gameKey,
+      mode: dto.mode,
+      visibility: dto.visibility,
+      format: dto.format,
+      minimumTeams: dto.minimumTeams,
+      maximumTeams: dto.maximumTeams,
+      minimumStarters: dto.minimumStarters,
+      maximumStarters: dto.maximumStarters,
+      maximumSubstitutes: dto.maximumSubstitutes,
+      defaultBestOf: dto.defaultBestOf,
+      finalBestOf: dto.finalBestOf,
+      seedingMethod: dto.seedingMethod,
+      thirdPlaceMatch: dto.thirdPlaceMatch,
+      requiredGameAccountId: dto.requiredGameAccountId,
+      allowedRegion: dto.allowedRegion,
+      allowedCountries: dto.allowedCountries,
+      allowedPlatforms: dto.allowedPlatforms,
+      minimumPlayerAge: dto.minimumPlayerAge,
+      minimumRank: dto.minimumRank,
+      maximumRank: dto.maximumRank,
+      registrationFee:
+        dto.registrationFee === undefined
+          ? undefined
+          : this.toMoney(dto.registrationFee),
+      currency: dto.currency,
+      prizePool:
+        dto.prizePool === undefined ? undefined : this.toMoney(dto.prizePool),
+      prizeDistribution:
+        dto.prizeDistribution === undefined
+          ? undefined
+          : (dto.prizeDistribution as Prisma.InputJsonValue),
+      refundPolicy: dto.refundPolicy,
+      cancellationPolicy: dto.cancellationPolicy,
+      rules: dto.rules,
+      rulesVersion: dto.rulesVersion,
+      rosterChangeRules: dto.rosterChangeRules,
+      checkInRules: dto.checkInRules,
+      matchReportingRules: dto.matchReportingRules,
+      evidenceRequirements: dto.evidenceRequirements,
+      disputeDeadlineMinutes: dto.disputeDeadlineMinutes,
+      forfeitRules: dto.forfeitRules,
+      codeOfConduct: dto.codeOfConduct,
+      registrationOpensAt: dto.registrationOpensAt,
+      registrationClosesAt: dto.registrationClosesAt,
+      rosterLocksAt: dto.rosterLocksAt,
+      checkInOpensAt: dto.checkInOpensAt,
+      checkInClosesAt: dto.checkInClosesAt,
+      startsAt: dto.startsAt,
+      endsAt: dto.endsAt,
+      timezone: dto.timezone,
+      waitlistEnabled: dto.waitlistEnabled,
+      maximumWaitlistSize: dto.maximumWaitlistSize,
+      manualApprovalRequired: dto.manualApprovalRequired,
+    };
+  }
+
+  private toRecord(value: unknown): Record<string, unknown> | null {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
   private getPublicationReadiness(
     tournament: Prisma.TournamentGetPayload<{
       select: typeof tournamentDetailSelect;
@@ -493,13 +733,17 @@ export class TournamentsService {
   private async generateUniqueSlug(
     name: string,
     transaction: Pick<Prisma.TransactionClient, 'tournament'>,
+    excludeTournamentId?: string,
   ): Promise<string> {
     const baseSlug = this.slugify(name);
 
     for (let suffix = 0; suffix < 50; suffix += 1) {
       const slug = suffix === 0 ? baseSlug : `${baseSlug}-${suffix + 1}`;
-      const existing = await transaction.tournament.findUnique({
-        where: { slug },
+      const existing = await transaction.tournament.findFirst({
+        where: {
+          slug,
+          ...(excludeTournamentId ? { NOT: { id: excludeTournamentId } } : {}),
+        },
         select: { id: true },
       });
 

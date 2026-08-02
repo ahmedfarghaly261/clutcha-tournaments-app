@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import {
+  ConflictException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -67,6 +68,15 @@ type TournamentFindFirstArgs = {
   where: Record<string, unknown>;
 };
 
+type TournamentUpdateArgs = {
+  where: { id: string };
+  data: Record<string, unknown>;
+};
+
+type TournamentDeleteArgs = {
+  where: { id: string };
+};
+
 type TournamentCountArgs = {
   where: Record<string, unknown>;
 };
@@ -95,6 +105,14 @@ describe('TournamentsService', () => {
   let findFirst: jest.Mock<
     Promise<Record<string, unknown> | null>,
     [TournamentFindFirstArgs]
+  >;
+  let update: jest.Mock<
+    Promise<Record<string, unknown>>,
+    [TournamentUpdateArgs]
+  >;
+  let deleteTournament: jest.Mock<
+    Promise<{ id: string }>,
+    [TournamentDeleteArgs]
   >;
   let count: jest.Mock<Promise<number>, [TournamentCountArgs]>;
 
@@ -149,6 +167,31 @@ describe('TournamentsService', () => {
     findFirst = jest.fn((args: TournamentFindFirstArgs) =>
       Promise.resolve(applyWhere(args.where).at(0) ?? null),
     );
+    update = jest.fn((args: TournamentUpdateArgs) => {
+      const tournament = createdTournaments.find(
+        (item) => item.id === args.where.id,
+      );
+
+      if (!tournament) {
+        throw new Error('Tournament not found in fake database.');
+      }
+
+      Object.entries(args.data).forEach(([key, value]) => {
+        if (value !== undefined) {
+          tournament[key] = value;
+        }
+      });
+      tournament.updatedAt = new Date('2026-08-02T13:00:00.000Z');
+
+      return Promise.resolve(tournament);
+    });
+    deleteTournament = jest.fn((args: TournamentDeleteArgs) => {
+      createdTournaments = createdTournaments.filter(
+        (item) => item.id !== args.where.id,
+      );
+
+      return Promise.resolve({ id: args.where.id });
+    });
     count = jest.fn((args: TournamentCountArgs) =>
       Promise.resolve(applyWhere(args.where).length),
     );
@@ -158,6 +201,8 @@ describe('TournamentsService', () => {
       create,
       findMany,
       findFirst,
+      update,
+      delete: deleteTournament,
       count,
     };
 
@@ -216,6 +261,16 @@ describe('TournamentsService', () => {
     }
 
     return firstCall[0];
+  };
+
+  const firstUpdateData = (): Record<string, unknown> => {
+    const firstCall = update.mock.calls.at(0);
+
+    if (!firstCall) {
+      throw new Error('Expected tournament.update to be called.');
+    }
+
+    return firstCall[0].data;
   };
 
   it('creates a draft tournament owned by the authenticated organizer', async () => {
@@ -310,6 +365,63 @@ describe('TournamentsService', () => {
       ready: true,
       issues: [],
     });
+  });
+
+  it('updates organizer-owned draft tournaments and regenerates slug when the name changes', async () => {
+    const result = await service.updateOrganizerTournamentDraft(
+      'organizer-1',
+      'tournament-1',
+      {
+        name: 'Updated Alpha Cup',
+        maximumTeams: 24,
+      },
+    );
+
+    expect(result.name).toBe('Updated Alpha Cup');
+    expect(result.slug).toBe('updated-alpha-cup');
+    expect(result.maximumTeams).toBe(24);
+    expect(firstUpdateData()).toMatchObject({
+      name: 'Updated Alpha Cup',
+      slug: 'updated-alpha-cup',
+      maximumTeams: 24,
+    });
+  });
+
+  it('rejects draft updates that would violate lifecycle or validation rules', async () => {
+    await expect(
+      service.updateOrganizerTournamentDraft('organizer-1', 'tournament-2', {
+        name: 'Nope',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expectValidationIssues(
+      service.updateOrganizerTournamentDraft('organizer-1', 'tournament-1', {
+        maximumTeams: 4,
+      }),
+      ['maximumTeams'],
+    );
+  });
+
+  it('deletes organizer-owned draft tournaments', async () => {
+    await service.deleteOrganizerTournamentDraft('organizer-1', 'tournament-1');
+
+    expect(deleteTournament).toHaveBeenCalledWith({
+      where: { id: 'tournament-1' },
+      select: { id: true },
+    });
+    expect(createdTournaments.some((item) => item.id === 'tournament-1')).toBe(
+      false,
+    );
+  });
+
+  it('rejects deleting non-draft or foreign tournaments', async () => {
+    await expect(
+      service.deleteOrganizerTournamentDraft('organizer-1', 'tournament-2'),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      service.deleteOrganizerTournamentDraft('organizer-1', 'tournament-3'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('returns readiness issues for missing mode-specific publication data', async () => {
@@ -556,6 +668,12 @@ const applyWhere = (
     if (where.id && tournament.id !== where.id) {
       return false;
     }
+    if (where.slug && tournament.slug !== where.slug) {
+      return false;
+    }
+    if (isNotIdFilter(where.NOT) && tournament.id === where.NOT.id) {
+      return false;
+    }
     if (where.status && tournament.status !== where.status) {
       return false;
     }
@@ -608,6 +726,12 @@ const getSearchTerm = (conditions: unknown[]): string => {
 
   return typeof contains === 'string' ? contains : '';
 };
+
+const isNotIdFilter = (value: unknown): value is { id: string } =>
+  typeof value === 'object' &&
+  value !== null &&
+  'id' in value &&
+  typeof value.id === 'string';
 
 const expectValidationIssues = async (
   promise: Promise<unknown>,
