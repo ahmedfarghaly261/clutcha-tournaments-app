@@ -12,7 +12,10 @@ import {
   TournamentVisibility,
 } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
+import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
 import { type CreateTournamentDto } from './dto/create-tournament.dto';
+import { type GamingRoomListResponseDto } from './dto/gaming-room-list-response.dto';
+import { type GamingRoomResponseDto } from './dto/gaming-room-response.dto';
 import {
   type ListOrganizerTournamentsQueryDto,
   OrganizerTournamentSortBy,
@@ -22,10 +25,12 @@ import { type OrganizerTournamentDetailResponseDto } from './dto/organizer-tourn
 import { type OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
 import { type OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
 import { type TournamentResponseDto } from './dto/tournament-response.dto';
+import { type UpdateGamingRoomDto } from './dto/update-gaming-room.dto';
 import { type UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
 import { type UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.dto';
 import { type UpsertVenueDto } from './dto/upsert-venue.dto';
 import { type VenueResponseDto } from './dto/venue-response.dto';
+import { toGamingRoomResponse } from './mappers/gaming-room.mapper';
 import { toOnlineConfigurationResponse } from './mappers/online-configuration.mapper';
 import { toTournamentResponse } from './mappers/tournament.mapper';
 import { toVenueResponse } from './mappers/venue.mapper';
@@ -43,6 +48,11 @@ type OnlineConfigurationData = Omit<
 type VenueData = Omit<
   Prisma.TournamentVenueUncheckedCreateInput,
   'id' | 'tournamentId' | 'createdAt' | 'updatedAt'
+>;
+
+type GamingRoomData = Omit<
+  Prisma.TournamentGamingRoomUncheckedCreateInput,
+  'id' | 'venueId' | 'createdAt' | 'updatedAt'
 >;
 
 const tournamentSelect = {
@@ -171,9 +181,132 @@ const venueSelect = {
   updatedAt: true,
 } satisfies Prisma.TournamentVenueSelect;
 
+const gamingRoomSelect = {
+  id: true,
+  venueId: true,
+  name: true,
+  description: true,
+  purpose: true,
+  stationCount: true,
+  cpu: true,
+  gpu: true,
+  ram: true,
+  storage: true,
+  operatingSystem: true,
+  monitorBrand: true,
+  monitorModel: true,
+  monitorSizeInches: true,
+  monitorResolution: true,
+  monitorRefreshRateHz: true,
+  monitorResponseTimeMs: true,
+  mouse: true,
+  keyboard: true,
+  headset: true,
+  mousePad: true,
+  controller: true,
+  internetConnection: true,
+  equipmentNotes: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.TournamentGamingRoomSelect;
+
 @Injectable()
 export class TournamentsService {
   constructor(private readonly databaseService: DatabaseService) {}
+
+  async listGamingRooms(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<GamingRoomListResponseDto> {
+    const venue = await this.findOwnedOnsiteVenueOrThrow(
+      organizerId,
+      tournamentId,
+    );
+
+    const rooms =
+      await this.databaseService.client.tournamentGamingRoom.findMany({
+        where: { venueId: venue.id },
+        orderBy: { createdAt: 'asc' },
+        select: gamingRoomSelect,
+      });
+
+    return {
+      items: rooms.map((room) => toGamingRoomResponse(room)),
+    };
+  }
+
+  async createGamingRoom(
+    organizerId: string,
+    tournamentId: string,
+    dto: CreateGamingRoomDto,
+  ): Promise<GamingRoomResponseDto> {
+    const venue = await this.findOwnedOnsiteVenueOrThrow(
+      organizerId,
+      tournamentId,
+    );
+
+    const room = await this.databaseService.client.tournamentGamingRoom.create({
+      data: {
+        venueId: venue.id,
+        ...this.toGamingRoomData(dto),
+      },
+      select: gamingRoomSelect,
+    });
+
+    return toGamingRoomResponse(room);
+  }
+
+  async getGamingRoom(
+    organizerId: string,
+    tournamentId: string,
+    gamingRoomId: string,
+  ): Promise<GamingRoomResponseDto> {
+    const venue = await this.findOwnedOnsiteVenueOrThrow(
+      organizerId,
+      tournamentId,
+    );
+    const room = await this.findGamingRoomOrThrow(venue.id, gamingRoomId);
+
+    return toGamingRoomResponse(room);
+  }
+
+  async updateGamingRoom(
+    organizerId: string,
+    tournamentId: string,
+    gamingRoomId: string,
+    dto: UpdateGamingRoomDto,
+  ): Promise<GamingRoomResponseDto> {
+    const venue = await this.findOwnedOnsiteVenueOrThrow(
+      organizerId,
+      tournamentId,
+    );
+    await this.findGamingRoomOrThrow(venue.id, gamingRoomId);
+
+    const room = await this.databaseService.client.tournamentGamingRoom.update({
+      where: { id: gamingRoomId },
+      data: this.toGamingRoomUpdateData(dto),
+      select: gamingRoomSelect,
+    });
+
+    return toGamingRoomResponse(room);
+  }
+
+  async deleteGamingRoom(
+    organizerId: string,
+    tournamentId: string,
+    gamingRoomId: string,
+  ): Promise<void> {
+    const venue = await this.findOwnedOnsiteVenueOrThrow(
+      organizerId,
+      tournamentId,
+    );
+    await this.findGamingRoomOrThrow(venue.id, gamingRoomId);
+
+    await this.databaseService.client.tournamentGamingRoom.delete({
+      where: { id: gamingRoomId },
+      select: { id: true },
+    });
+  }
 
   async getVenue(
     organizerId: string,
@@ -644,6 +777,46 @@ export class TournamentsService {
     }
   }
 
+  private async findOwnedOnsiteVenueOrThrow(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<{ id: string }> {
+    await this.assertOwnedOnsiteTournament(organizerId, tournamentId);
+
+    const venue = await this.databaseService.client.tournamentVenue.findUnique({
+      where: { tournamentId },
+      select: { id: true },
+    });
+
+    if (!venue) {
+      throw new NotFoundException('Venue was not found');
+    }
+
+    return venue;
+  }
+
+  private async findGamingRoomOrThrow(
+    venueId: string,
+    gamingRoomId: string,
+  ): Promise<
+    Prisma.TournamentGamingRoomGetPayload<{ select: typeof gamingRoomSelect }>
+  > {
+    const room =
+      await this.databaseService.client.tournamentGamingRoom.findFirst({
+        where: {
+          id: gamingRoomId,
+          venueId,
+        },
+        select: gamingRoomSelect,
+      });
+
+    if (!room) {
+      throw new NotFoundException('Gaming room was not found');
+    }
+
+    return room;
+  }
+
   private toOnlineConfigurationData(
     dto: UpsertOnlineConfigurationDto,
   ): OnlineConfigurationData {
@@ -691,6 +864,72 @@ export class TournamentsService {
       usbDevicesAllowed: dto.usbDevicesAllowed ?? false,
       driverInstallationAllowed: dto.driverInstallationAllowed ?? false,
     };
+  }
+
+  private toGamingRoomData(dto: CreateGamingRoomDto): GamingRoomData {
+    return {
+      name: dto.name,
+      description: dto.description,
+      purpose: dto.purpose,
+      stationCount: dto.stationCount,
+      cpu: dto.cpu,
+      gpu: dto.gpu,
+      ram: dto.ram,
+      storage: dto.storage,
+      operatingSystem: dto.operatingSystem,
+      monitorBrand: dto.monitorBrand,
+      monitorModel: dto.monitorModel,
+      monitorSizeInches: this.toOptionalDecimalString(dto.monitorSizeInches),
+      monitorResolution: dto.monitorResolution,
+      monitorRefreshRateHz: dto.monitorRefreshRateHz,
+      monitorResponseTimeMs: this.toOptionalDecimalString(
+        dto.monitorResponseTimeMs,
+      ),
+      mouse: dto.mouse,
+      keyboard: dto.keyboard,
+      headset: dto.headset,
+      mousePad: dto.mousePad,
+      controller: dto.controller,
+      internetConnection: dto.internetConnection,
+      equipmentNotes: dto.equipmentNotes,
+    };
+  }
+
+  private toGamingRoomUpdateData(
+    dto: UpdateGamingRoomDto,
+  ): Prisma.TournamentGamingRoomUncheckedUpdateInput {
+    return {
+      name: dto.name,
+      description: dto.description,
+      purpose: dto.purpose,
+      stationCount: dto.stationCount,
+      cpu: dto.cpu,
+      gpu: dto.gpu,
+      ram: dto.ram,
+      storage: dto.storage,
+      operatingSystem: dto.operatingSystem,
+      monitorBrand: dto.monitorBrand,
+      monitorModel: dto.monitorModel,
+      monitorSizeInches: this.toOptionalDecimalString(dto.monitorSizeInches),
+      monitorResolution: dto.monitorResolution,
+      monitorRefreshRateHz: dto.monitorRefreshRateHz,
+      monitorResponseTimeMs: this.toOptionalDecimalString(
+        dto.monitorResponseTimeMs,
+      ),
+      mouse: dto.mouse,
+      keyboard: dto.keyboard,
+      headset: dto.headset,
+      mousePad: dto.mousePad,
+      controller: dto.controller,
+      internetConnection: dto.internetConnection,
+      equipmentNotes: dto.equipmentNotes,
+    };
+  }
+
+  private toOptionalDecimalString(
+    value: number | undefined,
+  ): string | undefined {
+    return value === undefined ? undefined : value.toFixed(1);
   }
 
   private assertDraftLifecycle(

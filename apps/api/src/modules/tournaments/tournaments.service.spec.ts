@@ -5,6 +5,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  GamingRoomPurpose,
   TournamentFormat,
   TournamentMode,
   TournamentSeedingMethod,
@@ -12,6 +13,7 @@ import {
   TournamentVisibility,
 } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
+import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
 import { type CreateTournamentDto } from './dto/create-tournament.dto';
 import {
   OrganizerTournamentSortBy,
@@ -21,6 +23,13 @@ import { TournamentsService } from './tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
   Prisma: {},
+  GamingRoomPurpose: {
+    COMPETITION: 'COMPETITION',
+    PRACTICE: 'PRACTICE',
+    WARMUP: 'WARMUP',
+    STREAMING: 'STREAMING',
+    ADMIN: 'ADMIN',
+  },
   TournamentFormat: {
     SINGLE_ELIMINATION: 'SINGLE_ELIMINATION',
     DOUBLE_ELIMINATION: 'DOUBLE_ELIMINATION',
@@ -101,6 +110,28 @@ type VenueUpsertArgs = {
   update: Record<string, unknown>;
 };
 
+type GamingRoomCreateArgs = {
+  data: Record<string, unknown>;
+};
+
+type GamingRoomFindManyArgs = {
+  where: { venueId: string };
+  orderBy: Record<string, unknown>;
+};
+
+type GamingRoomFindFirstArgs = {
+  where: { id: string; venueId: string };
+};
+
+type GamingRoomUpdateArgs = {
+  where: { id: string };
+  data: Record<string, unknown>;
+};
+
+type GamingRoomDeleteArgs = {
+  where: { id: string };
+};
+
 type TournamentValidationErrorResponse = {
   message: string;
   issues: Array<{ field: string; message: string }>;
@@ -109,6 +140,7 @@ type TournamentValidationErrorResponse = {
 let createdTournaments: Record<string, unknown>[];
 let onlineConfigurations: Record<string, unknown>[];
 let venues: Record<string, unknown>[];
+let gamingRooms: Record<string, unknown>[];
 
 describe('TournamentsService', () => {
   let service: TournamentsService;
@@ -153,6 +185,26 @@ describe('TournamentsService', () => {
     Promise<Record<string, unknown>>,
     [VenueUpsertArgs]
   >;
+  let createGamingRoom: jest.Mock<
+    Promise<Record<string, unknown>>,
+    [GamingRoomCreateArgs]
+  >;
+  let findManyGamingRooms: jest.Mock<
+    Promise<Record<string, unknown>[]>,
+    [GamingRoomFindManyArgs]
+  >;
+  let findFirstGamingRoom: jest.Mock<
+    Promise<Record<string, unknown> | null>,
+    [GamingRoomFindFirstArgs]
+  >;
+  let updateGamingRoom: jest.Mock<
+    Promise<Record<string, unknown>>,
+    [GamingRoomUpdateArgs]
+  >;
+  let deleteGamingRoom: jest.Mock<
+    Promise<{ id: string }>,
+    [GamingRoomDeleteArgs]
+  >;
 
   beforeEach(async () => {
     createdTournaments = [
@@ -192,6 +244,11 @@ describe('TournamentsService', () => {
     venues = [
       createVenueRecord({
         tournamentId: 'tournament-4',
+      }),
+    ];
+    gamingRooms = [
+      createGamingRoomRecord({
+        venueId: 'venue-1',
       }),
     ];
     findUnique = jest.fn((args: TournamentFindUniqueArgs) =>
@@ -306,6 +363,62 @@ describe('TournamentsService', () => {
       venues.push(created);
       return Promise.resolve(created);
     });
+    findManyGamingRooms = jest.fn((args: GamingRoomFindManyArgs) =>
+      Promise.resolve(
+        gamingRooms
+          .filter((item) => item.venueId === args.where.venueId)
+          .sort((left, right) => {
+            const leftDate = left.createdAt;
+            const rightDate = right.createdAt;
+
+            if (leftDate instanceof Date && rightDate instanceof Date) {
+              return leftDate.getTime() - rightDate.getTime();
+            }
+
+            return 0;
+          }),
+      ),
+    );
+    createGamingRoom = jest.fn((args: GamingRoomCreateArgs) => {
+      const now = new Date('2026-08-02T14:30:00.000Z');
+      const room = createGamingRoomRecord({
+        ...args.data,
+        id: `gaming-room-${gamingRooms.length + 1}`,
+        createdAt: now,
+        updatedAt: now,
+      });
+      gamingRooms.push(room);
+      return Promise.resolve(room);
+    });
+    findFirstGamingRoom = jest.fn((args: GamingRoomFindFirstArgs) =>
+      Promise.resolve(
+        gamingRooms.find(
+          (item) =>
+            item.id === args.where.id && item.venueId === args.where.venueId,
+        ) ?? null,
+      ),
+    );
+    updateGamingRoom = jest.fn((args: GamingRoomUpdateArgs) => {
+      const room = gamingRooms.find((item) => item.id === args.where.id);
+
+      if (!room) {
+        throw new Error('Gaming room not found in fake database.');
+      }
+
+      Object.entries(args.data).forEach(([key, value]) => {
+        if (value !== undefined) {
+          room[key] = value;
+        }
+      });
+      room.updatedAt = new Date('2026-08-02T15:00:00.000Z');
+
+      return Promise.resolve(room);
+    });
+    deleteGamingRoom = jest.fn((args: GamingRoomDeleteArgs) => {
+      gamingRooms = gamingRooms.filter((item) => item.id !== args.where.id);
+
+      return Promise.resolve({ id: args.where.id });
+    });
 
     const tournamentClient = {
       findUnique,
@@ -342,6 +455,13 @@ describe('TournamentsService', () => {
               tournamentVenue: {
                 findUnique: findUniqueVenue,
                 upsert: upsertVenue,
+              },
+              tournamentGamingRoom: {
+                findMany: findManyGamingRooms,
+                create: createGamingRoom,
+                findFirst: findFirstGamingRoom,
+                update: updateGamingRoom,
+                delete: deleteGamingRoom,
               },
             },
           },
@@ -413,6 +533,36 @@ describe('TournamentsService', () => {
     }
 
     return firstCall[0];
+  };
+
+  const firstGamingRoomCreateData = (): Record<string, unknown> => {
+    const firstCall = createGamingRoom.mock.calls.at(0);
+
+    if (!firstCall) {
+      throw new Error('Expected tournamentGamingRoom.create to be called.');
+    }
+
+    return firstCall[0].data;
+  };
+
+  const firstGamingRoomFindManyArgs = (): GamingRoomFindManyArgs => {
+    const firstCall = findManyGamingRooms.mock.calls.at(0);
+
+    if (!firstCall) {
+      throw new Error('Expected tournamentGamingRoom.findMany to be called.');
+    }
+
+    return firstCall[0];
+  };
+
+  const firstGamingRoomUpdateData = (): Record<string, unknown> => {
+    const firstCall = updateGamingRoom.mock.calls.at(0);
+
+    if (!firstCall) {
+      throw new Error('Expected tournamentGamingRoom.update to be called.');
+    }
+
+    return firstCall[0].data;
   };
 
   it('creates a draft tournament owned by the authenticated organizer', async () => {
@@ -602,6 +752,146 @@ describe('TournamentsService', () => {
 
     await expect(
       service.getVenue('organizer-1', 'tournament-3'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('lists gaming rooms with hardware and device specifications', async () => {
+    const result = await service.listGamingRooms('organizer-1', 'tournament-4');
+    const findManyArgs = firstGamingRoomFindManyArgs();
+
+    expect(findManyArgs.where).toEqual({ venueId: 'venue-1' });
+    expect(findManyArgs.orderBy).toEqual({ createdAt: 'asc' });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.pcSpecs).toEqual({
+      cpu: 'Intel Core i7-14700K',
+      gpu: 'NVIDIA RTX 4070 Super',
+      ram: '32GB DDR5',
+      storage: '1TB NVMe SSD',
+      operatingSystem: 'Windows 11 Pro',
+    });
+    expect(result.items[0]?.monitor).toEqual({
+      brand: 'BenQ Zowie',
+      model: 'XL2546K',
+      sizeInches: '24.5',
+      resolution: '1920x1080',
+      refreshRateHz: 240,
+      responseTimeMs: '1',
+    });
+    expect(result.items[0]?.peripherals).toEqual({
+      mouse: 'Logitech G Pro X Superlight',
+      keyboard: 'Wooting 60HE',
+      headset: 'HyperX Cloud II',
+      mousePad: 'SteelSeries QcK Heavy',
+      controller: null,
+    });
+  });
+
+  it('creates gaming rooms for organizer-owned on-site venues', async () => {
+    const result = await service.createGamingRoom(
+      'organizer-1',
+      'tournament-4',
+      validGamingRoomDto(),
+    );
+
+    expect(firstGamingRoomCreateData()).toMatchObject({
+      venueId: 'venue-1',
+      purpose: GamingRoomPurpose.COMPETITION,
+      stationCount: 20,
+      cpu: 'Intel Core i7-14700K',
+      gpu: 'NVIDIA RTX 4070 Super',
+      monitorModel: 'XL2546K',
+      monitorSizeInches: '24.5',
+      monitorRefreshRateHz: 240,
+      monitorResponseTimeMs: '1.0',
+      mouse: 'Logitech G Pro X Superlight',
+      keyboard: 'Wooting 60HE',
+      headset: 'HyperX Cloud II',
+    });
+    expect(result.venueId).toBe('venue-1');
+    expect(result.stationCount).toBe(20);
+    expect(result.pcSpecs.gpu).toBe('NVIDIA RTX 4070 Super');
+  });
+
+  it('gets, updates, and deletes an owned gaming room', async () => {
+    const detail = await service.getGamingRoom(
+      'organizer-1',
+      'tournament-4',
+      'gaming-room-1',
+    );
+
+    expect(detail.id).toBe('gaming-room-1');
+
+    const updated = await service.updateGamingRoom(
+      'organizer-1',
+      'tournament-4',
+      'gaming-room-1',
+      {
+        stationCount: 24,
+        gpu: 'NVIDIA RTX 4080',
+      },
+    );
+
+    expect(firstGamingRoomUpdateData()).toMatchObject({
+      stationCount: 24,
+      gpu: 'NVIDIA RTX 4080',
+    });
+    expect(updated.stationCount).toBe(24);
+    expect(updated.pcSpecs.gpu).toBe('NVIDIA RTX 4080');
+
+    await service.deleteGamingRoom(
+      'organizer-1',
+      'tournament-4',
+      'gaming-room-1',
+    );
+
+    expect(deleteGamingRoom).toHaveBeenCalledWith({
+      where: { id: 'gaming-room-1' },
+      select: { id: true },
+    });
+    expect(gamingRooms.some((item) => item.id === 'gaming-room-1')).toBe(false);
+  });
+
+  it('rejects gaming rooms for online, foreign, or venue-less tournaments', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'tournament-5',
+        organizerId: 'organizer-1',
+        mode: TournamentMode.ONSITE,
+        slug: 'venue-less-cup',
+      }),
+    );
+
+    await expect(
+      service.createGamingRoom(
+        'organizer-1',
+        'tournament-1',
+        validGamingRoomDto(),
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      service.listGamingRooms('organizer-1', 'tournament-3'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    await expect(
+      service.createGamingRoom(
+        'organizer-1',
+        'tournament-5',
+        validGamingRoomDto(),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('does not return gaming rooms outside the owned venue', async () => {
+    gamingRooms.push(
+      createGamingRoomRecord({
+        id: 'gaming-room-2',
+        venueId: 'other-venue',
+      }),
+    );
+
+    await expect(
+      service.getGamingRoom('organizer-1', 'tournament-4', 'gaming-room-2'),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -841,6 +1131,33 @@ const validCreateDto = (
   ...overrides,
 });
 
+const validGamingRoomDto = (
+  overrides: Partial<CreateGamingRoomDto> = {},
+): CreateGamingRoomDto => ({
+  name: 'Main Stage Room',
+  description: 'Primary competition room.',
+  purpose: GamingRoomPurpose.COMPETITION,
+  stationCount: 20,
+  cpu: 'Intel Core i7-14700K',
+  gpu: 'NVIDIA RTX 4070 Super',
+  ram: '32GB DDR5',
+  storage: '1TB NVMe SSD',
+  operatingSystem: 'Windows 11 Pro',
+  monitorBrand: 'BenQ Zowie',
+  monitorModel: 'XL2546K',
+  monitorSizeInches: 24.5,
+  monitorResolution: '1920x1080',
+  monitorRefreshRateHz: 240,
+  monitorResponseTimeMs: 1,
+  mouse: 'Logitech G Pro X Superlight',
+  keyboard: 'Wooting 60HE',
+  headset: 'HyperX Cloud II',
+  mousePad: 'SteelSeries QcK Heavy',
+  internetConnection: 'Dedicated wired fiber connection.',
+  equipmentNotes: 'All PCs have tournament accounts preloaded.',
+  ...overrides,
+});
+
 const createTournamentRecord = (
   overrides: Partial<Record<string, unknown>> = {},
 ): Record<string, unknown> => ({
@@ -906,6 +1223,38 @@ const createTournamentRecord = (
   cancellationReason: null,
   onlineConfiguration: null,
   venue: null,
+  createdAt: new Date('2026-08-02T12:00:00.000Z'),
+  updatedAt: new Date('2026-08-02T12:00:00.000Z'),
+  ...overrides,
+});
+
+const createGamingRoomRecord = (
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> => ({
+  id: 'gaming-room-1',
+  venueId: 'venue-1',
+  name: 'Main Stage Room',
+  description: 'Primary competition room.',
+  purpose: GamingRoomPurpose.COMPETITION,
+  stationCount: 20,
+  cpu: 'Intel Core i7-14700K',
+  gpu: 'NVIDIA RTX 4070 Super',
+  ram: '32GB DDR5',
+  storage: '1TB NVMe SSD',
+  operatingSystem: 'Windows 11 Pro',
+  monitorBrand: 'BenQ Zowie',
+  monitorModel: 'XL2546K',
+  monitorSizeInches: { toString: () => '24.5' },
+  monitorResolution: '1920x1080',
+  monitorRefreshRateHz: 240,
+  monitorResponseTimeMs: { toString: () => '1' },
+  mouse: 'Logitech G Pro X Superlight',
+  keyboard: 'Wooting 60HE',
+  headset: 'HyperX Cloud II',
+  mousePad: 'SteelSeries QcK Heavy',
+  controller: null,
+  internetConnection: 'Dedicated wired fiber connection.',
+  equipmentNotes: 'All PCs have tournament accounts preloaded.',
   createdAt: new Date('2026-08-02T12:00:00.000Z'),
   updatedAt: new Date('2026-08-02T12:00:00.000Z'),
   ...overrides,
