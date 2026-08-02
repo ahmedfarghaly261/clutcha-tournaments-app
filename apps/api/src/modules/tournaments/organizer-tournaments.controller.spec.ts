@@ -58,4 +58,13 @@ describe('OrganizerTournamentsController', () => {
       typeof OrganizerTournamentsController.prototype.deleteTournamentDraft,
     ).toBe('function');
   });
+
+  it('exposes online configuration handlers', () => {
+    expect(
+      typeof OrganizerTournamentsController.prototype.getOnlineConfiguration,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype.upsertOnlineConfiguration,
+    ).toBe('function');
+  });
 });

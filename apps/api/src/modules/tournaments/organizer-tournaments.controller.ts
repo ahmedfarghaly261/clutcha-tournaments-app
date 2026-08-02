@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { UserRole } from '@clutcha/database';
@@ -32,8 +33,10 @@ import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { ListOrganizerTournamentsQueryDto } from './dto/list-organizer-tournaments-query.dto';
 import { OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
 import { OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
+import { OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
 import { TournamentResponseDto } from './dto/tournament-response.dto';
 import { UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
+import { UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.dto';
 import { TournamentsService } from './tournaments.service';
 
 @ApiTags('Organizer Tournaments')
@@ -174,6 +177,83 @@ export class OrganizerTournamentsController {
     await this.tournamentsService.deleteOrganizerTournamentDraft(
       user.id,
       tournamentId,
+    );
+  }
+
+  @Get(':tournamentId/online-configuration')
+  @ApiOperation({
+    summary: 'Get online tournament configuration',
+    description:
+      'Returns online configuration for an organizer-owned ONLINE tournament. Private organizer-only fields are grouped separately from public details.',
+  })
+  @ApiOkResponse({
+    description: 'Online tournament configuration returned.',
+    type: OnlineConfigurationResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id is not a valid UUID.',
+  })
+  @ApiConflictResponse({
+    description:
+      'Online configuration is only available for ONLINE tournaments.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament or online configuration does not exist, or the tournament is not owned by the authenticated organizer.',
+  })
+  async getOnlineConfiguration(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+  ): Promise<OnlineConfigurationResponseDto> {
+    return this.tournamentsService.getOnlineConfiguration(
+      user.id,
+      tournamentId,
+    );
+  }
+
+  @Put(':tournamentId/online-configuration')
+  @ApiOperation({
+    summary: 'Upsert online tournament configuration',
+    description:
+      'Creates or replaces online configuration for an organizer-owned ONLINE tournament. Private organizer-only fields are grouped separately in the response.',
+  })
+  @ApiOkResponse({
+    description: 'Online tournament configuration saved.',
+    type: OnlineConfigurationResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'The tournament id or online configuration payload is invalid.',
+  })
+  @ApiConflictResponse({
+    description:
+      'Online configuration is only available for ONLINE tournaments.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  async upsertOnlineConfiguration(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Body() dto: UpsertOnlineConfigurationDto,
+  ): Promise<OnlineConfigurationResponseDto> {
+    return this.tournamentsService.upsertOnlineConfiguration(
+      user.id,
+      tournamentId,
+      dto,
     );
   }
 
