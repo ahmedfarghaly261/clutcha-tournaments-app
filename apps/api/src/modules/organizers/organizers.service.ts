@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { type Prisma } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
+import { type OrganizerDashboardResponseDto } from './dto/organizer-dashboard-response.dto';
 import { type UpdateOrganizerProfileDto } from './dto/update-organizer-profile.dto';
 import { toOrganizerProfileResponse } from './mappers/organizer.mapper';
 
@@ -75,6 +76,22 @@ export class OrganizersService {
     });
 
     return toOrganizerProfileResponse(profile);
+  }
+
+  getDashboard(): OrganizerDashboardResponseDto {
+    return {
+      summary: {
+        totalTournaments: 0,
+        draftTournaments: 0,
+        publishedTournaments: 0,
+        registrationOpenTournaments: 0,
+        upcomingTournaments: 0,
+        liveTournaments: 0,
+        completedTournaments: 0,
+        cancelledTournaments: 0,
+      },
+      recentTournaments: [],
+    };
   }
 
   private toUpdateData(

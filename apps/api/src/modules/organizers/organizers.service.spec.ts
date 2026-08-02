@@ -132,6 +132,22 @@ describe('OrganizersService', () => {
     expect(serialized).not.toContain('authSessions');
     expect(serialized).not.toContain('refreshTokenHash');
   });
+
+  it('returns only currently available dashboard statistics', () => {
+    expect(service.getDashboard()).toEqual({
+      summary: {
+        totalTournaments: 0,
+        draftTournaments: 0,
+        publishedTournaments: 0,
+        registrationOpenTournaments: 0,
+        upcomingTournaments: 0,
+        liveTournaments: 0,
+        completedTournaments: 0,
+        cancelledTournaments: 0,
+      },
+      recentTournaments: [],
+    });
+  });
 });
 
 const createProfile = (
