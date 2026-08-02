@@ -36,4 +36,10 @@ describe('OrganizerTournamentsController', () => {
       'function',
     );
   });
+
+  it('exposes a listOrganizerTournaments handler', () => {
+    expect(
+      typeof OrganizerTournamentsController.prototype.listOrganizerTournaments,
+    ).toBe('function');
+  });
 });
