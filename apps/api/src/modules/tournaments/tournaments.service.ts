@@ -1,6 +1,11 @@
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import {
   Prisma,
+  TournamentMode,
   TournamentSeedingMethod,
   TournamentStatus,
   TournamentVisibility,
@@ -12,6 +17,7 @@ import {
   OrganizerTournamentSortBy,
   SortDirection,
 } from './dto/list-organizer-tournaments-query.dto';
+import { type OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
 import { type OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
 import { type TournamentResponseDto } from './dto/tournament-response.dto';
 import { toTournamentResponse } from './mappers/tournament.mapper';
@@ -86,9 +92,50 @@ const tournamentSelect = {
   updatedAt: true,
 } satisfies Prisma.TournamentSelect;
 
+const tournamentDetailSelect = {
+  ...tournamentSelect,
+  onlineConfiguration: {
+    select: {
+      id: true,
+    },
+  },
+  venue: {
+    select: {
+      id: true,
+      gamingRooms: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.TournamentSelect;
+
 @Injectable()
 export class TournamentsService {
   constructor(private readonly databaseService: DatabaseService) {}
+
+  async getOrganizerTournamentDetails(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<OrganizerTournamentDetailResponseDto> {
+    const tournament = await this.databaseService.client.tournament.findFirst({
+      where: {
+        id: tournamentId,
+        organizerId,
+      },
+      select: tournamentDetailSelect,
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament was not found');
+    }
+
+    return {
+      tournament: toTournamentResponse(tournament),
+      publicationReadiness: this.getPublicationReadiness(tournament),
+    };
+  }
 
   async listOrganizerTournaments(
     organizerId: string,
@@ -107,6 +154,7 @@ export class TournamentsService {
         take: limit,
         select: tournamentSelect,
       }),
+
       this.databaseService.client.tournament.count({ where }),
     ]);
     const totalPages = Math.ceil(totalItems / limit);
@@ -347,6 +395,98 @@ export class TournamentsService {
 
     return {
       [sortBy]: sortDirection,
+    };
+  }
+
+  private getPublicationReadiness(
+    tournament: Prisma.TournamentGetPayload<{
+      select: typeof tournamentDetailSelect;
+    }>,
+  ): OrganizerTournamentDetailResponseDto['publicationReadiness'] {
+    const issues: OrganizerTournamentDetailResponseDto['publicationReadiness']['issues'] =
+      [];
+
+    if (!tournament.name.trim()) {
+      issues.push({
+        field: 'name',
+        message: 'Tournament name is required before publishing.',
+      });
+    }
+
+    if (!tournament.gameKey.trim()) {
+      issues.push({
+        field: 'gameKey',
+        message: 'Game key is required before publishing.',
+      });
+    }
+
+    if (!tournament.rules.trim()) {
+      issues.push({
+        field: 'rules',
+        message: 'Tournament rules are required before publishing.',
+      });
+    }
+
+    if (tournament.registrationOpensAt >= tournament.registrationClosesAt) {
+      issues.push({
+        field: 'registrationClosesAt',
+        message:
+          'Registration close date must be after registration open date.',
+      });
+    }
+
+    if (tournament.registrationClosesAt >= tournament.startsAt) {
+      issues.push({
+        field: 'startsAt',
+        message: 'Tournament start date must be after registration closes.',
+      });
+    }
+
+    if (tournament.maximumTeams < tournament.minimumTeams) {
+      issues.push({
+        field: 'maximumTeams',
+        message:
+          'Maximum teams must be greater than or equal to minimum teams.',
+      });
+    }
+
+    if (tournament.maximumStarters < tournament.minimumStarters) {
+      issues.push({
+        field: 'maximumStarters',
+        message:
+          'Maximum starters must be greater than or equal to minimum starters.',
+      });
+    }
+
+    if (
+      tournament.mode === TournamentMode.ONLINE &&
+      !tournament.onlineConfiguration
+    ) {
+      issues.push({
+        field: 'onlineConfiguration',
+        message:
+          'Online tournaments require online configuration before publishing.',
+      });
+    }
+
+    if (tournament.mode === TournamentMode.ONSITE) {
+      if (!tournament.venue) {
+        issues.push({
+          field: 'venue',
+          message: 'On-site tournaments require a venue before publishing.',
+        });
+      } else if (tournament.venue.gamingRooms.length === 0) {
+        issues.push({
+          field: 'gamingRooms',
+          message:
+            'On-site tournaments require at least one gaming room before publishing.',
+        });
+      }
+    }
+
+    return {
+      ready: issues.length === 0,
+      issues,
     };
   }
 

@@ -1,5 +1,8 @@
 import { Test } from '@nestjs/testing';
-import { UnprocessableEntityException } from '@nestjs/common';
+import {
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import {
   TournamentFormat,
   TournamentMode,
@@ -60,6 +63,10 @@ type TournamentFindManyArgs = {
   take: number;
 };
 
+type TournamentFindFirstArgs = {
+  where: Record<string, unknown>;
+};
+
 type TournamentCountArgs = {
   where: Record<string, unknown>;
 };
@@ -85,6 +92,10 @@ describe('TournamentsService', () => {
     Promise<Record<string, unknown>[]>,
     [TournamentFindManyArgs]
   >;
+  let findFirst: jest.Mock<
+    Promise<Record<string, unknown> | null>,
+    [TournamentFindFirstArgs]
+  >;
   let count: jest.Mock<Promise<number>, [TournamentCountArgs]>;
 
   beforeEach(async () => {
@@ -94,6 +105,7 @@ describe('TournamentsService', () => {
         organizerId: 'organizer-1',
         name: 'Alpha Valorant Cup',
         slug: 'alpha-valorant-cup',
+        onlineConfiguration: { id: 'online-config-1' },
       }),
       createTournamentRecord({
         id: 'tournament-2',
@@ -134,6 +146,9 @@ describe('TournamentsService', () => {
     findMany = jest.fn((args: TournamentFindManyArgs) =>
       Promise.resolve(applyListArgs(args)),
     );
+    findFirst = jest.fn((args: TournamentFindFirstArgs) =>
+      Promise.resolve(applyWhere(args.where).at(0) ?? null),
+    );
     count = jest.fn((args: TournamentCountArgs) =>
       Promise.resolve(applyWhere(args.where).length),
     );
@@ -142,6 +157,7 @@ describe('TournamentsService', () => {
       findUnique,
       create,
       findMany,
+      findFirst,
       count,
     };
 
@@ -187,6 +203,16 @@ describe('TournamentsService', () => {
 
     if (!firstCall) {
       throw new Error('Expected tournament.findMany to be called.');
+    }
+
+    return firstCall[0];
+  };
+
+  const firstFindFirstArgs = (): TournamentFindFirstArgs => {
+    const firstCall = findFirst.mock.calls.at(0);
+
+    if (!firstCall) {
+      throw new Error('Expected tournament.findFirst to be called.');
     }
 
     return firstCall[0];
@@ -264,6 +290,46 @@ describe('TournamentsService', () => {
       take: 1,
     });
     expect(firstFindManyArgs().where).toHaveProperty('OR');
+  });
+
+  it('returns private organizer tournament details with publication readiness', async () => {
+    const result = await service.getOrganizerTournamentDetails(
+      'organizer-1',
+      'tournament-1',
+    );
+
+    expect(firstFindFirstArgs()).toMatchObject({
+      where: {
+        id: 'tournament-1',
+        organizerId: 'organizer-1',
+      },
+    });
+    expect(result.tournament.id).toBe('tournament-1');
+    expect(result.tournament.organizerId).toBe('organizer-1');
+    expect(result.publicationReadiness).toEqual({
+      ready: true,
+      issues: [],
+    });
+  });
+
+  it('returns readiness issues for missing mode-specific publication data', async () => {
+    const result = await service.getOrganizerTournamentDetails(
+      'organizer-1',
+      'tournament-2',
+    );
+
+    expect(result.publicationReadiness.ready).toBe(false);
+    expect(
+      result.publicationReadiness.issues.some(
+        (issue) => issue.field === 'onlineConfiguration',
+      ),
+    ).toBe(true);
+  });
+
+  it('does not return details for tournaments owned by another organizer', async () => {
+    await expect(
+      service.getOrganizerTournamentDetails('organizer-1', 'tournament-3'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('ignores any organizerId overflow and uses the JWT organizer id', async () => {
@@ -442,6 +508,8 @@ const createTournamentRecord = (
   registrationClosedAt: null,
   cancelledAt: null,
   cancellationReason: null,
+  onlineConfiguration: null,
+  venue: null,
   createdAt: new Date('2026-08-02T12:00:00.000Z'),
   updatedAt: new Date('2026-08-02T12:00:00.000Z'),
   ...overrides,
@@ -483,6 +551,9 @@ const applyWhere = (
 ): Record<string, unknown>[] =>
   createdTournaments.filter((tournament) => {
     if (where.organizerId && tournament.organizerId !== where.organizerId) {
+      return false;
+    }
+    if (where.id && tournament.id !== where.id) {
       return false;
     }
     if (where.status && tournament.status !== where.status) {
