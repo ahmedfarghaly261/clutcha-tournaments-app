@@ -1,9 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -11,6 +15,7 @@ import { UserRole } from '@clutcha/database';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -28,6 +33,7 @@ import { ListOrganizerTournamentsQueryDto } from './dto/list-organizer-tournamen
 import { OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
 import { OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
 import { TournamentResponseDto } from './dto/tournament-response.dto';
+import { UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
 import { TournamentsService } from './tournaments.service';
 
 @ApiTags('Organizer Tournaments')
@@ -91,6 +97,81 @@ export class OrganizerTournamentsController {
     @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
   ): Promise<OrganizerTournamentDetailResponseDto> {
     return this.tournamentsService.getOrganizerTournamentDetails(
+      user.id,
+      tournamentId,
+    );
+  }
+
+  @Patch(':tournamentId')
+  @ApiOperation({
+    summary: 'Update tournament draft',
+    description:
+      'Updates an organizer-owned tournament while it is still in DRAFT status.',
+  })
+  @ApiOkResponse({
+    description: 'Tournament draft updated.',
+    type: TournamentResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id or update payload is invalid.',
+  })
+  @ApiConflictResponse({
+    description: 'Only draft tournaments can be updated.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'The updated tournament draft would violate cross-field business rules.',
+  })
+  async updateTournamentDraft(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Body() dto: UpdateTournamentDraftDto,
+  ): Promise<TournamentResponseDto> {
+    return this.tournamentsService.updateOrganizerTournamentDraft(
+      user.id,
+      tournamentId,
+      dto,
+    );
+  }
+
+  @Delete(':tournamentId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete tournament draft',
+    description:
+      'Deletes an organizer-owned tournament while it is still in DRAFT status.',
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id is not a valid UUID.',
+  })
+  @ApiConflictResponse({
+    description: 'Only draft tournaments can be deleted.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  async deleteTournamentDraft(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+  ): Promise<void> {
+    await this.tournamentsService.deleteOrganizerTournamentDraft(
       user.id,
       tournamentId,
     );

@@ -49,4 +49,13 @@ describe('OrganizerTournamentsController', () => {
         .getOrganizerTournamentDetails,
     ).toBe('function');
   });
+
+  it('exposes update and delete draft handlers', () => {
+    expect(
+      typeof OrganizerTournamentsController.prototype.updateTournamentDraft,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype.deleteTournamentDraft,
+    ).toBe('function');
+  });
 });
