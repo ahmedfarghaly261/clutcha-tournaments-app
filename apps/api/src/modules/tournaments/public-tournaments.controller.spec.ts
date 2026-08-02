@@ -3,6 +3,9 @@ import { IS_PUBLIC_KEY } from '../auth/decorators/public.decorator';
 import { PublicTournamentsController } from './public-tournaments.controller';
 
 jest.mock('@clutcha/database', () => ({
+  GamingRoomPurpose: {
+    COMPETITION: 'COMPETITION',
+  },
   TournamentFormat: {
     SINGLE_ELIMINATION: 'SINGLE_ELIMINATION',
   },
@@ -31,6 +34,12 @@ describe('PublicTournamentsController', () => {
   it('exposes a listPublicTournaments handler', () => {
     expect(
       typeof PublicTournamentsController.prototype.listPublicTournaments,
+    ).toBe('function');
+  });
+
+  it('exposes a getPublicTournamentDetails handler', () => {
+    expect(
+      typeof PublicTournamentsController.prototype.getPublicTournamentDetails,
     ).toBe('function');
   });
 });
