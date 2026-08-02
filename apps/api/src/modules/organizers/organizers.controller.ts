@@ -12,6 +12,7 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
+import { OrganizerDashboardResponseDto } from './dto/organizer-dashboard-response.dto';
 import { OrganizerProfileResponseDto } from './dto/organizer-profile-response.dto';
 import { UpdateOrganizerProfileDto } from './dto/update-organizer-profile.dto';
 import { OrganizersService } from './organizers.service';
@@ -69,5 +70,25 @@ export class OrganizersController {
     @Body() dto: UpdateOrganizerProfileDto,
   ): Promise<OrganizerProfileResponseDto> {
     return this.organizersService.updateProfile(user.id, dto);
+  }
+
+  @Get('dashboard')
+  @ApiOperation({
+    summary: 'Get organizer dashboard summary',
+    description:
+      'Returns real organizer dashboard statistics available at this stage. Tournament counts are zero until tournament storage is introduced.',
+  })
+  @ApiOkResponse({
+    description: 'Organizer dashboard summary returned.',
+    type: OrganizerDashboardResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  getDashboard(): OrganizerDashboardResponseDto {
+    return this.organizersService.getDashboard();
   }
 }
