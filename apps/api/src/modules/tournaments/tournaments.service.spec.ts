@@ -81,12 +81,23 @@ type TournamentCountArgs = {
   where: Record<string, unknown>;
 };
 
+type OnlineConfigurationFindUniqueArgs = {
+  where: { tournamentId: string };
+};
+
+type OnlineConfigurationUpsertArgs = {
+  where: { tournamentId: string };
+  create: Record<string, unknown>;
+  update: Record<string, unknown>;
+};
+
 type TournamentValidationErrorResponse = {
   message: string;
   issues: Array<{ field: string; message: string }>;
 };
 
 let createdTournaments: Record<string, unknown>[];
+let onlineConfigurations: Record<string, unknown>[];
 
 describe('TournamentsService', () => {
   let service: TournamentsService;
@@ -115,6 +126,14 @@ describe('TournamentsService', () => {
     [TournamentDeleteArgs]
   >;
   let count: jest.Mock<Promise<number>, [TournamentCountArgs]>;
+  let findUniqueOnlineConfiguration: jest.Mock<
+    Promise<Record<string, unknown> | null>,
+    [OnlineConfigurationFindUniqueArgs]
+  >;
+  let upsertOnlineConfiguration: jest.Mock<
+    Promise<Record<string, unknown>>,
+    [OnlineConfigurationUpsertArgs]
+  >;
 
   beforeEach(async () => {
     createdTournaments = [
@@ -137,6 +156,18 @@ describe('TournamentsService', () => {
         organizerId: 'other-organizer',
         name: 'Other Organizer Cup',
         slug: 'other-organizer-cup',
+      }),
+      createTournamentRecord({
+        id: 'tournament-4',
+        organizerId: 'organizer-1',
+        name: 'On-site Cup',
+        slug: 'on-site-cup',
+        mode: TournamentMode.ONSITE,
+      }),
+    ];
+    onlineConfigurations = [
+      createOnlineConfigurationRecord({
+        tournamentId: 'tournament-1',
       }),
     ];
     findUnique = jest.fn((args: TournamentFindUniqueArgs) =>
@@ -195,6 +226,36 @@ describe('TournamentsService', () => {
     count = jest.fn((args: TournamentCountArgs) =>
       Promise.resolve(applyWhere(args.where).length),
     );
+    findUniqueOnlineConfiguration = jest.fn(
+      (args: OnlineConfigurationFindUniqueArgs) =>
+        Promise.resolve(
+          onlineConfigurations.find(
+            (item) => item.tournamentId === args.where.tournamentId,
+          ) ?? null,
+        ),
+    );
+    upsertOnlineConfiguration = jest.fn(
+      (args: OnlineConfigurationUpsertArgs) => {
+        const existing = onlineConfigurations.find(
+          (item) => item.tournamentId === args.where.tournamentId,
+        );
+        const now = new Date('2026-08-02T13:30:00.000Z');
+
+        if (existing) {
+          Object.assign(existing, args.update, { updatedAt: now });
+          return Promise.resolve(existing);
+        }
+
+        const created = createOnlineConfigurationRecord({
+          ...args.create,
+          id: `online-config-${onlineConfigurations.length + 1}`,
+          createdAt: now,
+          updatedAt: now,
+        });
+        onlineConfigurations.push(created);
+        return Promise.resolve(created);
+      },
+    );
 
     const tournamentClient = {
       findUnique,
@@ -224,6 +285,10 @@ describe('TournamentsService', () => {
                 return callback({ tournament: tournamentClient });
               }),
               tournament: tournamentClient,
+              tournamentOnlineConfiguration: {
+                findUnique: findUniqueOnlineConfiguration,
+                upsert: upsertOnlineConfiguration,
+              },
             },
           },
         },
@@ -273,6 +338,19 @@ describe('TournamentsService', () => {
     return firstCall[0].data;
   };
 
+  const firstOnlineConfigurationUpsertArgs =
+    (): OnlineConfigurationUpsertArgs => {
+      const firstCall = upsertOnlineConfiguration.mock.calls.at(0);
+
+      if (!firstCall) {
+        throw new Error(
+          'Expected tournamentOnlineConfiguration.upsert to be called.',
+        );
+      }
+
+      return firstCall[0];
+    };
+
   it('creates a draft tournament owned by the authenticated organizer', async () => {
     const result = await service.createOrganizerDraft(
       'organizer-from-token',
@@ -290,14 +368,14 @@ describe('TournamentsService', () => {
   it('lists only tournaments owned by the authenticated organizer', async () => {
     const result = await service.listOrganizerTournaments('organizer-1', {});
 
-    expect(result.items).toHaveLength(2);
+    expect(result.items).toHaveLength(3);
     expect(
       result.items.every((item) => item.organizerId === 'organizer-1'),
     ).toBe(true);
     expect(result.meta).toEqual({
       page: 1,
       limit: 20,
-      totalItems: 2,
+      totalItems: 3,
       totalPages: 1,
       hasNextPage: false,
       hasPreviousPage: false,
@@ -365,6 +443,76 @@ describe('TournamentsService', () => {
       ready: true,
       issues: [],
     });
+  });
+
+  it('returns online configuration with public and private details separated', async () => {
+    const result = await service.getOnlineConfiguration(
+      'organizer-1',
+      'tournament-1',
+    );
+
+    expect(result.tournamentId).toBe('tournament-1');
+    expect(result.publicDetails).toEqual({
+      serverRegion: 'EU West',
+      publicInstructions: 'Join the lobby 15 minutes before match time.',
+      connectionRules: 'Use the assigned lobby.',
+      evidenceRequired: true,
+      screenshotRequirements: 'Upload final scoreboard screenshots.',
+      resultSubmissionDeadlineMinutes: 30,
+    });
+    expect(result.privateDetails).toEqual({
+      discordServerUrl: 'https://discord.gg/clutcha',
+      captainSupportChannel: '#captain-support',
+      matchReportingChannel: '#match-reporting',
+      lobbyInstructions: 'Private lobby instructions.',
+      privateSupportContact: '+20 100 000 0000',
+    });
+  });
+
+  it('upserts online configuration for organizer-owned online tournaments', async () => {
+    const result = await service.upsertOnlineConfiguration(
+      'organizer-1',
+      'tournament-2',
+      {
+        serverRegion: 'MENA',
+        publicInstructions: 'Public instructions',
+        evidenceRequired: false,
+        discordServerUrl: 'https://discord.gg/new-config',
+        privateSupportContact: 'private support',
+      },
+    );
+
+    const upsertArgs = firstOnlineConfigurationUpsertArgs();
+    expect(upsertArgs.where).toEqual({ tournamentId: 'tournament-2' });
+    expect(upsertArgs.create).toMatchObject({
+      tournamentId: 'tournament-2',
+      serverRegion: 'MENA',
+    });
+    expect(upsertArgs.update).toMatchObject({
+      serverRegion: 'MENA',
+    });
+    expect(result.publicDetails.serverRegion).toBe('MENA');
+    expect(result.privateDetails.discordServerUrl).toBe(
+      'https://discord.gg/new-config',
+    );
+  });
+
+  it('rejects online configuration for on-site or foreign tournaments', async () => {
+    await expect(
+      service.upsertOnlineConfiguration('organizer-1', 'tournament-4', {
+        serverRegion: 'MENA',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      service.getOnlineConfiguration('organizer-1', 'tournament-3'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('returns not found when online configuration has not been created', async () => {
+    await expect(
+      service.getOnlineConfiguration('organizer-1', 'tournament-2'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('updates organizer-owned draft tournaments and regenerates slug when the name changes', async () => {
@@ -622,6 +770,27 @@ const createTournamentRecord = (
   cancellationReason: null,
   onlineConfiguration: null,
   venue: null,
+  createdAt: new Date('2026-08-02T12:00:00.000Z'),
+  updatedAt: new Date('2026-08-02T12:00:00.000Z'),
+  ...overrides,
+});
+
+const createOnlineConfigurationRecord = (
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> => ({
+  id: 'online-config-1',
+  tournamentId: 'tournament-1',
+  serverRegion: 'EU West',
+  publicInstructions: 'Join the lobby 15 minutes before match time.',
+  connectionRules: 'Use the assigned lobby.',
+  evidenceRequired: true,
+  screenshotRequirements: 'Upload final scoreboard screenshots.',
+  resultSubmissionDeadlineMinutes: 30,
+  discordServerUrl: 'https://discord.gg/clutcha',
+  captainSupportChannel: '#captain-support',
+  matchReportingChannel: '#match-reporting',
+  lobbyInstructions: 'Private lobby instructions.',
+  privateSupportContact: '+20 100 000 0000',
   createdAt: new Date('2026-08-02T12:00:00.000Z'),
   updatedAt: new Date('2026-08-02T12:00:00.000Z'),
   ...overrides,

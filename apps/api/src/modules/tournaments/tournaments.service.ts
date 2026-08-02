@@ -20,14 +20,22 @@ import {
 } from './dto/list-organizer-tournaments-query.dto';
 import { type OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
 import { type OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
+import { type OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
 import { type TournamentResponseDto } from './dto/tournament-response.dto';
 import { type UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
+import { type UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.dto';
+import { toOnlineConfigurationResponse } from './mappers/online-configuration.mapper';
 import { toTournamentResponse } from './mappers/tournament.mapper';
 
 type ValidationIssue = {
   field: string;
   message: string;
 };
+
+type OnlineConfigurationData = Omit<
+  Prisma.TournamentOnlineConfigurationUncheckedCreateInput,
+  'id' | 'tournamentId' | 'createdAt' | 'updatedAt'
+>;
 
 const tournamentSelect = {
   id: true,
@@ -113,9 +121,69 @@ const tournamentDetailSelect = {
   },
 } satisfies Prisma.TournamentSelect;
 
+const onlineConfigurationSelect = {
+  id: true,
+  tournamentId: true,
+  serverRegion: true,
+  publicInstructions: true,
+  connectionRules: true,
+  evidenceRequired: true,
+  screenshotRequirements: true,
+  resultSubmissionDeadlineMinutes: true,
+  discordServerUrl: true,
+  captainSupportChannel: true,
+  matchReportingChannel: true,
+  lobbyInstructions: true,
+  privateSupportContact: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.TournamentOnlineConfigurationSelect;
+
 @Injectable()
 export class TournamentsService {
   constructor(private readonly databaseService: DatabaseService) {}
+
+  async getOnlineConfiguration(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<OnlineConfigurationResponseDto> {
+    await this.assertOwnedOnlineTournament(organizerId, tournamentId);
+
+    const configuration =
+      await this.databaseService.client.tournamentOnlineConfiguration.findUnique(
+        {
+          where: { tournamentId },
+          select: onlineConfigurationSelect,
+        },
+      );
+
+    if (!configuration) {
+      throw new NotFoundException('Online configuration was not found');
+    }
+
+    return toOnlineConfigurationResponse(configuration);
+  }
+
+  async upsertOnlineConfiguration(
+    organizerId: string,
+    tournamentId: string,
+    dto: UpsertOnlineConfigurationDto,
+  ): Promise<OnlineConfigurationResponseDto> {
+    await this.assertOwnedOnlineTournament(organizerId, tournamentId);
+
+    const configuration =
+      await this.databaseService.client.tournamentOnlineConfiguration.upsert({
+        where: { tournamentId },
+        create: {
+          tournamentId,
+          ...this.toOnlineConfigurationData(dto),
+        },
+        update: this.toOnlineConfigurationData(dto),
+        select: onlineConfigurationSelect,
+      });
+
+    return toOnlineConfigurationResponse(configuration);
+  }
 
   async updateOrganizerTournamentDraft(
     organizerId: string,
@@ -472,6 +540,40 @@ export class TournamentsService {
     }
 
     return tournament;
+  }
+
+  private async assertOwnedOnlineTournament(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<void> {
+    const tournament = await this.findOwnedTournamentOrThrow(
+      organizerId,
+      tournamentId,
+    );
+
+    if (tournament.mode !== TournamentMode.ONLINE) {
+      throw new ConflictException(
+        'Online configuration is only available for online tournaments',
+      );
+    }
+  }
+
+  private toOnlineConfigurationData(
+    dto: UpsertOnlineConfigurationDto,
+  ): OnlineConfigurationData {
+    return {
+      serverRegion: dto.serverRegion,
+      publicInstructions: dto.publicInstructions,
+      connectionRules: dto.connectionRules,
+      evidenceRequired: dto.evidenceRequired ?? false,
+      screenshotRequirements: dto.screenshotRequirements,
+      resultSubmissionDeadlineMinutes: dto.resultSubmissionDeadlineMinutes,
+      discordServerUrl: dto.discordServerUrl,
+      captainSupportChannel: dto.captainSupportChannel,
+      matchReportingChannel: dto.matchReportingChannel,
+      lobbyInstructions: dto.lobbyInstructions,
+      privateSupportContact: dto.privateSupportContact,
+    };
   }
 
   private assertDraftLifecycle(
