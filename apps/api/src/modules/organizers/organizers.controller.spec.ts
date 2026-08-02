@@ -18,4 +18,8 @@ describe('OrganizersController', () => {
       UserRole.ORGANIZER,
     ]);
   });
+
+  it('exposes a dashboard handler', () => {
+    expect(typeof OrganizersController.prototype.getDashboard).toBe('function');
+  });
 });
