@@ -67,4 +67,13 @@ describe('OrganizerTournamentsController', () => {
       typeof OrganizerTournamentsController.prototype.upsertOnlineConfiguration,
     ).toBe('function');
   });
+
+  it('exposes venue configuration handlers', () => {
+    expect(typeof OrganizerTournamentsController.prototype.getVenue).toBe(
+      'function',
+    );
+    expect(typeof OrganizerTournamentsController.prototype.upsertVenue).toBe(
+      'function',
+    );
+  });
 });

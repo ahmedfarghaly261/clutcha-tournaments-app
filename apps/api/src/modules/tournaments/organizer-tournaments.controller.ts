@@ -37,6 +37,8 @@ import { OnlineConfigurationResponseDto } from './dto/online-configuration-respo
 import { TournamentResponseDto } from './dto/tournament-response.dto';
 import { UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
 import { UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.dto';
+import { UpsertVenueDto } from './dto/upsert-venue.dto';
+import { VenueResponseDto } from './dto/venue-response.dto';
 import { TournamentsService } from './tournaments.service';
 
 @ApiTags('Organizer Tournaments')
@@ -255,6 +257,75 @@ export class OrganizerTournamentsController {
       tournamentId,
       dto,
     );
+  }
+
+  @Get(':tournamentId/venue')
+  @ApiOperation({
+    summary: 'Get on-site tournament venue',
+    description:
+      'Returns venue and equipment policy for an organizer-owned ONSITE tournament.',
+  })
+  @ApiOkResponse({
+    description: 'On-site venue configuration returned.',
+    type: VenueResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id is not a valid UUID.',
+  })
+  @ApiConflictResponse({
+    description:
+      'Venue configuration is only available for ONSITE tournaments.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament or venue does not exist, or the tournament is not owned by the authenticated organizer.',
+  })
+  async getVenue(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+  ): Promise<VenueResponseDto> {
+    return this.tournamentsService.getVenue(user.id, tournamentId);
+  }
+
+  @Put(':tournamentId/venue')
+  @ApiOperation({
+    summary: 'Upsert on-site tournament venue',
+    description:
+      'Creates or replaces venue and equipment policy for an organizer-owned ONSITE tournament.',
+  })
+  @ApiOkResponse({
+    description: 'On-site venue configuration saved.',
+    type: VenueResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id or venue payload is invalid.',
+  })
+  @ApiConflictResponse({
+    description:
+      'Venue configuration is only available for ONSITE tournaments.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  async upsertVenue(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Body() dto: UpsertVenueDto,
+  ): Promise<VenueResponseDto> {
+    return this.tournamentsService.upsertVenue(user.id, tournamentId, dto);
   }
 
   @Post()
