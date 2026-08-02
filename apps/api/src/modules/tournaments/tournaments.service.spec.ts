@@ -91,6 +91,16 @@ type OnlineConfigurationUpsertArgs = {
   update: Record<string, unknown>;
 };
 
+type VenueFindUniqueArgs = {
+  where: { tournamentId: string };
+};
+
+type VenueUpsertArgs = {
+  where: { tournamentId: string };
+  create: Record<string, unknown>;
+  update: Record<string, unknown>;
+};
+
 type TournamentValidationErrorResponse = {
   message: string;
   issues: Array<{ field: string; message: string }>;
@@ -98,6 +108,7 @@ type TournamentValidationErrorResponse = {
 
 let createdTournaments: Record<string, unknown>[];
 let onlineConfigurations: Record<string, unknown>[];
+let venues: Record<string, unknown>[];
 
 describe('TournamentsService', () => {
   let service: TournamentsService;
@@ -134,6 +145,14 @@ describe('TournamentsService', () => {
     Promise<Record<string, unknown>>,
     [OnlineConfigurationUpsertArgs]
   >;
+  let findUniqueVenue: jest.Mock<
+    Promise<Record<string, unknown> | null>,
+    [VenueFindUniqueArgs]
+  >;
+  let upsertVenue: jest.Mock<
+    Promise<Record<string, unknown>>,
+    [VenueUpsertArgs]
+  >;
 
   beforeEach(async () => {
     createdTournaments = [
@@ -168,6 +187,11 @@ describe('TournamentsService', () => {
     onlineConfigurations = [
       createOnlineConfigurationRecord({
         tournamentId: 'tournament-1',
+      }),
+    ];
+    venues = [
+      createVenueRecord({
+        tournamentId: 'tournament-4',
       }),
     ];
     findUnique = jest.fn((args: TournamentFindUniqueArgs) =>
@@ -256,6 +280,32 @@ describe('TournamentsService', () => {
         return Promise.resolve(created);
       },
     );
+    findUniqueVenue = jest.fn((args: VenueFindUniqueArgs) =>
+      Promise.resolve(
+        venues.find((item) => item.tournamentId === args.where.tournamentId) ??
+          null,
+      ),
+    );
+    upsertVenue = jest.fn((args: VenueUpsertArgs) => {
+      const existing = venues.find(
+        (item) => item.tournamentId === args.where.tournamentId,
+      );
+      const now = new Date('2026-08-02T14:00:00.000Z');
+
+      if (existing) {
+        Object.assign(existing, args.update, { updatedAt: now });
+        return Promise.resolve(existing);
+      }
+
+      const created = createVenueRecord({
+        ...args.create,
+        id: `venue-${venues.length + 1}`,
+        createdAt: now,
+        updatedAt: now,
+      });
+      venues.push(created);
+      return Promise.resolve(created);
+    });
 
     const tournamentClient = {
       findUnique,
@@ -288,6 +338,10 @@ describe('TournamentsService', () => {
               tournamentOnlineConfiguration: {
                 findUnique: findUniqueOnlineConfiguration,
                 upsert: upsertOnlineConfiguration,
+              },
+              tournamentVenue: {
+                findUnique: findUniqueVenue,
+                upsert: upsertVenue,
               },
             },
           },
@@ -350,6 +404,16 @@ describe('TournamentsService', () => {
 
       return firstCall[0];
     };
+
+  const firstVenueUpsertArgs = (): VenueUpsertArgs => {
+    const firstCall = upsertVenue.mock.calls.at(0);
+
+    if (!firstCall) {
+      throw new Error('Expected tournamentVenue.upsert to be called.');
+    }
+
+    return firstCall[0];
+  };
 
   it('creates a draft tournament owned by the authenticated organizer', async () => {
     const result = await service.createOrganizerDraft(
@@ -467,6 +531,78 @@ describe('TournamentsService', () => {
       lobbyInstructions: 'Private lobby instructions.',
       privateSupportContact: '+20 100 000 0000',
     });
+  });
+
+  it('returns venue configuration with location, policy, and equipment policy separated', async () => {
+    const result = await service.getVenue('organizer-1', 'tournament-4');
+
+    expect(result.tournamentId).toBe('tournament-4');
+    expect(result.location).toEqual({
+      name: 'CLUTCHA Arena Cairo',
+      country: 'EG',
+      city: 'Cairo',
+      address: '90 Street, New Cairo',
+      mapUrl: 'https://maps.example.com/clutcha-arena',
+      checkInLocation: 'Main reception',
+    });
+    expect(result.policy).toEqual({
+      parkingInfo: 'Underground parking is available.',
+      spectatorPolicy: 'Spectators must register at reception.',
+      venueRules: 'No food near gaming stations.',
+      emergencyContact: '+20 100 000 0000',
+    });
+    expect(result.equipmentPolicy).toMatchObject({
+      equipmentProvided: { pc: true, monitor: true },
+      playersMayBring: { mouse: true, keyboard: true },
+      playersMustBring: { nationalId: true },
+      personalPeripheralsAllowed: true,
+      controllersAllowed: false,
+      usbDevicesAllowed: false,
+      driverInstallationAllowed: false,
+    });
+  });
+
+  it('upserts venue configuration for organizer-owned on-site tournaments', async () => {
+    const result = await service.upsertVenue('organizer-1', 'tournament-4', {
+      name: 'Updated Venue',
+      country: 'EG',
+      city: 'Giza',
+      address: 'Smart Village',
+      checkInLocation: 'Gate 2',
+      equipmentProvided: { pc: true },
+      playersMayBring: { headset: true },
+      playersMustBring: { nationalId: true },
+      personalPeripheralsAllowed: true,
+    });
+
+    const upsertArgs = firstVenueUpsertArgs();
+    expect(upsertArgs.where).toEqual({ tournamentId: 'tournament-4' });
+    expect(upsertArgs.create).toMatchObject({
+      tournamentId: 'tournament-4',
+      name: 'Updated Venue',
+    });
+    expect(upsertArgs.update).toMatchObject({
+      name: 'Updated Venue',
+      city: 'Giza',
+    });
+    expect(result.location.name).toBe('Updated Venue');
+    expect(result.equipmentPolicy.personalPeripheralsAllowed).toBe(true);
+  });
+
+  it('rejects venue configuration for online or foreign tournaments', async () => {
+    await expect(
+      service.upsertVenue('organizer-1', 'tournament-1', {
+        name: 'Invalid Venue',
+        country: 'EG',
+        city: 'Cairo',
+        address: '90 Street',
+        checkInLocation: 'Reception',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      service.getVenue('organizer-1', 'tournament-3'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('upserts online configuration for organizer-owned online tournaments', async () => {
@@ -791,6 +927,33 @@ const createOnlineConfigurationRecord = (
   matchReportingChannel: '#match-reporting',
   lobbyInstructions: 'Private lobby instructions.',
   privateSupportContact: '+20 100 000 0000',
+  createdAt: new Date('2026-08-02T12:00:00.000Z'),
+  updatedAt: new Date('2026-08-02T12:00:00.000Z'),
+  ...overrides,
+});
+
+const createVenueRecord = (
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> => ({
+  id: 'venue-1',
+  tournamentId: 'tournament-4',
+  name: 'CLUTCHA Arena Cairo',
+  country: 'EG',
+  city: 'Cairo',
+  address: '90 Street, New Cairo',
+  mapUrl: 'https://maps.example.com/clutcha-arena',
+  checkInLocation: 'Main reception',
+  parkingInfo: 'Underground parking is available.',
+  spectatorPolicy: 'Spectators must register at reception.',
+  venueRules: 'No food near gaming stations.',
+  emergencyContact: '+20 100 000 0000',
+  equipmentProvided: { pc: true, monitor: true },
+  playersMayBring: { mouse: true, keyboard: true },
+  playersMustBring: { nationalId: true },
+  personalPeripheralsAllowed: true,
+  controllersAllowed: false,
+  usbDevicesAllowed: false,
+  driverInstallationAllowed: false,
   createdAt: new Date('2026-08-02T12:00:00.000Z'),
   updatedAt: new Date('2026-08-02T12:00:00.000Z'),
   ...overrides,

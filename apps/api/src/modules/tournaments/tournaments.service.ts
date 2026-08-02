@@ -24,8 +24,11 @@ import { type OnlineConfigurationResponseDto } from './dto/online-configuration-
 import { type TournamentResponseDto } from './dto/tournament-response.dto';
 import { type UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
 import { type UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.dto';
+import { type UpsertVenueDto } from './dto/upsert-venue.dto';
+import { type VenueResponseDto } from './dto/venue-response.dto';
 import { toOnlineConfigurationResponse } from './mappers/online-configuration.mapper';
 import { toTournamentResponse } from './mappers/tournament.mapper';
+import { toVenueResponse } from './mappers/venue.mapper';
 
 type ValidationIssue = {
   field: string;
@@ -34,6 +37,11 @@ type ValidationIssue = {
 
 type OnlineConfigurationData = Omit<
   Prisma.TournamentOnlineConfigurationUncheckedCreateInput,
+  'id' | 'tournamentId' | 'createdAt' | 'updatedAt'
+>;
+
+type VenueData = Omit<
+  Prisma.TournamentVenueUncheckedCreateInput,
   'id' | 'tournamentId' | 'createdAt' | 'updatedAt'
 >;
 
@@ -139,9 +147,71 @@ const onlineConfigurationSelect = {
   updatedAt: true,
 } satisfies Prisma.TournamentOnlineConfigurationSelect;
 
+const venueSelect = {
+  id: true,
+  tournamentId: true,
+  name: true,
+  country: true,
+  city: true,
+  address: true,
+  mapUrl: true,
+  checkInLocation: true,
+  parkingInfo: true,
+  spectatorPolicy: true,
+  venueRules: true,
+  emergencyContact: true,
+  equipmentProvided: true,
+  playersMayBring: true,
+  playersMustBring: true,
+  personalPeripheralsAllowed: true,
+  controllersAllowed: true,
+  usbDevicesAllowed: true,
+  driverInstallationAllowed: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.TournamentVenueSelect;
+
 @Injectable()
 export class TournamentsService {
   constructor(private readonly databaseService: DatabaseService) {}
+
+  async getVenue(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<VenueResponseDto> {
+    await this.assertOwnedOnsiteTournament(organizerId, tournamentId);
+
+    const venue = await this.databaseService.client.tournamentVenue.findUnique({
+      where: { tournamentId },
+      select: venueSelect,
+    });
+
+    if (!venue) {
+      throw new NotFoundException('Venue was not found');
+    }
+
+    return toVenueResponse(venue);
+  }
+
+  async upsertVenue(
+    organizerId: string,
+    tournamentId: string,
+    dto: UpsertVenueDto,
+  ): Promise<VenueResponseDto> {
+    await this.assertOwnedOnsiteTournament(organizerId, tournamentId);
+
+    const venue = await this.databaseService.client.tournamentVenue.upsert({
+      where: { tournamentId },
+      create: {
+        tournamentId,
+        ...this.toVenueData(dto),
+      },
+      update: this.toVenueData(dto),
+      select: venueSelect,
+    });
+
+    return toVenueResponse(venue);
+  }
 
   async getOnlineConfiguration(
     organizerId: string,
@@ -558,6 +628,22 @@ export class TournamentsService {
     }
   }
 
+  private async assertOwnedOnsiteTournament(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<void> {
+    const tournament = await this.findOwnedTournamentOrThrow(
+      organizerId,
+      tournamentId,
+    );
+
+    if (tournament.mode !== TournamentMode.ONSITE) {
+      throw new ConflictException(
+        'Venue configuration is only available for on-site tournaments',
+      );
+    }
+  }
+
   private toOnlineConfigurationData(
     dto: UpsertOnlineConfigurationDto,
   ): OnlineConfigurationData {
@@ -573,6 +659,37 @@ export class TournamentsService {
       matchReportingChannel: dto.matchReportingChannel,
       lobbyInstructions: dto.lobbyInstructions,
       privateSupportContact: dto.privateSupportContact,
+    };
+  }
+
+  private toVenueData(dto: UpsertVenueDto): VenueData {
+    return {
+      name: dto.name,
+      country: dto.country,
+      city: dto.city,
+      address: dto.address,
+      mapUrl: dto.mapUrl,
+      checkInLocation: dto.checkInLocation,
+      parkingInfo: dto.parkingInfo,
+      spectatorPolicy: dto.spectatorPolicy,
+      venueRules: dto.venueRules,
+      emergencyContact: dto.emergencyContact,
+      equipmentProvided:
+        dto.equipmentProvided === undefined
+          ? undefined
+          : (dto.equipmentProvided as Prisma.InputJsonValue),
+      playersMayBring:
+        dto.playersMayBring === undefined
+          ? undefined
+          : (dto.playersMayBring as Prisma.InputJsonValue),
+      playersMustBring:
+        dto.playersMustBring === undefined
+          ? undefined
+          : (dto.playersMustBring as Prisma.InputJsonValue),
+      personalPeripheralsAllowed: dto.personalPeripheralsAllowed ?? false,
+      controllersAllowed: dto.controllersAllowed ?? false,
+      usbDevicesAllowed: dto.usbDevicesAllowed ?? false,
+      driverInstallationAllowed: dto.driverInstallationAllowed ?? false,
     };
   }
 
