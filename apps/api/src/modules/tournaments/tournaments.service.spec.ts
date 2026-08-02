@@ -213,7 +213,9 @@ describe('TournamentsService', () => {
         organizerId: 'organizer-1',
         name: 'Alpha Valorant Cup',
         slug: 'alpha-valorant-cup',
-        onlineConfiguration: { id: 'online-config-1' },
+        onlineConfiguration: createOnlineConfigurationRecord({
+          id: 'online-config-1',
+        }),
       }),
       createTournamentRecord({
         id: 'tournament-2',
@@ -234,6 +236,15 @@ describe('TournamentsService', () => {
         name: 'On-site Cup',
         slug: 'on-site-cup',
         mode: TournamentMode.ONSITE,
+        venue: createVenueRecord({
+          id: 'venue-1',
+          tournamentId: 'tournament-4',
+          gamingRooms: [
+            createGamingRoomRecord({
+              venueId: 'venue-1',
+            }),
+          ],
+        }),
       }),
     ];
     onlineConfigurations = [
@@ -1012,6 +1023,150 @@ describe('TournamentsService', () => {
     ).toBe(true);
   });
 
+  it('returns structured readiness issues for invalid general publication data', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'tournament-5',
+        organizerId: 'organizer-1',
+        name: ' ',
+        slug: 'invalid-general-cup',
+        gameKey: ' ',
+        rules: ' ',
+        maximumTeams: 4,
+        minimumTeams: 8,
+        maximumStarters: 4,
+        minimumStarters: 5,
+        defaultBestOf: 2,
+        finalBestOf: 4,
+        registrationClosesAt: new Date('2026-09-01T09:00:00.000Z'),
+        rosterLocksAt: new Date('2026-09-15T10:00:00.000Z'),
+        checkInOpensAt: new Date('2026-09-12T18:00:00.000Z'),
+        checkInClosesAt: new Date('2026-09-12T17:00:00.000Z'),
+        endsAt: new Date('2026-09-12T17:00:00.000Z'),
+        maximumWaitlistSize: 8,
+        timezone: 'Mars/OlympusMons',
+        onlineConfiguration: createOnlineConfigurationRecord({
+          id: 'online-config-invalid-general',
+        }),
+      }),
+    );
+
+    const result = await service.getOrganizerTournamentDetails(
+      'organizer-1',
+      'tournament-5',
+    );
+
+    expect(result.publicationReadiness.ready).toBe(false);
+    expectPublicationIssueFields(result.publicationReadiness.issues, [
+      'name',
+      'gameKey',
+      'rules',
+      'registrationClosesAt',
+      'rosterLocksAt',
+      'checkInClosesAt',
+      'endsAt',
+      'maximumTeams',
+      'maximumStarters',
+      'defaultBestOf',
+      'finalBestOf',
+      'maximumWaitlistSize',
+      'timezone',
+    ]);
+  });
+
+  it('returns readiness issues for incomplete online configuration', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'tournament-5',
+        organizerId: 'organizer-1',
+        slug: 'incomplete-online-cup',
+        onlineConfiguration: createOnlineConfigurationRecord({
+          id: 'online-config-incomplete',
+          serverRegion: ' ',
+          evidenceRequired: true,
+          screenshotRequirements: ' ',
+        }),
+      }),
+    );
+
+    const result = await service.getOrganizerTournamentDetails(
+      'organizer-1',
+      'tournament-5',
+    );
+
+    expect(result.publicationReadiness.ready).toBe(false);
+    expectPublicationIssueFields(result.publicationReadiness.issues, [
+      'onlineConfiguration.serverRegion',
+      'onlineConfiguration.screenshotRequirements',
+    ]);
+  });
+
+  it('returns readiness issues for incomplete on-site venue and gaming-room hardware', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'tournament-5',
+        organizerId: 'organizer-1',
+        mode: TournamentMode.ONSITE,
+        slug: 'incomplete-onsite-cup',
+        venue: createVenueRecord({
+          id: 'venue-incomplete',
+          tournamentId: 'tournament-5',
+          name: ' ',
+          country: ' ',
+          city: ' ',
+          address: ' ',
+          checkInLocation: ' ',
+          equipmentProvided: null,
+          gamingRooms: [
+            createGamingRoomRecord({
+              id: 'gaming-room-incomplete',
+              venueId: 'venue-incomplete',
+              name: ' ',
+              stationCount: 0,
+              cpu: ' ',
+              gpu: ' ',
+              ram: null,
+              storage: null,
+              operatingSystem: null,
+              monitorModel: ' ',
+              monitorRefreshRateHz: 1,
+              mouse: ' ',
+              keyboard: ' ',
+              headset: ' ',
+            }),
+          ],
+        }),
+      }),
+    );
+
+    const result = await service.getOrganizerTournamentDetails(
+      'organizer-1',
+      'tournament-5',
+    );
+
+    expect(result.publicationReadiness.ready).toBe(false);
+    expectPublicationIssueFields(result.publicationReadiness.issues, [
+      'venue.name',
+      'venue.country',
+      'venue.city',
+      'venue.address',
+      'venue.checkInLocation',
+      'venue.equipmentProvided',
+      'gamingRooms.0.name',
+      'gamingRooms.0.stationCount',
+      'gamingRooms.0.cpu',
+      'gamingRooms.0.gpu',
+      'gamingRooms.0.ram',
+      'gamingRooms.0.storage',
+      'gamingRooms.0.operatingSystem',
+      'gamingRooms.0.monitorModel',
+      'gamingRooms.0.monitorRefreshRateHz',
+      'gamingRooms.0.mouse',
+      'gamingRooms.0.keyboard',
+      'gamingRooms.0.headset',
+    ]);
+  });
+
   it('does not return details for tournaments owned by another organizer', async () => {
     await expect(
       service.getOrganizerTournamentDetails('organizer-1', 'tournament-3'),
@@ -1435,6 +1590,18 @@ const expectValidationIssues = async (
       expect.arrayContaining(expectedFields),
     );
   }
+};
+
+const expectPublicationIssueFields = (
+  issues: Array<{ field: string; message: string }>,
+  expectedFields: string[],
+): void => {
+  expect(issues.map((issue) => issue.field)).toEqual(
+    expect.arrayContaining(expectedFields),
+  );
+  expect(
+    issues.every((issue) => issue.field.length > 0 && issue.message.length > 0),
+  ).toBe(true);
 };
 
 const isTournamentValidationErrorResponse = (

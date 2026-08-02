@@ -40,6 +40,9 @@ type ValidationIssue = {
   message: string;
 };
 
+type PublicationReadinessIssue =
+  OrganizerTournamentDetailResponseDto['publicationReadiness']['issues'][number];
+
 type OnlineConfigurationData = Omit<
   Prisma.TournamentOnlineConfigurationUncheckedCreateInput,
   'id' | 'tournamentId' | 'createdAt' | 'updatedAt'
@@ -125,14 +128,35 @@ const tournamentDetailSelect = {
   onlineConfiguration: {
     select: {
       id: true,
+      serverRegion: true,
+      evidenceRequired: true,
+      screenshotRequirements: true,
     },
   },
   venue: {
     select: {
       id: true,
+      name: true,
+      country: true,
+      city: true,
+      address: true,
+      checkInLocation: true,
+      equipmentProvided: true,
       gamingRooms: {
         select: {
           id: true,
+          name: true,
+          stationCount: true,
+          cpu: true,
+          gpu: true,
+          ram: true,
+          storage: true,
+          operatingSystem: true,
+          monitorModel: true,
+          monitorRefreshRateHz: true,
+          mouse: true,
+          keyboard: true,
+          headset: true,
         },
       },
     },
@@ -1101,91 +1125,381 @@ export class TournamentsService {
       select: typeof tournamentDetailSelect;
     }>,
   ): OrganizerTournamentDetailResponseDto['publicationReadiness'] {
-    const issues: OrganizerTournamentDetailResponseDto['publicationReadiness']['issues'] =
-      [];
+    const issues: PublicationReadinessIssue[] = [];
 
     if (!tournament.name.trim()) {
-      issues.push({
-        field: 'name',
-        message: 'Tournament name is required before publishing.',
-      });
+      this.addPublicationIssue(
+        issues,
+        'name',
+        'Tournament name is required before publishing.',
+      );
     }
 
     if (!tournament.gameKey.trim()) {
-      issues.push({
-        field: 'gameKey',
-        message: 'Game key is required before publishing.',
-      });
+      this.addPublicationIssue(
+        issues,
+        'gameKey',
+        'Game key is required before publishing.',
+      );
     }
 
     if (!tournament.rules.trim()) {
-      issues.push({
-        field: 'rules',
-        message: 'Tournament rules are required before publishing.',
-      });
+      this.addPublicationIssue(
+        issues,
+        'rules',
+        'Tournament rules are required before publishing.',
+      );
     }
 
     if (tournament.registrationOpensAt >= tournament.registrationClosesAt) {
-      issues.push({
-        field: 'registrationClosesAt',
-        message:
-          'Registration close date must be after registration open date.',
-      });
+      this.addPublicationIssue(
+        issues,
+        'registrationClosesAt',
+        'Registration close date must be after registration open date.',
+      );
     }
 
     if (tournament.registrationClosesAt >= tournament.startsAt) {
-      issues.push({
-        field: 'startsAt',
-        message: 'Tournament start date must be after registration closes.',
-      });
-    }
-
-    if (tournament.maximumTeams < tournament.minimumTeams) {
-      issues.push({
-        field: 'maximumTeams',
-        message:
-          'Maximum teams must be greater than or equal to minimum teams.',
-      });
-    }
-
-    if (tournament.maximumStarters < tournament.minimumStarters) {
-      issues.push({
-        field: 'maximumStarters',
-        message:
-          'Maximum starters must be greater than or equal to minimum starters.',
-      });
+      this.addPublicationIssue(
+        issues,
+        'startsAt',
+        'Tournament start date must be after registration closes.',
+      );
     }
 
     if (
-      tournament.mode === TournamentMode.ONLINE &&
-      !tournament.onlineConfiguration
+      tournament.rosterLocksAt &&
+      (tournament.rosterLocksAt < tournament.registrationClosesAt ||
+        tournament.rosterLocksAt > tournament.startsAt)
     ) {
-      issues.push({
-        field: 'onlineConfiguration',
-        message:
-          'Online tournaments require online configuration before publishing.',
-      });
+      this.addPublicationIssue(
+        issues,
+        'rosterLocksAt',
+        'Roster lock date must be between registration close and tournament start.',
+      );
+    }
+
+    if (tournament.checkInOpensAt || tournament.checkInClosesAt) {
+      if (!tournament.checkInOpensAt) {
+        this.addPublicationIssue(
+          issues,
+          'checkInOpensAt',
+          'Check-in open date is required when check-in close date is set.',
+        );
+      }
+
+      if (!tournament.checkInClosesAt) {
+        this.addPublicationIssue(
+          issues,
+          'checkInClosesAt',
+          'Check-in close date is required when check-in open date is set.',
+        );
+      }
+    }
+
+    if (tournament.checkInOpensAt && tournament.checkInClosesAt) {
+      if (tournament.checkInOpensAt >= tournament.checkInClosesAt) {
+        this.addPublicationIssue(
+          issues,
+          'checkInClosesAt',
+          'Check-in close date must be after check-in open date.',
+        );
+      }
+
+      if (tournament.checkInClosesAt > tournament.startsAt) {
+        this.addPublicationIssue(
+          issues,
+          'checkInClosesAt',
+          'Check-in close date must be before or equal to tournament start.',
+        );
+      }
+    }
+
+    if (tournament.endsAt && tournament.endsAt <= tournament.startsAt) {
+      this.addPublicationIssue(
+        issues,
+        'endsAt',
+        'Tournament end date must be after tournament start.',
+      );
+    }
+
+    if (tournament.maximumTeams < tournament.minimumTeams) {
+      this.addPublicationIssue(
+        issues,
+        'maximumTeams',
+        'Maximum teams must be greater than or equal to minimum teams.',
+      );
+    }
+
+    if (tournament.maximumStarters < tournament.minimumStarters) {
+      this.addPublicationIssue(
+        issues,
+        'maximumStarters',
+        'Maximum starters must be greater than or equal to minimum starters.',
+      );
+    }
+
+    this.requirePublicationOddBestOf(
+      issues,
+      'defaultBestOf',
+      tournament.defaultBestOf,
+    );
+    this.requirePublicationOddBestOf(
+      issues,
+      'finalBestOf',
+      tournament.finalBestOf,
+    );
+
+    if (
+      !tournament.waitlistEnabled &&
+      tournament.maximumWaitlistSize !== null
+    ) {
+      this.addPublicationIssue(
+        issues,
+        'maximumWaitlistSize',
+        'Maximum waitlist size requires waitlist to be enabled.',
+      );
+    }
+
+    if (!this.isValidTimezone(tournament.timezone)) {
+      this.addPublicationIssue(
+        issues,
+        'timezone',
+        'Timezone must be a valid IANA time zone.',
+      );
+    }
+
+    if (tournament.mode === TournamentMode.ONLINE) {
+      this.addOnlinePublicationIssues(issues, tournament.onlineConfiguration);
     }
 
     if (tournament.mode === TournamentMode.ONSITE) {
-      if (!tournament.venue) {
-        issues.push({
-          field: 'venue',
-          message: 'On-site tournaments require a venue before publishing.',
-        });
-      } else if (tournament.venue.gamingRooms.length === 0) {
-        issues.push({
-          field: 'gamingRooms',
-          message:
-            'On-site tournaments require at least one gaming room before publishing.',
-        });
-      }
+      this.addOnsitePublicationIssues(issues, tournament.venue);
     }
 
     return {
       ready: issues.length === 0,
       issues,
     };
+  }
+
+  private addOnlinePublicationIssues(
+    issues: PublicationReadinessIssue[],
+    onlineConfiguration:
+      | Prisma.TournamentGetPayload<{
+          select: typeof tournamentDetailSelect;
+        }>['onlineConfiguration']
+      | null,
+  ): void {
+    if (!onlineConfiguration) {
+      this.addPublicationIssue(
+        issues,
+        'onlineConfiguration',
+        'Online tournaments require online configuration before publishing.',
+      );
+      return;
+    }
+
+    if (!onlineConfiguration.serverRegion.trim()) {
+      this.addPublicationIssue(
+        issues,
+        'onlineConfiguration.serverRegion',
+        'Online configuration requires a server region before publishing.',
+      );
+    }
+
+    if (
+      onlineConfiguration.evidenceRequired &&
+      !onlineConfiguration.screenshotRequirements?.trim()
+    ) {
+      this.addPublicationIssue(
+        issues,
+        'onlineConfiguration.screenshotRequirements',
+        'Screenshot requirements are required when evidence is required.',
+      );
+    }
+  }
+
+  private addOnsitePublicationIssues(
+    issues: PublicationReadinessIssue[],
+    venue:
+      | Prisma.TournamentGetPayload<{
+          select: typeof tournamentDetailSelect;
+        }>['venue']
+      | null,
+  ): void {
+    if (!venue) {
+      this.addPublicationIssue(
+        issues,
+        'venue',
+        'On-site tournaments require a venue before publishing.',
+      );
+      return;
+    }
+
+    this.requirePublicationText(
+      issues,
+      'venue.name',
+      venue.name,
+      'Venue name is required before publishing.',
+    );
+    this.requirePublicationText(
+      issues,
+      'venue.country',
+      venue.country,
+      'Venue country is required before publishing.',
+    );
+    this.requirePublicationText(
+      issues,
+      'venue.city',
+      venue.city,
+      'Venue city is required before publishing.',
+    );
+    this.requirePublicationText(
+      issues,
+      'venue.address',
+      venue.address,
+      'Venue address is required before publishing.',
+    );
+    this.requirePublicationText(
+      issues,
+      'venue.checkInLocation',
+      venue.checkInLocation,
+      'Venue check-in location is required before publishing.',
+    );
+
+    if (!this.toRecord(venue.equipmentProvided)) {
+      this.addPublicationIssue(
+        issues,
+        'venue.equipmentProvided',
+        'Venue equipment policy is required before publishing.',
+      );
+    }
+
+    if (venue.gamingRooms.length === 0) {
+      this.addPublicationIssue(
+        issues,
+        'gamingRooms',
+        'On-site tournaments require at least one gaming room before publishing.',
+      );
+      return;
+    }
+
+    venue.gamingRooms.forEach((room, index) => {
+      const roomField = `gamingRooms.${index}`;
+
+      this.requirePublicationText(
+        issues,
+        `${roomField}.name`,
+        room.name,
+        'Gaming room name is required before publishing.',
+      );
+
+      if (room.stationCount < 1) {
+        this.addPublicationIssue(
+          issues,
+          `${roomField}.stationCount`,
+          'Gaming room station count must be at least 1.',
+        );
+      }
+
+      this.requirePublicationText(
+        issues,
+        `${roomField}.cpu`,
+        room.cpu,
+        'Gaming room CPU specification is required before publishing.',
+      );
+      this.requirePublicationText(
+        issues,
+        `${roomField}.gpu`,
+        room.gpu,
+        'Gaming room GPU specification is required before publishing.',
+      );
+      this.requirePublicationText(
+        issues,
+        `${roomField}.ram`,
+        room.ram,
+        'Gaming room RAM specification is required before publishing.',
+      );
+      this.requirePublicationText(
+        issues,
+        `${roomField}.storage`,
+        room.storage,
+        'Gaming room storage specification is required before publishing.',
+      );
+      this.requirePublicationText(
+        issues,
+        `${roomField}.operatingSystem`,
+        room.operatingSystem,
+        'Gaming room operating system is required before publishing.',
+      );
+      this.requirePublicationText(
+        issues,
+        `${roomField}.monitorModel`,
+        room.monitorModel,
+        'Gaming room monitor model is required before publishing.',
+      );
+
+      if (room.monitorRefreshRateHz < 30) {
+        this.addPublicationIssue(
+          issues,
+          `${roomField}.monitorRefreshRateHz`,
+          'Gaming room monitor refresh rate must be at least 30Hz.',
+        );
+      }
+
+      this.requirePublicationText(
+        issues,
+        `${roomField}.mouse`,
+        room.mouse,
+        'Gaming room mouse specification is required before publishing.',
+      );
+      this.requirePublicationText(
+        issues,
+        `${roomField}.keyboard`,
+        room.keyboard,
+        'Gaming room keyboard specification is required before publishing.',
+      );
+      this.requirePublicationText(
+        issues,
+        `${roomField}.headset`,
+        room.headset,
+        'Gaming room headset specification is required before publishing.',
+      );
+    });
+  }
+
+  private requirePublicationText(
+    issues: PublicationReadinessIssue[],
+    field: string,
+    value: string | null,
+    message: string,
+  ): void {
+    if (!value?.trim()) {
+      this.addPublicationIssue(issues, field, message);
+    }
+  }
+
+  private requirePublicationOddBestOf(
+    issues: PublicationReadinessIssue[],
+    field: string,
+    value: number,
+  ): void {
+    if (value < 1 || value % 2 === 0) {
+      this.addPublicationIssue(
+        issues,
+        field,
+        `${field} must be a positive odd number.`,
+      );
+    }
+  }
+
+  private addPublicationIssue(
+    issues: PublicationReadinessIssue[],
+    field: string,
+    message: string,
+  ): void {
+    issues.push({ field, message });
   }
 
   private async generateUniqueSlug(
