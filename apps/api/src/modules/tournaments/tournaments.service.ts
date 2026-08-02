@@ -12,6 +12,7 @@ import {
   TournamentVisibility,
 } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
+import { type CancelTournamentDto } from './dto/cancel-tournament.dto';
 import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
 import { type CreateTournamentDto } from './dto/create-tournament.dto';
 import { type GamingRoomListResponseDto } from './dto/gaming-room-list-response.dto';
@@ -21,9 +22,14 @@ import {
   OrganizerTournamentSortBy,
   SortDirection,
 } from './dto/list-organizer-tournaments-query.dto';
+import {
+  type ListPublicTournamentsQueryDto,
+  PublicTournamentSortBy,
+} from './dto/list-public-tournaments-query.dto';
 import { type OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
 import { type OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
 import { type OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
+import { type PublicTournamentListResponseDto } from './dto/public-tournament-list-response.dto';
 import { type TournamentResponseDto } from './dto/tournament-response.dto';
 import { type UpdateGamingRoomDto } from './dto/update-gaming-room.dto';
 import { type UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
@@ -32,6 +38,7 @@ import { type UpsertVenueDto } from './dto/upsert-venue.dto';
 import { type VenueResponseDto } from './dto/venue-response.dto';
 import { toGamingRoomResponse } from './mappers/gaming-room.mapper';
 import { toOnlineConfigurationResponse } from './mappers/online-configuration.mapper';
+import { toPublicTournamentSummaryResponse } from './mappers/public-tournament.mapper';
 import { toTournamentResponse } from './mappers/tournament.mapper';
 import { toVenueResponse } from './mappers/venue.mapper';
 
@@ -163,6 +170,45 @@ const tournamentDetailSelect = {
   },
 } satisfies Prisma.TournamentSelect;
 
+const publicTournamentSelect = {
+  id: true,
+  slug: true,
+  name: true,
+  shortDescription: true,
+  logoUrl: true,
+  coverUrl: true,
+  gameKey: true,
+  mode: true,
+  status: true,
+  format: true,
+  minimumTeams: true,
+  maximumTeams: true,
+  minimumStarters: true,
+  maximumStarters: true,
+  registrationFee: true,
+  currency: true,
+  prizePool: true,
+  registrationClosesAt: true,
+  startsAt: true,
+  endsAt: true,
+  timezone: true,
+  waitlistEnabled: true,
+  publishedAt: true,
+  registrationOpenedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.TournamentSelect;
+
+const publicTournamentStatuses: TournamentStatus[] = [
+  TournamentStatus.PUBLISHED,
+  TournamentStatus.REGISTRATION_OPEN,
+  TournamentStatus.REGISTRATION_CLOSED,
+  TournamentStatus.CHECK_IN_OPEN,
+  TournamentStatus.IN_PROGRESS,
+  TournamentStatus.COMPLETED,
+  TournamentStatus.POSTPONED,
+];
+
 const onlineConfigurationSelect = {
   id: true,
   tournamentId: true,
@@ -237,6 +283,187 @@ const gamingRoomSelect = {
 @Injectable()
 export class TournamentsService {
   constructor(private readonly databaseService: DatabaseService) {}
+
+  async listPublicTournaments(
+    query: ListPublicTournamentsQueryDto,
+  ): Promise<PublicTournamentListResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = this.toPublicTournamentWhere(query);
+    const orderBy = this.toPublicTournamentOrderBy(query);
+
+    const [items, totalItems] = await this.databaseService.client.$transaction([
+      this.databaseService.client.tournament.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+        select: publicTournamentSelect,
+      }),
+      this.databaseService.client.tournament.count({ where }),
+    ]);
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      items: items.map((item) => toPublicTournamentSummaryResponse(item)),
+      meta: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  async publishOrganizerTournament(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<TournamentResponseDto> {
+    const updated = await this.databaseService.client.$transaction(
+      async (transaction) => {
+        const tournament = await this.findOwnedTournamentDetailOrThrow(
+          transaction,
+          organizerId,
+          tournamentId,
+        );
+
+        this.assertLifecycleStatus(
+          tournament.status,
+          [TournamentStatus.DRAFT],
+          'Only draft tournaments can be published.',
+        );
+
+        const publicationReadiness = this.getPublicationReadiness(tournament);
+
+        if (!publicationReadiness.ready) {
+          throw new UnprocessableEntityException({
+            message: 'Tournament is not ready to publish.',
+            issues: publicationReadiness.issues,
+          });
+        }
+
+        return transaction.tournament.update({
+          where: { id: tournament.id },
+          data: {
+            status: TournamentStatus.PUBLISHED,
+            publishedAt: new Date(),
+          },
+          select: tournamentSelect,
+        });
+      },
+    );
+
+    return toTournamentResponse(updated);
+  }
+
+  async openOrganizerTournamentRegistration(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<TournamentResponseDto> {
+    const updated = await this.databaseService.client.$transaction(
+      async (transaction) => {
+        const tournament = await this.findOwnedTournamentForLifecycleOrThrow(
+          transaction,
+          organizerId,
+          tournamentId,
+        );
+
+        this.assertLifecycleStatus(
+          tournament.status,
+          [TournamentStatus.PUBLISHED],
+          'Only published tournaments can open registration.',
+        );
+
+        return transaction.tournament.update({
+          where: { id: tournament.id },
+          data: {
+            status: TournamentStatus.REGISTRATION_OPEN,
+            registrationOpenedAt: new Date(),
+            registrationClosedAt: null,
+          },
+          select: tournamentSelect,
+        });
+      },
+    );
+
+    return toTournamentResponse(updated);
+  }
+
+  async closeOrganizerTournamentRegistration(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<TournamentResponseDto> {
+    const updated = await this.databaseService.client.$transaction(
+      async (transaction) => {
+        const tournament = await this.findOwnedTournamentForLifecycleOrThrow(
+          transaction,
+          organizerId,
+          tournamentId,
+        );
+
+        this.assertLifecycleStatus(
+          tournament.status,
+          [TournamentStatus.REGISTRATION_OPEN],
+          'Only registration-open tournaments can close registration.',
+        );
+
+        return transaction.tournament.update({
+          where: { id: tournament.id },
+          data: {
+            status: TournamentStatus.REGISTRATION_CLOSED,
+            registrationClosedAt: new Date(),
+          },
+          select: tournamentSelect,
+        });
+      },
+    );
+
+    return toTournamentResponse(updated);
+  }
+
+  async cancelOrganizerTournament(
+    organizerId: string,
+    tournamentId: string,
+    dto: CancelTournamentDto,
+  ): Promise<TournamentResponseDto> {
+    const updated = await this.databaseService.client.$transaction(
+      async (transaction) => {
+        const tournament = await this.findOwnedTournamentForLifecycleOrThrow(
+          transaction,
+          organizerId,
+          tournamentId,
+        );
+
+        this.assertLifecycleStatus(
+          tournament.status,
+          [
+            TournamentStatus.DRAFT,
+            TournamentStatus.PUBLISHED,
+            TournamentStatus.REGISTRATION_OPEN,
+            TournamentStatus.REGISTRATION_CLOSED,
+            TournamentStatus.CHECK_IN_OPEN,
+            TournamentStatus.IN_PROGRESS,
+            TournamentStatus.POSTPONED,
+          ],
+          'This tournament cannot be cancelled from its current status.',
+        );
+
+        return transaction.tournament.update({
+          where: { id: tournament.id },
+          data: {
+            status: TournamentStatus.CANCELLED,
+            cancelledAt: new Date(),
+            cancellationReason: dto.reason,
+          },
+          select: tournamentSelect,
+        });
+      },
+    );
+
+    return toTournamentResponse(updated);
+  }
 
   async listGamingRooms(
     organizerId: string,
@@ -750,6 +977,52 @@ export class TournamentsService {
     };
   }
 
+  private toPublicTournamentWhere(
+    query: ListPublicTournamentsQueryDto,
+  ): Prisma.TournamentWhereInput {
+    const statusFilter =
+      query.status === undefined
+        ? { in: [...publicTournamentStatuses] }
+        : publicTournamentStatuses.includes(query.status)
+          ? query.status
+          : { in: [] };
+
+    const where: Prisma.TournamentWhereInput = {
+      visibility: TournamentVisibility.PUBLIC,
+      status: statusFilter,
+    };
+
+    if (query.mode) {
+      where.mode = query.mode;
+    }
+
+    if (query.gameKey) {
+      where.gameKey = query.gameKey;
+    }
+
+    if (query.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { slug: { contains: query.search, mode: 'insensitive' } },
+        { shortDescription: { contains: query.search, mode: 'insensitive' } },
+        { gameKey: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    return where;
+  }
+
+  private toPublicTournamentOrderBy(
+    query: ListPublicTournamentsQueryDto,
+  ): Prisma.TournamentOrderByWithRelationInput {
+    const sortBy = query.sortBy ?? PublicTournamentSortBy.PUBLISHED_AT;
+    const sortDirection = query.sortDirection ?? SortDirection.DESC;
+
+    return {
+      [sortBy]: sortDirection,
+    };
+  }
+
   private async findOwnedTournamentOrThrow(
     organizerId: string,
     tournamentId: string,
@@ -760,6 +1033,50 @@ export class TournamentsService {
         organizerId,
       },
       select: tournamentSelect,
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament was not found');
+    }
+
+    return tournament;
+  }
+
+  private async findOwnedTournamentForLifecycleOrThrow(
+    transaction: Pick<Prisma.TransactionClient, 'tournament'>,
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<Prisma.TournamentGetPayload<{ select: typeof tournamentSelect }>> {
+    const tournament = await transaction.tournament.findFirst({
+      where: {
+        id: tournamentId,
+        organizerId,
+      },
+      select: tournamentSelect,
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament was not found');
+    }
+
+    return tournament;
+  }
+
+  private async findOwnedTournamentDetailOrThrow(
+    transaction: Pick<Prisma.TransactionClient, 'tournament'>,
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<
+    Prisma.TournamentGetPayload<{
+      select: typeof tournamentDetailSelect;
+    }>
+  > {
+    const tournament = await transaction.tournament.findFirst({
+      where: {
+        id: tournamentId,
+        organizerId,
+      },
+      select: tournamentDetailSelect,
     });
 
     if (!tournament) {
@@ -962,6 +1279,16 @@ export class TournamentsService {
   ): void {
     if (status !== TournamentStatus.DRAFT) {
       throw new ConflictException(`Only draft tournaments can be ${action}`);
+    }
+  }
+
+  private assertLifecycleStatus(
+    status: TournamentStatus,
+    allowedStatuses: TournamentStatus[],
+    message: string,
+  ): void {
+    if (!allowedStatuses.includes(status)) {
+      throw new ConflictException(message);
     }
   }
 

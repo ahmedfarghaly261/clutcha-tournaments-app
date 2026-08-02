@@ -19,6 +19,7 @@ import {
   OrganizerTournamentSortBy,
   SortDirection,
 } from './dto/list-organizer-tournaments-query.dto';
+import { PublicTournamentSortBy } from './dto/list-public-tournaments-query.dto';
 import { TournamentsService } from './tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
@@ -50,6 +51,14 @@ jest.mock('@clutcha/database', () => ({
   TournamentStatus: {
     DRAFT: 'DRAFT',
     PUBLISHED: 'PUBLISHED',
+    REGISTRATION_OPEN: 'REGISTRATION_OPEN',
+    REGISTRATION_CLOSED: 'REGISTRATION_CLOSED',
+    CHECK_IN_OPEN: 'CHECK_IN_OPEN',
+    IN_PROGRESS: 'IN_PROGRESS',
+    COMPLETED: 'COMPLETED',
+    POSTPONED: 'POSTPONED',
+    CANCELLED: 'CANCELLED',
+    ARCHIVED: 'ARCHIVED',
   },
   TournamentVisibility: {
     PUBLIC: 'PUBLIC',
@@ -650,6 +659,126 @@ describe('TournamentsService', () => {
     expect(firstFindManyArgs().where).toHaveProperty('OR');
   });
 
+  it('lists only discoverable public tournaments with safe summary fields', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'tournament-5',
+        organizerId: 'organizer-1',
+        name: 'Private Published Cup',
+        slug: 'private-published-cup',
+        status: TournamentStatus.PUBLISHED,
+        visibility: TournamentVisibility.PRIVATE,
+      }),
+      createTournamentRecord({
+        id: 'tournament-6',
+        organizerId: 'organizer-1',
+        name: 'Open Registration Cup',
+        slug: 'open-registration-cup',
+        status: TournamentStatus.REGISTRATION_OPEN,
+        registrationOpenedAt: new Date('2026-08-03T12:00:00.000Z'),
+      }),
+      createTournamentRecord({
+        id: 'tournament-7',
+        organizerId: 'organizer-1',
+        name: 'Cancelled Public Cup',
+        slug: 'cancelled-public-cup',
+        status: TournamentStatus.CANCELLED,
+      }),
+    );
+
+    const result = await service.listPublicTournaments({});
+
+    expect(result.items.map((item) => item.id)).toEqual([
+      'tournament-2',
+      'tournament-6',
+    ]);
+    expect(result.items[0]).not.toHaveProperty('organizerId');
+    expect(result.items[0]).not.toHaveProperty('rules');
+    expect(result.items[0]).not.toHaveProperty('visibility');
+    expect(result.items[0]).not.toHaveProperty('cancellationReason');
+    expect(result.items[0]).toMatchObject({
+      slug: 'beta-valorant-cup',
+      status: TournamentStatus.PUBLISHED,
+    });
+    expect(result.meta).toEqual({
+      page: 1,
+      limit: 20,
+      totalItems: 2,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    });
+  });
+
+  it('supports public tournament pagination, filters, search, and sorting', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'tournament-5',
+        name: 'Apex Public Cup',
+        slug: 'apex-public-cup',
+        status: TournamentStatus.REGISTRATION_OPEN,
+        gameKey: 'apex-legends',
+        mode: TournamentMode.ONLINE,
+        startsAt: new Date('2026-09-20T18:00:00.000Z'),
+      }),
+      createTournamentRecord({
+        id: 'tournament-6',
+        name: 'Apex On-site Cup',
+        slug: 'apex-onsite-cup',
+        status: TournamentStatus.PUBLISHED,
+        gameKey: 'apex-legends',
+        mode: TournamentMode.ONSITE,
+        startsAt: new Date('2026-09-19T18:00:00.000Z'),
+      }),
+    );
+
+    const result = await service.listPublicTournaments({
+      page: 1,
+      limit: 1,
+      search: 'apex',
+      status: TournamentStatus.REGISTRATION_OPEN,
+      mode: TournamentMode.ONLINE,
+      gameKey: 'apex-legends',
+      sortBy: PublicTournamentSortBy.STARTS_AT,
+      sortDirection: SortDirection.ASC,
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.id).toBe('tournament-5');
+    expect(result.meta).toEqual({
+      page: 1,
+      limit: 1,
+      totalItems: 1,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    });
+    expect(firstFindManyArgs()).toMatchObject({
+      where: {
+        visibility: TournamentVisibility.PUBLIC,
+        status: TournamentStatus.REGISTRATION_OPEN,
+        mode: TournamentMode.ONLINE,
+        gameKey: 'apex-legends',
+      },
+      orderBy: { startsAt: 'asc' },
+      skip: 0,
+      take: 1,
+    });
+    expect(firstFindManyArgs().where).toHaveProperty('OR');
+  });
+
+  it('does not return draft tournaments when a non-public status is requested', async () => {
+    const result = await service.listPublicTournaments({
+      status: TournamentStatus.DRAFT,
+    });
+
+    expect(result.items).toHaveLength(0);
+    expect(firstFindManyArgs().where).toMatchObject({
+      visibility: TournamentVisibility.PUBLIC,
+      status: { in: [] },
+    });
+  });
+
   it('returns private organizer tournament details with publication readiness', async () => {
     const result = await service.getOrganizerTournamentDetails(
       'organizer-1',
@@ -1167,6 +1296,125 @@ describe('TournamentsService', () => {
     ]);
   });
 
+  it('publishes ready draft tournaments atomically', async () => {
+    const result = await service.publishOrganizerTournament(
+      'organizer-1',
+      'tournament-4',
+    );
+
+    expect(firstFindFirstArgs()).toMatchObject({
+      where: {
+        id: 'tournament-4',
+        organizerId: 'organizer-1',
+      },
+    });
+    expect(firstUpdateData()).toMatchObject({
+      status: TournamentStatus.PUBLISHED,
+    });
+    expect(result.status).toBe(TournamentStatus.PUBLISHED);
+    expect(result.publishedAt).toBeInstanceOf(Date);
+  });
+
+  it('rejects publishing non-draft or not-ready tournaments', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'tournament-5',
+        organizerId: 'organizer-1',
+        slug: 'not-ready-online-cup',
+        onlineConfiguration: null,
+      }),
+    );
+
+    await expect(
+      service.publishOrganizerTournament('organizer-1', 'tournament-2'),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      service.publishOrganizerTournament('organizer-1', 'tournament-5'),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+  });
+
+  it('opens and closes tournament registration atomically', async () => {
+    const opened = await service.openOrganizerTournamentRegistration(
+      'organizer-1',
+      'tournament-2',
+    );
+
+    expect(opened.status).toBe(TournamentStatus.REGISTRATION_OPEN);
+    expect(opened.registrationOpenedAt).toBeInstanceOf(Date);
+
+    const openTournament = createdTournaments.find(
+      (item) => item.id === 'tournament-2',
+    );
+
+    if (!openTournament) {
+      throw new Error('Expected tournament-2 to exist.');
+    }
+
+    openTournament.status = TournamentStatus.REGISTRATION_OPEN;
+
+    const closed = await service.closeOrganizerTournamentRegistration(
+      'organizer-1',
+      'tournament-2',
+    );
+
+    expect(closed.status).toBe(TournamentStatus.REGISTRATION_CLOSED);
+    expect(closed.registrationClosedAt).toBeInstanceOf(Date);
+  });
+
+  it('rejects invalid registration lifecycle transitions', async () => {
+    await expect(
+      service.openOrganizerTournamentRegistration(
+        'organizer-1',
+        'tournament-1',
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      service.closeOrganizerTournamentRegistration(
+        'organizer-1',
+        'tournament-2',
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('cancels cancellable tournaments with a reason', async () => {
+    const result = await service.cancelOrganizerTournament(
+      'organizer-1',
+      'tournament-2',
+      {
+        reason: 'Venue became unavailable.',
+      },
+    );
+
+    expect(result.status).toBe(TournamentStatus.CANCELLED);
+    expect(result.cancelledAt).toBeInstanceOf(Date);
+    expect(result.cancellationReason).toBe('Venue became unavailable.');
+  });
+
+  it('rejects cancelling terminal or foreign tournaments', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'tournament-5',
+        organizerId: 'organizer-1',
+        slug: 'completed-cup',
+        status: TournamentStatus.COMPLETED,
+      }),
+    );
+
+    await expect(
+      service.cancelOrganizerTournament('organizer-1', 'tournament-5', {
+        reason: 'Cannot cancel completed tournament.',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      service.cancelOrganizerTournament('organizer-1', 'tournament-3', {
+        reason: 'Foreign tournament.',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it('does not return details for tournaments owned by another organizer', async () => {
     await expect(
       service.getOrganizerTournamentDetails('organizer-1', 'tournament-3'),
@@ -1510,7 +1758,11 @@ const applyWhere = (
     if (isNotIdFilter(where.NOT) && tournament.id === where.NOT.id) {
       return false;
     }
-    if (where.status && tournament.status !== where.status) {
+    if (isEnumInFilter(where.status)) {
+      if (!where.status.in.includes(tournament.status)) {
+        return false;
+      }
+    } else if (where.status && tournament.status !== where.status) {
       return false;
     }
     if (where.mode && tournament.mode !== where.mode) {
@@ -1568,6 +1820,12 @@ const isNotIdFilter = (value: unknown): value is { id: string } =>
   value !== null &&
   'id' in value &&
   typeof value.id === 'string';
+
+const isEnumInFilter = (value: unknown): value is { in: unknown[] } =>
+  typeof value === 'object' &&
+  value !== null &&
+  'in' in value &&
+  Array.isArray(value.in);
 
 const expectValidationIssues = async (
   promise: Promise<unknown>,
