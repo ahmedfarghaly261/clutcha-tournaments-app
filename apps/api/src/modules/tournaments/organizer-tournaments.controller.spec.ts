@@ -4,6 +4,9 @@ import { ROLES_KEY } from '../auth/decorators/roles.decorator';
 import { OrganizerTournamentsController } from './organizer-tournaments.controller';
 
 jest.mock('@clutcha/database', () => ({
+  GamingRoomPurpose: {
+    COMPETITION: 'COMPETITION',
+  },
   UserRole: {
     ORGANIZER: 'ORGANIZER',
   },
@@ -75,5 +78,23 @@ describe('OrganizerTournamentsController', () => {
     expect(typeof OrganizerTournamentsController.prototype.upsertVenue).toBe(
       'function',
     );
+  });
+
+  it('exposes gaming-room CRUD handlers', () => {
+    expect(
+      typeof OrganizerTournamentsController.prototype.listGamingRooms,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype.createGamingRoom,
+    ).toBe('function');
+    expect(typeof OrganizerTournamentsController.prototype.getGamingRoom).toBe(
+      'function',
+    );
+    expect(
+      typeof OrganizerTournamentsController.prototype.updateGamingRoom,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype.deleteGamingRoom,
+    ).toBe('function');
   });
 });

@@ -30,11 +30,15 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
+import { CreateGamingRoomDto } from './dto/create-gaming-room.dto';
+import { GamingRoomListResponseDto } from './dto/gaming-room-list-response.dto';
+import { GamingRoomResponseDto } from './dto/gaming-room-response.dto';
 import { ListOrganizerTournamentsQueryDto } from './dto/list-organizer-tournaments-query.dto';
 import { OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
 import { OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
 import { OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
 import { TournamentResponseDto } from './dto/tournament-response.dto';
+import { UpdateGamingRoomDto } from './dto/update-gaming-room.dto';
 import { UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
 import { UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.dto';
 import { UpsertVenueDto } from './dto/upsert-venue.dto';
@@ -326,6 +330,186 @@ export class OrganizerTournamentsController {
     @Body() dto: UpsertVenueDto,
   ): Promise<VenueResponseDto> {
     return this.tournamentsService.upsertVenue(user.id, tournamentId, dto);
+  }
+
+  @Get(':tournamentId/gaming-rooms')
+  @ApiOperation({
+    summary: 'List gaming rooms',
+    description:
+      'Returns gaming rooms and hardware/device specifications for an organizer-owned ONSITE tournament.',
+  })
+  @ApiOkResponse({
+    description: 'Gaming rooms returned.',
+    type: GamingRoomListResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id is not a valid UUID.',
+  })
+  @ApiConflictResponse({
+    description: 'Gaming rooms are only available for ONSITE tournaments.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament or venue does not exist, or the tournament is not owned by the authenticated organizer.',
+  })
+  async listGamingRooms(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+  ): Promise<GamingRoomListResponseDto> {
+    return this.tournamentsService.listGamingRooms(user.id, tournamentId);
+  }
+
+  @Post(':tournamentId/gaming-rooms')
+  @ApiOperation({
+    summary: 'Create gaming room',
+    description:
+      'Creates a gaming room with PC, monitor, peripheral, and station specifications for an organizer-owned ONSITE tournament.',
+  })
+  @ApiCreatedResponse({
+    description: 'Gaming room created.',
+    type: GamingRoomResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id or gaming-room payload is invalid.',
+  })
+  @ApiConflictResponse({
+    description: 'Gaming rooms are only available for ONSITE tournaments.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament or venue does not exist, or the tournament is not owned by the authenticated organizer.',
+  })
+  async createGamingRoom(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Body() dto: CreateGamingRoomDto,
+  ): Promise<GamingRoomResponseDto> {
+    return this.tournamentsService.createGamingRoom(user.id, tournamentId, dto);
+  }
+
+  @Get(':tournamentId/gaming-rooms/:gamingRoomId')
+  @ApiOperation({
+    summary: 'Get gaming room details',
+    description:
+      'Returns one gaming room with PC, monitor, peripheral, and station specifications.',
+  })
+  @ApiOkResponse({
+    description: 'Gaming room returned.',
+    type: GamingRoomResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id or gaming-room id is not a valid UUID.',
+  })
+  @ApiConflictResponse({
+    description: 'Gaming rooms are only available for ONSITE tournaments.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament, venue, or gaming room does not exist, or is not owned by the authenticated organizer.',
+  })
+  async getGamingRoom(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Param('gamingRoomId', new ParseUUIDPipe()) gamingRoomId: string,
+  ): Promise<GamingRoomResponseDto> {
+    return this.tournamentsService.getGamingRoom(
+      user.id,
+      tournamentId,
+      gamingRoomId,
+    );
+  }
+
+  @Patch(':tournamentId/gaming-rooms/:gamingRoomId')
+  @ApiOperation({
+    summary: 'Update gaming room',
+    description:
+      'Updates a gaming room with PC, monitor, peripheral, and station specifications.',
+  })
+  @ApiOkResponse({
+    description: 'Gaming room updated.',
+    type: GamingRoomResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id, gaming-room id, or payload is invalid.',
+  })
+  @ApiConflictResponse({
+    description: 'Gaming rooms are only available for ONSITE tournaments.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament, venue, or gaming room does not exist, or is not owned by the authenticated organizer.',
+  })
+  async updateGamingRoom(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Param('gamingRoomId', new ParseUUIDPipe()) gamingRoomId: string,
+    @Body() dto: UpdateGamingRoomDto,
+  ): Promise<GamingRoomResponseDto> {
+    return this.tournamentsService.updateGamingRoom(
+      user.id,
+      tournamentId,
+      gamingRoomId,
+      dto,
+    );
+  }
+
+  @Delete(':tournamentId/gaming-rooms/:gamingRoomId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete gaming room',
+    description:
+      'Deletes one gaming room from an organizer-owned ONSITE tournament.',
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id or gaming-room id is not a valid UUID.',
+  })
+  @ApiConflictResponse({
+    description: 'Gaming rooms are only available for ONSITE tournaments.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament, venue, or gaming room does not exist, or is not owned by the authenticated organizer.',
+  })
+  async deleteGamingRoom(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Param('gamingRoomId', new ParseUUIDPipe()) gamingRoomId: string,
+  ): Promise<void> {
+    await this.tournamentsService.deleteGamingRoom(
+      user.id,
+      tournamentId,
+      gamingRoomId,
+    );
   }
 
   @Post()
