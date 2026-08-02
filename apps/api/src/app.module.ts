@@ -10,6 +10,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { OrganizersModule } from './modules/organizers/organizers.module';
+import { TournamentsModule } from './modules/tournaments/tournaments.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { OrganizersModule } from './modules/organizers/organizers.module';
     DatabaseModule,
     AuthModule,
     OrganizersModule,
+    TournamentsModule,
   ],
   controllers: [AppController],
   providers: [
