@@ -47,6 +47,53 @@ enum EligibilityStatus {
   PENDING_REVIEW
 }
 
+enum TournamentMode {
+  ONLINE
+  ONSITE
+}
+
+enum TournamentVisibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+enum TournamentStatus {
+  DRAFT
+  PUBLISHED
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  CHECK_IN_OPEN
+  IN_PROGRESS
+  COMPLETED
+  POSTPONED
+  CANCELLED
+  ARCHIVED
+}
+
+enum TournamentFormat {
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+  ROUND_ROBIN
+  GROUPS_THEN_PLAYOFFS
+  SWISS
+  BATTLE_ROYALE
+}
+
+enum TournamentSeedingMethod {
+  MANUAL
+  RANDOM
+  RANKED
+}
+
+enum GamingRoomPurpose {
+  COMPETITION
+  PRACTICE
+  WARMUP
+  FINAL_STAGE
+  BACKUP
+}
+
 model User {
   id           String     @id @default(uuid())
   email        String     @unique
@@ -58,9 +105,10 @@ model User {
   emailVerifiedAt DateTime?
   lastLoginAt     DateTime?
 
-  captainTeams     Team[]            @relation("TeamCaptain")
-  authSessions     AuthSession[]
-  organizerProfile OrganizerProfile?
+  captainTeams         Team[]            @relation("TeamCaptain")
+  authSessions         AuthSession[]
+  organizerProfile     OrganizerProfile?
+  organizedTournaments Tournament[]      @relation("TournamentOrganizer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -160,4 +208,189 @@ model OrganizerProfile {
   updatedAt DateTime @updatedAt
 
   @@map("organizer_profiles")
+}
+
+model Tournament {
+  id               String               @id @default(uuid())
+  organizerId      String
+  name             String
+  slug             String               @unique
+  shortDescription String?
+  description      String?
+  logoUrl          String?
+  coverUrl         String?
+  gameKey          String
+  mode             TournamentMode
+  visibility       TournamentVisibility @default(PUBLIC)
+  status           TournamentStatus     @default(DRAFT)
+  format           TournamentFormat
+
+  minimumTeams       Int
+  maximumTeams       Int
+  minimumStarters    Int
+  maximumStarters    Int
+  maximumSubstitutes Int @default(0)
+
+  defaultBestOf   Int                     @default(1)
+  finalBestOf     Int                     @default(3)
+  seedingMethod   TournamentSeedingMethod @default(MANUAL)
+  thirdPlaceMatch Boolean                 @default(false)
+
+  requiredGameAccountId Boolean  @default(true)
+  allowedRegion         String?
+  allowedCountries      String[]
+  allowedPlatforms      String[]
+  minimumPlayerAge      Int?
+  minimumRank           String?
+  maximumRank           String?
+
+  registrationFee    Decimal @default(0) @db.Decimal(12, 2)
+  currency           String  @default("EGP")
+  prizePool          Decimal @default(0) @db.Decimal(12, 2)
+  prizeDistribution  Json?
+  refundPolicy       String?
+  cancellationPolicy String?
+
+  rules                  String
+  rulesVersion           String  @default("1.0")
+  rosterChangeRules      String?
+  checkInRules           String?
+  matchReportingRules    String?
+  evidenceRequirements   String?
+  disputeDeadlineMinutes Int?
+  forfeitRules           String?
+  codeOfConduct          String?
+
+  registrationOpensAt  DateTime
+  registrationClosesAt DateTime
+  rosterLocksAt        DateTime?
+  checkInOpensAt       DateTime?
+  checkInClosesAt      DateTime?
+  startsAt             DateTime
+  endsAt               DateTime?
+  timezone             String    @default("Africa/Cairo")
+
+  waitlistEnabled        Boolean @default(false)
+  maximumWaitlistSize    Int?
+  manualApprovalRequired Boolean @default(true)
+
+  publishedAt          DateTime?
+  registrationOpenedAt DateTime?
+  registrationClosedAt DateTime?
+  cancelledAt          DateTime?
+  cancellationReason   String?
+
+  organizer User @relation("TournamentOrganizer", fields: [organizerId], references: [id], onDelete: Restrict)
+
+  onlineConfiguration TournamentOnlineConfiguration?
+  venue               TournamentVenue?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizerId])
+  @@index([status])
+  @@index([gameKey])
+  @@index([mode])
+  @@index([visibility])
+  @@index([startsAt])
+  @@index([registrationClosesAt])
+  @@map("tournaments")
+}
+
+model TournamentOnlineConfiguration {
+  id           String @id @default(uuid())
+  tournamentId String @unique
+
+  serverRegion                    String
+  publicInstructions              String?
+  connectionRules                 String?
+  evidenceRequired                Boolean @default(false)
+  screenshotRequirements          String?
+  resultSubmissionDeadlineMinutes Int?
+
+  discordServerUrl      String?
+  captainSupportChannel String?
+  matchReportingChannel String?
+  lobbyInstructions     String?
+  privateSupportContact String?
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tournament_online_configurations")
+}
+
+model TournamentVenue {
+  id               String  @id @default(uuid())
+  tournamentId     String  @unique
+  name             String
+  country          String
+  city             String
+  address          String
+  mapUrl           String?
+  checkInLocation  String
+  parkingInfo      String?
+  spectatorPolicy  String?
+  venueRules       String?
+  emergencyContact String?
+
+  equipmentProvided Json?
+  playersMayBring   Json?
+  playersMustBring  Json?
+
+  personalPeripheralsAllowed Boolean @default(false)
+  controllersAllowed         Boolean @default(false)
+  usbDevicesAllowed          Boolean @default(false)
+  driverInstallationAllowed  Boolean @default(false)
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  gamingRooms TournamentGamingRoom[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tournament_venues")
+}
+
+model TournamentGamingRoom {
+  id           String            @id @default(uuid())
+  venueId      String
+  name         String
+  description  String?
+  purpose      GamingRoomPurpose
+  stationCount Int
+
+  cpu             String
+  gpu             String
+  ram             String?
+  storage         String?
+  operatingSystem String?
+
+  monitorBrand          String?
+  monitorModel          String
+  monitorSizeInches     Decimal? @db.Decimal(4, 1)
+  monitorResolution     String?
+  monitorRefreshRateHz  Int
+  monitorResponseTimeMs Decimal? @db.Decimal(4, 1)
+
+  mouse      String
+  keyboard   String
+  headset    String
+  mousePad   String?
+  controller String?
+
+  internetConnection String?
+  equipmentNotes     String?
+
+  venue TournamentVenue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([venueId])
+  @@map("tournament_gaming_rooms")
 }
