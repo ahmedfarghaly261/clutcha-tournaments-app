@@ -42,4 +42,11 @@ describe('OrganizerTournamentsController', () => {
       typeof OrganizerTournamentsController.prototype.listOrganizerTournaments,
     ).toBe('function');
   });
+
+  it('exposes a getOrganizerTournamentDetails handler', () => {
+    expect(
+      typeof OrganizerTournamentsController.prototype
+        .getOrganizerTournamentDetails,
+    ).toBe('function');
+  });
 });
