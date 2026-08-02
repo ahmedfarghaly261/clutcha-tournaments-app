@@ -7,6 +7,12 @@ import {
 } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
 import { type CreateTournamentDto } from './dto/create-tournament.dto';
+import {
+  type ListOrganizerTournamentsQueryDto,
+  OrganizerTournamentSortBy,
+  SortDirection,
+} from './dto/list-organizer-tournaments-query.dto';
+import { type OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
 import { type TournamentResponseDto } from './dto/tournament-response.dto';
 import { toTournamentResponse } from './mappers/tournament.mapper';
 
@@ -83,6 +89,40 @@ const tournamentSelect = {
 @Injectable()
 export class TournamentsService {
   constructor(private readonly databaseService: DatabaseService) {}
+
+  async listOrganizerTournaments(
+    organizerId: string,
+    query: ListOrganizerTournamentsQueryDto,
+  ): Promise<OrganizerTournamentListResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = this.toOrganizerTournamentWhere(organizerId, query);
+    const orderBy = this.toOrganizerTournamentOrderBy(query);
+
+    const [items, totalItems] = await this.databaseService.client.$transaction([
+      this.databaseService.client.tournament.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+        select: tournamentSelect,
+      }),
+      this.databaseService.client.tournament.count({ where }),
+    ]);
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      items: items.map((item) => toTournamentResponse(item)),
+      meta: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
 
   async createOrganizerDraft(
     organizerId: string,
@@ -261,6 +301,53 @@ export class TournamentsService {
         issues,
       });
     }
+  }
+
+  private toOrganizerTournamentWhere(
+    organizerId: string,
+    query: ListOrganizerTournamentsQueryDto,
+  ): Prisma.TournamentWhereInput {
+    const where: Prisma.TournamentWhereInput = {
+      organizerId,
+    };
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.mode) {
+      where.mode = query.mode;
+    }
+
+    if (query.visibility) {
+      where.visibility = query.visibility;
+    }
+
+    if (query.gameKey) {
+      where.gameKey = query.gameKey;
+    }
+
+    if (query.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { slug: { contains: query.search, mode: 'insensitive' } },
+        { shortDescription: { contains: query.search, mode: 'insensitive' } },
+        { gameKey: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    return where;
+  }
+
+  private toOrganizerTournamentOrderBy(
+    query: ListOrganizerTournamentsQueryDto,
+  ): Prisma.TournamentOrderByWithRelationInput {
+    const sortBy = query.sortBy ?? OrganizerTournamentSortBy.CREATED_AT;
+    const sortDirection = query.sortDirection ?? SortDirection.DESC;
+
+    return {
+      [sortBy]: sortDirection,
+    };
   }
 
   private async generateUniqueSlug(
