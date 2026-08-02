@@ -779,6 +779,148 @@ describe('TournamentsService', () => {
     });
   });
 
+  it('returns public online tournament details without private online fields', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'tournament-5',
+        name: 'Public Online Detail Cup',
+        slug: 'public-online-detail-cup',
+        status: TournamentStatus.PUBLISHED,
+        onlineConfiguration: createOnlineConfigurationRecord({
+          tournamentId: 'tournament-5',
+          discordServerUrl: 'https://discord.gg/private',
+          lobbyInstructions: 'Private lobby credentials.',
+          privateSupportContact: 'private support',
+        }),
+      }),
+    );
+
+    const result = await service.getPublicTournamentDetails(
+      'public-online-detail-cup',
+    );
+
+    expect(firstFindFirstArgs()).toMatchObject({
+      where: {
+        slug: 'public-online-detail-cup',
+        visibility: TournamentVisibility.PUBLIC,
+      },
+    });
+    expect(result.slug).toBe('public-online-detail-cup');
+    expect(result.onlineConfiguration).toEqual({
+      serverRegion: 'EU West',
+      publicInstructions: 'Join the lobby 15 minutes before match time.',
+      connectionRules: 'Use the assigned lobby.',
+      evidenceRequired: true,
+      screenshotRequirements: 'Upload final scoreboard screenshots.',
+      resultSubmissionDeadlineMinutes: 30,
+    });
+    expect(result.venue).toBeNull();
+    expect(result).not.toHaveProperty('organizerId');
+    expect(result.onlineConfiguration).not.toHaveProperty('discordServerUrl');
+    expect(result.onlineConfiguration).not.toHaveProperty('lobbyInstructions');
+    expect(result.onlineConfiguration).not.toHaveProperty(
+      'privateSupportContact',
+    );
+  });
+
+  it('returns public on-site tournament details with venue and gaming-room hardware only', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'tournament-5',
+        name: 'Public On-site Detail Cup',
+        slug: 'public-onsite-detail-cup',
+        status: TournamentStatus.PUBLISHED,
+        mode: TournamentMode.ONSITE,
+        venue: createVenueRecord({
+          id: 'venue-public-detail',
+          tournamentId: 'tournament-5',
+          emergencyContact: 'private emergency phone',
+          gamingRooms: [
+            createGamingRoomRecord({
+              id: 'gaming-room-public-detail',
+              venueId: 'venue-public-detail',
+              equipmentNotes: 'Internal station account password.',
+            }),
+          ],
+        }),
+      }),
+    );
+
+    const result = await service.getPublicTournamentDetails(
+      'public-onsite-detail-cup',
+    );
+
+    expect(result.mode).toBe(TournamentMode.ONSITE);
+    expect(result.onlineConfiguration).toBeNull();
+    expect(result.venue?.location).toEqual({
+      name: 'CLUTCHA Arena Cairo',
+      country: 'EG',
+      city: 'Cairo',
+      address: '90 Street, New Cairo',
+      mapUrl: 'https://maps.example.com/clutcha-arena',
+      checkInLocation: 'Main reception',
+    });
+    expect(result.venue?.policy).toEqual({
+      parkingInfo: 'Underground parking is available.',
+      spectatorPolicy: 'Spectators must register at reception.',
+      venueRules: 'No food near gaming stations.',
+    });
+    expect(result.venue).not.toHaveProperty('emergencyContact');
+    expect(result.venue?.gamingRooms).toHaveLength(1);
+    expect(result.venue?.gamingRooms[0]).toMatchObject({
+      id: 'gaming-room-public-detail',
+      stationCount: 20,
+      pcSpecs: {
+        cpu: 'Intel Core i7-14700K',
+        gpu: 'NVIDIA RTX 4070 Super',
+        ram: '32GB DDR5',
+        storage: '1TB NVMe SSD',
+        operatingSystem: 'Windows 11 Pro',
+      },
+      monitor: {
+        model: 'XL2546K',
+        refreshRateHz: 240,
+      },
+      peripherals: {
+        mouse: 'Logitech G Pro X Superlight',
+        keyboard: 'Wooting 60HE',
+        headset: 'HyperX Cloud II',
+      },
+    });
+    expect(result.venue?.gamingRooms[0]).not.toHaveProperty('equipmentNotes');
+    expect(result.venue?.gamingRooms[0]).not.toHaveProperty(
+      'internetConnection',
+    );
+  });
+
+  it('does not return non-public public tournament details', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'tournament-5',
+        slug: 'private-detail-cup',
+        status: TournamentStatus.PUBLISHED,
+        visibility: TournamentVisibility.PRIVATE,
+      }),
+      createTournamentRecord({
+        id: 'tournament-6',
+        slug: 'cancelled-detail-cup',
+        status: TournamentStatus.CANCELLED,
+      }),
+    );
+
+    await expect(
+      service.getPublicTournamentDetails('alpha-valorant-cup'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    await expect(
+      service.getPublicTournamentDetails('private-detail-cup'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    await expect(
+      service.getPublicTournamentDetails('cancelled-detail-cup'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it('returns private organizer tournament details with publication readiness', async () => {
     const result = await service.getOrganizerTournamentDetails(
       'organizer-1',

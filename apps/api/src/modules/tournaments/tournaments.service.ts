@@ -29,6 +29,7 @@ import {
 import { type OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
 import { type OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
 import { type OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
+import { type PublicTournamentDetailResponseDto } from './dto/public-tournament-detail-response.dto';
 import { type PublicTournamentListResponseDto } from './dto/public-tournament-list-response.dto';
 import { type TournamentResponseDto } from './dto/tournament-response.dto';
 import { type UpdateGamingRoomDto } from './dto/update-gaming-room.dto';
@@ -38,6 +39,7 @@ import { type UpsertVenueDto } from './dto/upsert-venue.dto';
 import { type VenueResponseDto } from './dto/venue-response.dto';
 import { toGamingRoomResponse } from './mappers/gaming-room.mapper';
 import { toOnlineConfigurationResponse } from './mappers/online-configuration.mapper';
+import { toPublicTournamentDetailResponse } from './mappers/public-tournament-detail.mapper';
 import { toPublicTournamentSummaryResponse } from './mappers/public-tournament.mapper';
 import { toTournamentResponse } from './mappers/tournament.mapper';
 import { toVenueResponse } from './mappers/venue.mapper';
@@ -199,6 +201,99 @@ const publicTournamentSelect = {
   updatedAt: true,
 } satisfies Prisma.TournamentSelect;
 
+const publicTournamentDetailSelect = {
+  ...publicTournamentSelect,
+  description: true,
+  maximumSubstitutes: true,
+  defaultBestOf: true,
+  finalBestOf: true,
+  seedingMethod: true,
+  thirdPlaceMatch: true,
+  requiredGameAccountId: true,
+  allowedRegion: true,
+  allowedCountries: true,
+  allowedPlatforms: true,
+  minimumPlayerAge: true,
+  minimumRank: true,
+  maximumRank: true,
+  prizeDistribution: true,
+  refundPolicy: true,
+  cancellationPolicy: true,
+  rules: true,
+  rulesVersion: true,
+  rosterChangeRules: true,
+  checkInRules: true,
+  matchReportingRules: true,
+  evidenceRequirements: true,
+  disputeDeadlineMinutes: true,
+  forfeitRules: true,
+  codeOfConduct: true,
+  registrationOpensAt: true,
+  rosterLocksAt: true,
+  checkInOpensAt: true,
+  checkInClosesAt: true,
+  maximumWaitlistSize: true,
+  registrationClosedAt: true,
+  onlineConfiguration: {
+    select: {
+      serverRegion: true,
+      publicInstructions: true,
+      connectionRules: true,
+      evidenceRequired: true,
+      screenshotRequirements: true,
+      resultSubmissionDeadlineMinutes: true,
+    },
+  },
+  venue: {
+    select: {
+      name: true,
+      country: true,
+      city: true,
+      address: true,
+      mapUrl: true,
+      checkInLocation: true,
+      parkingInfo: true,
+      spectatorPolicy: true,
+      venueRules: true,
+      equipmentProvided: true,
+      playersMayBring: true,
+      playersMustBring: true,
+      personalPeripheralsAllowed: true,
+      controllersAllowed: true,
+      usbDevicesAllowed: true,
+      driverInstallationAllowed: true,
+      gamingRooms: {
+        orderBy: {
+          createdAt: 'asc',
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          purpose: true,
+          stationCount: true,
+          cpu: true,
+          gpu: true,
+          ram: true,
+          storage: true,
+          operatingSystem: true,
+          monitorBrand: true,
+          monitorModel: true,
+          monitorSizeInches: true,
+          monitorResolution: true,
+          monitorRefreshRateHz: true,
+          monitorResponseTimeMs: true,
+          mouse: true,
+          keyboard: true,
+          headset: true,
+          mousePad: true,
+          controller: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.TournamentSelect;
+
 const publicTournamentStatuses: TournamentStatus[] = [
   TournamentStatus.PUBLISHED,
   TournamentStatus.REGISTRATION_OPEN,
@@ -315,6 +410,25 @@ export class TournamentsService {
         hasPreviousPage: page > 1,
       },
     };
+  }
+
+  async getPublicTournamentDetails(
+    slug: string,
+  ): Promise<PublicTournamentDetailResponseDto> {
+    const tournament = await this.databaseService.client.tournament.findFirst({
+      where: {
+        slug,
+        visibility: TournamentVisibility.PUBLIC,
+        status: { in: [...publicTournamentStatuses] },
+      },
+      select: publicTournamentDetailSelect,
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament was not found');
+    }
+
+    return toPublicTournamentDetailResponse(tournament);
   }
 
   async publishOrganizerTournament(
