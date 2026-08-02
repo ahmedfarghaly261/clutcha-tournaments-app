@@ -21,6 +21,10 @@ jest.mock('@clutcha/database', () => ({
   },
   TournamentStatus: {
     DRAFT: 'DRAFT',
+    PUBLISHED: 'PUBLISHED',
+    REGISTRATION_OPEN: 'REGISTRATION_OPEN',
+    REGISTRATION_CLOSED: 'REGISTRATION_CLOSED',
+    CANCELLED: 'CANCELLED',
   },
   TournamentVisibility: {
     PUBLIC: 'PUBLIC',
@@ -95,6 +99,21 @@ describe('OrganizerTournamentsController', () => {
     ).toBe('function');
     expect(
       typeof OrganizerTournamentsController.prototype.deleteGamingRoom,
+    ).toBe('function');
+  });
+
+  it('exposes lifecycle action handlers', () => {
+    expect(
+      typeof OrganizerTournamentsController.prototype.publishTournament,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype.openRegistration,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype.closeRegistration,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype.cancelTournament,
     ).toBe('function');
   });
 });

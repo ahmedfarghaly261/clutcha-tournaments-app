@@ -29,6 +29,7 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
+import { CancelTournamentDto } from './dto/cancel-tournament.dto';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { CreateGamingRoomDto } from './dto/create-gaming-room.dto';
 import { GamingRoomListResponseDto } from './dto/gaming-room-list-response.dto';
@@ -183,6 +184,156 @@ export class OrganizerTournamentsController {
     await this.tournamentsService.deleteOrganizerTournamentDraft(
       user.id,
       tournamentId,
+    );
+  }
+
+  @Post(':tournamentId/publish')
+  @ApiOperation({
+    summary: 'Publish tournament',
+    description:
+      'Publishes an organizer-owned draft tournament after publication validation passes.',
+  })
+  @ApiOkResponse({
+    description: 'Tournament published.',
+    type: TournamentResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id is not a valid UUID.',
+  })
+  @ApiConflictResponse({
+    description: 'Only draft tournaments can be published.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'The tournament is missing publication requirements and cannot be published.',
+  })
+  async publishTournament(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+  ): Promise<TournamentResponseDto> {
+    return this.tournamentsService.publishOrganizerTournament(
+      user.id,
+      tournamentId,
+    );
+  }
+
+  @Post(':tournamentId/open-registration')
+  @ApiOperation({
+    summary: 'Open tournament registration',
+    description:
+      'Moves an organizer-owned published tournament into REGISTRATION_OPEN status.',
+  })
+  @ApiOkResponse({
+    description: 'Tournament registration opened.',
+    type: TournamentResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id is not a valid UUID.',
+  })
+  @ApiConflictResponse({
+    description: 'Only published tournaments can open registration.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  async openRegistration(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+  ): Promise<TournamentResponseDto> {
+    return this.tournamentsService.openOrganizerTournamentRegistration(
+      user.id,
+      tournamentId,
+    );
+  }
+
+  @Post(':tournamentId/close-registration')
+  @ApiOperation({
+    summary: 'Close tournament registration',
+    description:
+      'Moves an organizer-owned registration-open tournament into REGISTRATION_CLOSED status.',
+  })
+  @ApiOkResponse({
+    description: 'Tournament registration closed.',
+    type: TournamentResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id is not a valid UUID.',
+  })
+  @ApiConflictResponse({
+    description: 'Only registration-open tournaments can close registration.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  async closeRegistration(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+  ): Promise<TournamentResponseDto> {
+    return this.tournamentsService.closeOrganizerTournamentRegistration(
+      user.id,
+      tournamentId,
+    );
+  }
+
+  @Post(':tournamentId/cancel')
+  @ApiOperation({
+    summary: 'Cancel tournament',
+    description:
+      'Cancels an organizer-owned tournament that has not reached a terminal lifecycle status.',
+  })
+  @ApiOkResponse({
+    description: 'Tournament cancelled.',
+    type: TournamentResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id or cancellation payload is invalid.',
+  })
+  @ApiConflictResponse({
+    description: 'The tournament cannot be cancelled from its current status.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  async cancelTournament(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Body() dto: CancelTournamentDto,
+  ): Promise<TournamentResponseDto> {
+    return this.tournamentsService.cancelOrganizerTournament(
+      user.id,
+      tournamentId,
+      dto,
     );
   }
 
