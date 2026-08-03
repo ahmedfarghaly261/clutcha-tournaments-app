@@ -108,7 +108,7 @@ model User {
   emailVerifiedAt DateTime?
   lastLoginAt     DateTime?
 
-  captainTeams         Team[]            @relation("TeamCaptain")
+  captainTeam          Team?             @relation("TeamCaptain")
   authSessions         AuthSession[]
   organizerProfile     OrganizerProfile?
   organizedTournaments Tournament[]      @relation("TournamentOrganizer")
@@ -122,13 +122,16 @@ model User {
 }
 
 model Team {
-  id      String     @id @default(uuid())
-  name    String
-  slug    String     @unique
-  logoUrl String?
-  region  String?
-  gameKey String
-  status  TeamStatus @default(ACTIVE)
+  id               String     @id @default(uuid())
+  name             String
+  slug             String     @unique
+  description      String?
+  gameKey          String
+  region           String?
+  logoUrl          String?
+  coverUrl         String?
+  discordServerUrl String?
+  status           TeamStatus @default(ACTIVE)
 
   captainId String
   captain   User   @relation("TeamCaptain", fields: [captainId], references: [id], onDelete: Restrict)
@@ -138,7 +141,7 @@ model Team {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([captainId])
+  @@unique([captainId])
   @@index([gameKey])
   @@map("teams")
 }
