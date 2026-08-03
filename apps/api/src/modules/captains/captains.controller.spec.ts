@@ -30,5 +30,6 @@ describe('CaptainsController', () => {
   it('exposes team ownership handlers', () => {
     expect(typeof CaptainsController.prototype.createTeam).toBe('function');
     expect(typeof CaptainsController.prototype.getTeam).toBe('function');
+    expect(typeof CaptainsController.prototype.updateTeam).toBe('function');
   });
 });

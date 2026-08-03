@@ -18,6 +18,7 @@ import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
 import { CaptainTeamResponseDto } from './dto/captain-team-response.dto';
 import { CreateCaptainTeamDto } from './dto/create-captain-team.dto';
 import { CaptainProfileResponseDto } from './dto/captain-profile-response.dto';
+import { UpdateCaptainTeamDto } from './dto/update-captain-team.dto';
 import { UpdateCaptainProfileDto } from './dto/update-captain-profile.dto';
 import { CaptainsService } from './captains.service';
 
@@ -130,5 +131,39 @@ export class CaptainsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CaptainTeamResponseDto> {
     return this.captainsService.getTeam(user.id);
+  }
+
+  @Patch('team')
+  @ApiTags('Captain Team')
+  @ApiOperation({
+    summary: 'Update the authenticated Captain team',
+    description:
+      "Updates the single team owned by the authenticated Captain. teamId and captainId are never accepted in the body, ownership cannot be transferred, and the team Discord server URL must be HTTPS when provided. Captain personal Discord username remains separate from the team's Discord server URL.",
+  })
+  @ApiOkResponse({
+    description: 'Captain team updated.',
+    type: CaptainTeamResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The team update payload is invalid.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not a Captain.',
+  })
+  @ApiNotFoundResponse({
+    description: 'The authenticated Captain has not created a team.',
+  })
+  @ApiConflictResponse({
+    description:
+      'The update conflicts with active tournament participation once registration records exist.',
+  })
+  async updateTeam(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateCaptainTeamDto,
+  ): Promise<CaptainTeamResponseDto> {
+    return this.captainsService.updateTeam(user.id, dto);
   }
 }
