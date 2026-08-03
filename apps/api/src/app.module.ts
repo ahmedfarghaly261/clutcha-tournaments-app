@@ -7,6 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CaptainsModule } from './modules/captains/captains.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { OrganizersModule } from './modules/organizers/organizers.module';
@@ -56,6 +57,7 @@ import { TournamentsModule } from './modules/tournaments/tournaments.module';
     ]),
     DatabaseModule,
     AuthModule,
+    CaptainsModule,
     OrganizersModule,
     TournamentsModule,
   ],
