@@ -6,6 +6,7 @@ import {
 import { Prisma, TeamStatus, UserRole } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
 import { type CreateCaptainTeamDto } from './dto/create-captain-team.dto';
+import { type UpdateCaptainTeamDto } from './dto/update-captain-team.dto';
 import { type UpdateCaptainProfileDto } from './dto/update-captain-profile.dto';
 import { toCaptainTeamResponse } from './mappers/captain-team.mapper';
 import { toCaptainProfileResponse } from './mappers/captain-profile.mapper';
@@ -40,6 +41,17 @@ const captainTeamSelect = {
 type CaptainProfileMutableData = Pick<
   Prisma.UserUpdateInput,
   'displayName' | 'phoneNumber' | 'discordUsername'
+>;
+
+type CaptainTeamMutableData = Pick<
+  Prisma.TeamUpdateInput,
+  | 'name'
+  | 'description'
+  | 'gameKey'
+  | 'region'
+  | 'logoUrl'
+  | 'coverUrl'
+  | 'discordServerUrl'
 >;
 
 type TeamSlugTransaction = Pick<Prisma.TransactionClient, 'team'>;
@@ -144,6 +156,34 @@ export class CaptainsService {
     throw new ConflictException('Could not generate a unique team slug');
   }
 
+  async updateTeam(userId: string, dto: UpdateCaptainTeamDto) {
+    await this.findCaptainOrThrow(userId);
+
+    const existingTeam = await this.databaseService.client.team.findUnique({
+      where: { captainId: userId },
+      select: {
+        id: true,
+        gameKey: true,
+      },
+    });
+
+    if (!existingTeam) {
+      throw new NotFoundException('Captain team was not found');
+    }
+
+    if (dto.gameKey && dto.gameKey !== existingTeam.gameKey) {
+      this.assertTeamGameChangeIsAllowed();
+    }
+
+    const team = await this.databaseService.client.team.update({
+      where: { captainId: userId },
+      data: this.toTeamUpdateData(dto),
+      select: captainTeamSelect,
+    });
+
+    return toCaptainTeamResponse(team);
+  }
+
   async updateProfile(userId: string, dto: UpdateCaptainProfileDto) {
     await this.findCaptainOrThrow(userId);
 
@@ -180,6 +220,27 @@ export class CaptainsService {
       phoneNumber: dto.phoneNumber,
       discordUsername: dto.discordUsername,
     };
+  }
+
+  private toTeamUpdateData(dto: UpdateCaptainTeamDto): CaptainTeamMutableData {
+    return {
+      name: dto.name,
+      description: dto.description,
+      gameKey: dto.gameKey,
+      region: dto.region,
+      logoUrl: dto.logoUrl,
+      coverUrl: dto.coverUrl,
+      discordServerUrl: dto.discordServerUrl,
+    };
+  }
+
+  private assertTeamGameChangeIsAllowed(): void {
+    /*
+     * Tournament-registration records do not exist yet in this milestone.
+     * Once registration persistence is introduced, this method should query
+     * active registrations for the authenticated Captain's team and throw
+     * ConflictException when changing gameKey would invalidate participation.
+     */
   }
 
   private async generateUniqueTeamSlug(

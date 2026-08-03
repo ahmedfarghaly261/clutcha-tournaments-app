@@ -5,6 +5,7 @@ import { validate } from 'class-validator';
 import { Prisma, TeamStatus, UserRole, UserStatus } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
 import { CaptainsService } from './captains.service';
+import { UpdateCaptainTeamDto } from './dto/update-captain-team.dto';
 import { UpdateCaptainProfileDto } from './dto/update-captain-profile.dto';
 
 jest.mock('@clutcha/database', () => {
@@ -110,6 +111,22 @@ type TeamCreateArgs = {
   };
 };
 
+type TeamUpdateArgs = {
+  where: {
+    captainId: string;
+  };
+  data: Partial<{
+    name: string;
+    description: string | null;
+    gameKey: string;
+    region: string | null;
+    logoUrl: string | null;
+    coverUrl: string | null;
+    discordServerUrl: string | null;
+    captainId: string;
+  }>;
+};
+
 type TeamTransactionClient = {
   team: {
     findUnique: (
@@ -153,6 +170,7 @@ describe('CaptainsService', () => {
     [TeamFindUniqueArgs]
   >;
   let teamCreate: jest.Mock<Promise<CaptainTeamRecord>, [TeamCreateArgs]>;
+  let teamUpdate: jest.Mock<Promise<CaptainTeamRecord>, [TeamUpdateArgs]>;
 
   beforeEach(async () => {
     users = [
@@ -239,6 +257,21 @@ describe('CaptainsService', () => {
 
       return Promise.resolve(team);
     });
+    teamUpdate = jest.fn((args: TeamUpdateArgs) => {
+      const team = teams.find(
+        (item) => item.captainId === args.where.captainId,
+      );
+
+      if (!team) {
+        throw new Error('Team not found in fake database.');
+      }
+
+      Object.assign(team, args.data, {
+        updatedAt: new Date('2026-08-03T13:00:00.000Z'),
+      });
+
+      return Promise.resolve(team);
+    });
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -262,6 +295,7 @@ describe('CaptainsService', () => {
               team: {
                 findUnique: teamFindUnique,
                 create: teamCreate,
+                update: teamUpdate,
               },
             },
           },
@@ -442,6 +476,90 @@ describe('CaptainsService', () => {
         gameKey: 'valorant',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('updates the authenticated Captain team profile', async () => {
+    teams.push(createTeamRecord({ captainId: 'captain-1' }));
+
+    const result = await service.updateTeam('captain-1', {
+      name: 'Updated Cairo Titans',
+      description: 'Updated private team profile',
+      gameKey: 'valorant',
+      region: 'EG',
+      logoUrl: 'https://cdn.clutcha.gg/updated-logo.png',
+      coverUrl: 'https://cdn.clutcha.gg/updated-cover.png',
+      discordServerUrl: 'https://discord.gg/updated-cairo-titans',
+    });
+
+    expect(result).toMatchObject({
+      name: 'Updated Cairo Titans',
+      description: 'Updated private team profile',
+      gameKey: 'valorant',
+      region: 'EG',
+      logoUrl: 'https://cdn.clutcha.gg/updated-logo.png',
+      coverUrl: 'https://cdn.clutcha.gg/updated-cover.png',
+      discordServerUrl: 'https://discord.gg/updated-cairo-titans',
+      captainId: 'captain-1',
+    });
+  });
+
+  it('does not allow team ownership to be changed during update', async () => {
+    teams.push(createTeamRecord({ captainId: 'captain-1' }));
+
+    await service.updateTeam('captain-1', {
+      name: 'Ownership Safe Team',
+      captainId: 'attacker-captain',
+    } as never);
+
+    const updateArgs = teamUpdate.mock.calls.at(0)?.[0];
+
+    expect(updateArgs?.where).toEqual({ captainId: 'captain-1' });
+    expect(updateArgs?.data).not.toHaveProperty('captainId');
+  });
+
+  it('returns 404 when updating before the Captain has a team', async () => {
+    await expect(
+      service.updateTeam('captain-1', {
+        name: 'Missing Team',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("does not update another Captain's team", async () => {
+    teams.push(createTeamRecord({ captainId: 'captain-2' }));
+
+    await expect(
+      service.updateTeam('captain-1', {
+        name: 'Attempted Takeover',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(teams.at(0)?.name).toBe('Cairo Titans');
+  });
+
+  it('rejects invalid team Discord server URLs in the request DTO', async () => {
+    const dto = plainToInstance(UpdateCaptainTeamDto, {
+      discordServerUrl: 'http://discord.gg/not-https',
+    });
+
+    await expect(validate(dto)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          property: 'discordServerUrl',
+        }),
+      ]),
+    );
+  });
+
+  it('normalizes empty optional team fields to null in the update DTO', async () => {
+    const dto = plainToInstance(UpdateCaptainTeamDto, {
+      discordServerUrl: '   ',
+      description: '',
+    });
+
+    await expect(validate(dto)).resolves.toHaveLength(0);
+    expect(dto.discordServerUrl).toBeNull();
+    expect(dto.description).toBeNull();
   });
 });
 
