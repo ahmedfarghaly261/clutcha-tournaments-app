@@ -4,6 +4,9 @@ import { ROLES_KEY } from '../auth/decorators/roles.decorator';
 import { CaptainsController } from './captains.controller';
 
 jest.mock('@clutcha/database', () => ({
+  TeamStatus: {
+    ACTIVE: 'ACTIVE',
+  },
   UserRole: {
     CAPTAIN: 'CAPTAIN',
   },
@@ -22,5 +25,10 @@ describe('CaptainsController', () => {
   it('exposes profile handlers', () => {
     expect(typeof CaptainsController.prototype.getProfile).toBe('function');
     expect(typeof CaptainsController.prototype.updateProfile).toBe('function');
+  });
+
+  it('exposes team ownership handlers', () => {
+    expect(typeof CaptainsController.prototype.createTeam).toBe('function');
+    expect(typeof CaptainsController.prototype.getTeam).toBe('function');
   });
 });
