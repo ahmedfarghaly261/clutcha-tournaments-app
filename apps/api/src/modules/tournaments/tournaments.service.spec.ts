@@ -5,12 +5,17 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  EligibilityStatus,
   GamingRoomPurpose,
+  RosterType,
+  TeamStatus,
   TournamentFormat,
   TournamentMode,
   TournamentSeedingMethod,
   TournamentStatus,
   TournamentVisibility,
+  UserRole,
+  UserStatus,
 } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
 import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
@@ -24,6 +29,20 @@ import { TournamentsService } from './tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
   Prisma: {},
+  EligibilityStatus: {
+    ELIGIBLE: 'ELIGIBLE',
+    INELIGIBLE: 'INELIGIBLE',
+    PENDING_REVIEW: 'PENDING_REVIEW',
+  },
+  RosterType: {
+    STARTER: 'STARTER',
+    SUBSTITUTE: 'SUBSTITUTE',
+  },
+  TeamStatus: {
+    ACTIVE: 'ACTIVE',
+    INACTIVE: 'INACTIVE',
+    SUSPENDED: 'SUSPENDED',
+  },
   GamingRoomPurpose: {
     COMPETITION: 'COMPETITION',
     PRACTICE: 'PRACTICE',
@@ -65,6 +84,13 @@ jest.mock('@clutcha/database', () => ({
     UNLISTED: 'UNLISTED',
     PRIVATE: 'PRIVATE',
   },
+  UserRole: {
+    CAPTAIN: 'CAPTAIN',
+    ORGANIZER: 'ORGANIZER',
+  },
+  UserStatus: {
+    ACTIVE: 'ACTIVE',
+  },
 }));
 
 type TournamentCreateArgs = {
@@ -72,7 +98,10 @@ type TournamentCreateArgs = {
 };
 
 type TournamentFindUniqueArgs = {
-  where: { slug: string };
+  where: Partial<{
+    id: string;
+    slug: string;
+  }>;
 };
 
 type TournamentFindManyArgs = {
@@ -97,6 +126,19 @@ type TournamentDeleteArgs = {
 
 type TournamentCountArgs = {
   where: Record<string, unknown>;
+};
+
+type UserFindFirstArgs = {
+  where: {
+    id: string;
+    role: UserRole;
+  };
+};
+
+type TeamFindUniqueArgs = {
+  where: {
+    captainId: string;
+  };
 };
 
 type OnlineConfigurationFindUniqueArgs = {
@@ -147,6 +189,8 @@ type TournamentValidationErrorResponse = {
 };
 
 let createdTournaments: Record<string, unknown>[];
+let users: Record<string, unknown>[];
+let teams: Record<string, unknown>[];
 let onlineConfigurations: Record<string, unknown>[];
 let venues: Record<string, unknown>[];
 let gamingRooms: Record<string, unknown>[];
@@ -178,6 +222,14 @@ describe('TournamentsService', () => {
     [TournamentDeleteArgs]
   >;
   let count: jest.Mock<Promise<number>, [TournamentCountArgs]>;
+  let findFirstUser: jest.Mock<
+    Promise<Record<string, unknown> | null>,
+    [UserFindFirstArgs]
+  >;
+  let findUniqueTeam: jest.Mock<
+    Promise<Record<string, unknown> | null>,
+    [TeamFindUniqueArgs]
+  >;
   let findUniqueOnlineConfiguration: jest.Mock<
     Promise<Record<string, unknown> | null>,
     [OnlineConfigurationFindUniqueArgs]
@@ -256,6 +308,54 @@ describe('TournamentsService', () => {
         }),
       }),
     ];
+    users = [
+      createUserRecord({
+        id: 'captain-1',
+        role: UserRole.CAPTAIN,
+        phoneNumber: '+201001234567',
+      }),
+      createUserRecord({
+        id: 'captain-without-phone',
+        role: UserRole.CAPTAIN,
+        phoneNumber: null,
+      }),
+      createUserRecord({
+        id: 'organizer-1',
+        role: UserRole.ORGANIZER,
+      }),
+    ];
+    teams = [
+      createTeamRecord({
+        id: 'team-1',
+        captainId: 'captain-1',
+        rosterPlayers: [
+          createRosterPlayerRecord({
+            id: 'starter-1',
+            rosterType: RosterType.STARTER,
+          }),
+          createRosterPlayerRecord({
+            id: 'starter-2',
+            rosterType: RosterType.STARTER,
+          }),
+          createRosterPlayerRecord({
+            id: 'starter-3',
+            rosterType: RosterType.STARTER,
+          }),
+          createRosterPlayerRecord({
+            id: 'starter-4',
+            rosterType: RosterType.STARTER,
+          }),
+          createRosterPlayerRecord({
+            id: 'starter-5',
+            rosterType: RosterType.STARTER,
+          }),
+        ],
+      }),
+      createTeamRecord({
+        id: 'team-without-phone-captain',
+        captainId: 'captain-without-phone',
+      }),
+    ];
     onlineConfigurations = [
       createOnlineConfigurationRecord({
         tournamentId: 'tournament-1',
@@ -273,8 +373,11 @@ describe('TournamentsService', () => {
     ];
     findUnique = jest.fn((args: TournamentFindUniqueArgs) =>
       Promise.resolve(
-        createdTournaments.find((item) => item.slug === args.where.slug) ??
-          null,
+        createdTournaments.find(
+          (item) =>
+            (args.where.slug && item.slug === args.where.slug) ||
+            (args.where.id && item.id === args.where.id),
+        ) ?? null,
       ),
     );
     create = jest.fn((args: TournamentCreateArgs) => {
@@ -326,6 +429,18 @@ describe('TournamentsService', () => {
     });
     count = jest.fn((args: TournamentCountArgs) =>
       Promise.resolve(applyWhere(args.where).length),
+    );
+    findFirstUser = jest.fn((args: UserFindFirstArgs) =>
+      Promise.resolve(
+        users.find(
+          (user) => user.id === args.where.id && user.role === args.where.role,
+        ) ?? null,
+      ),
+    );
+    findUniqueTeam = jest.fn((args: TeamFindUniqueArgs) =>
+      Promise.resolve(
+        teams.find((team) => team.captainId === args.where.captainId) ?? null,
+      ),
     );
     findUniqueOnlineConfiguration = jest.fn(
       (args: OnlineConfigurationFindUniqueArgs) =>
@@ -468,6 +583,12 @@ describe('TournamentsService', () => {
                 return callback({ tournament: tournamentClient });
               }),
               tournament: tournamentClient,
+              user: {
+                findFirst: findFirstUser,
+              },
+              team: {
+                findUnique: findUniqueTeam,
+              },
               tournamentOnlineConfiguration: {
                 findUnique: findUniqueOnlineConfiguration,
                 upsert: upsertOnlineConfiguration,
@@ -821,6 +942,123 @@ describe('TournamentsService', () => {
     expect(result.onlineConfiguration).not.toHaveProperty(
       'privateSupportContact',
     );
+  });
+
+  it('returns eligible when the Captain team satisfies available tournament checks', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'eligibility-open-cup',
+        status: TournamentStatus.REGISTRATION_OPEN,
+        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
+        registrationClosesAt: new Date('2026-08-10T20:00:00.000Z'),
+        allowedRegion: 'MENA',
+        allowedCountries: ['EG'],
+      }),
+    );
+
+    const result = await service.getCaptainTournamentEligibility(
+      'captain-1',
+      'eligibility-open-cup',
+    );
+
+    expect(result).toEqual({
+      eligible: true,
+      team: {
+        id: 'team-1',
+        name: 'Cairo Titans',
+      },
+      issues: [],
+    });
+  });
+
+  it('returns structured eligibility issues for profile, tournament, team, and roster problems', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'eligibility-problem-cup',
+        status: TournamentStatus.PUBLISHED,
+        visibility: TournamentVisibility.PUBLIC,
+        gameKey: 'apex-legends',
+        minimumStarters: 5,
+        maximumStarters: 5,
+        maximumSubstitutes: 0,
+        requiredGameAccountId: true,
+        allowedRegion: 'EU',
+        allowedCountries: ['DE'],
+        minimumRank: 'Gold',
+        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
+        registrationClosesAt: new Date('2026-08-02T20:00:00.000Z'),
+      }),
+    );
+    teams = [
+      createTeamRecord({
+        id: 'team-with-issues',
+        captainId: 'captain-without-phone',
+        status: TeamStatus.SUSPENDED,
+        gameKey: 'valorant',
+        region: 'MENA',
+        rosterPlayers: [
+          createRosterPlayerRecord({
+            id: 'starter-with-issues',
+            gamerTag: 'Starter With Issues',
+            gameAccountId: '',
+            phoneNumber: '',
+            country: 'EG',
+            rank: null,
+            rosterType: RosterType.STARTER,
+            eligibilityStatus: EligibilityStatus.INELIGIBLE,
+          }),
+        ],
+      }),
+    ];
+
+    const result = await service.getCaptainTournamentEligibility(
+      'captain-without-phone',
+      'eligibility-problem-cup',
+    );
+
+    expect(result.eligible).toBe(false);
+    expect(result.team).toEqual({
+      id: 'team-with-issues',
+      name: 'Cairo Titans',
+    });
+    expect(result.issues.map((issue) => issue.code)).toEqual(
+      expect.arrayContaining([
+        'CAPTAIN_PROFILE_INCOMPLETE',
+        'TEAM_INACTIVE',
+        'REGISTRATION_NOT_OPEN',
+        'REGISTRATION_DEADLINE_PASSED',
+        'GAME_MISMATCH',
+        'INSUFFICIENT_STARTERS',
+        'REGION_NOT_ALLOWED',
+        'MISSING_GAME_ACCOUNT_ID',
+        'MISSING_PLAYER_PHONE',
+        'COUNTRY_NOT_ALLOWED',
+        'RANK_NOT_ALLOWED',
+        'PLAYER_INELIGIBLE',
+      ]),
+    );
+  });
+
+  it('returns 422 when the Captain has no team', async () => {
+    users.push(
+      createUserRecord({
+        id: 'captain-without-team',
+        role: UserRole.CAPTAIN,
+      }),
+    );
+
+    await expect(
+      service.getCaptainTournamentEligibility(
+        'captain-without-team',
+        'tournament-1',
+      ),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+  });
+
+  it('returns 404 when checking eligibility for a missing tournament', async () => {
+    await expect(
+      service.getCaptainTournamentEligibility('captain-1', 'missing-cup'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('returns public on-site tournament details with venue and gaming-room hardware only', async () => {
@@ -1770,6 +2008,46 @@ const createTournamentRecord = (
   venue: null,
   createdAt: new Date('2026-08-02T12:00:00.000Z'),
   updatedAt: new Date('2026-08-02T12:00:00.000Z'),
+  ...overrides,
+});
+
+const createUserRecord = (
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> => ({
+  id: 'captain-1',
+  email: 'captain@example.com',
+  displayName: 'Captain One',
+  phoneNumber: '+201001234567',
+  role: UserRole.CAPTAIN,
+  status: UserStatus.ACTIVE,
+  ...overrides,
+});
+
+const createTeamRecord = (
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> => ({
+  id: 'team-1',
+  name: 'Cairo Titans',
+  slug: 'cairo-titans',
+  gameKey: 'valorant',
+  region: 'MENA',
+  status: TeamStatus.ACTIVE,
+  captainId: 'captain-1',
+  rosterPlayers: [],
+  ...overrides,
+});
+
+const createRosterPlayerRecord = (
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> => ({
+  id: 'starter-1',
+  gamerTag: 'Starter One',
+  gameAccountId: 'VALORANT#1234',
+  phoneNumber: '+201001234567',
+  country: 'EG',
+  rank: 'Gold',
+  rosterType: RosterType.STARTER,
+  eligibilityStatus: EligibilityStatus.PENDING_REVIEW,
   ...overrides,
 });
 

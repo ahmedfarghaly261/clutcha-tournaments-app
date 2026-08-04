@@ -5,11 +5,15 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  EligibilityStatus,
   Prisma,
+  RosterType,
+  TeamStatus,
   TournamentMode,
   TournamentSeedingMethod,
   TournamentStatus,
   TournamentVisibility,
+  UserRole,
 } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
 import { type CancelTournamentDto } from './dto/cancel-tournament.dto';
@@ -31,6 +35,11 @@ import { type OrganizerTournamentListResponseDto } from './dto/organizer-tournam
 import { type OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
 import { type PublicTournamentDetailResponseDto } from './dto/public-tournament-detail-response.dto';
 import { type PublicTournamentListResponseDto } from './dto/public-tournament-list-response.dto';
+import {
+  TournamentEligibilityIssueCode,
+  type TournamentEligibilityIssueDto,
+  type TournamentEligibilityResponseDto,
+} from './dto/tournament-eligibility-response.dto';
 import { type TournamentResponseDto } from './dto/tournament-response.dto';
 import { type UpdateGamingRoomDto } from './dto/update-gaming-room.dto';
 import { type UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
@@ -66,6 +75,18 @@ type GamingRoomData = Omit<
   Prisma.TournamentGamingRoomUncheckedCreateInput,
   'id' | 'venueId' | 'createdAt' | 'updatedAt'
 >;
+
+type EligibilityCaptain = Prisma.UserGetPayload<{
+  select: typeof eligibilityCaptainSelect;
+}>;
+
+type EligibilityTeam = Prisma.TeamGetPayload<{
+  select: typeof eligibilityTeamSelect;
+}>;
+
+type EligibilityTournament = Prisma.TournamentGetPayload<{
+  select: typeof eligibilityTournamentSelect;
+}>;
 
 const tournamentSelect = {
   id: true,
@@ -375,6 +396,52 @@ const gamingRoomSelect = {
   updatedAt: true,
 } satisfies Prisma.TournamentGamingRoomSelect;
 
+const eligibilityCaptainSelect = {
+  id: true,
+  displayName: true,
+  phoneNumber: true,
+  role: true,
+} satisfies Prisma.UserSelect;
+
+const eligibilityTeamSelect = {
+  id: true,
+  name: true,
+  gameKey: true,
+  region: true,
+  status: true,
+  rosterPlayers: {
+    select: {
+      id: true,
+      gamerTag: true,
+      gameAccountId: true,
+      phoneNumber: true,
+      country: true,
+      rank: true,
+      rosterType: true,
+      eligibilityStatus: true,
+    },
+  },
+} satisfies Prisma.TeamSelect;
+
+const eligibilityTournamentSelect = {
+  id: true,
+  gameKey: true,
+  visibility: true,
+  status: true,
+  minimumStarters: true,
+  maximumStarters: true,
+  maximumSubstitutes: true,
+  requiredGameAccountId: true,
+  allowedRegion: true,
+  allowedCountries: true,
+  allowedPlatforms: true,
+  minimumRank: true,
+  maximumRank: true,
+  registrationOpensAt: true,
+  registrationClosesAt: true,
+  cancelledAt: true,
+} satisfies Prisma.TournamentSelect;
+
 @Injectable()
 export class TournamentsService {
   constructor(private readonly databaseService: DatabaseService) {}
@@ -429,6 +496,57 @@ export class TournamentsService {
     }
 
     return toPublicTournamentDetailResponse(tournament);
+  }
+
+  async getCaptainTournamentEligibility(
+    captainId: string,
+    tournamentId: string,
+  ): Promise<TournamentEligibilityResponseDto> {
+    const [captain, team, tournament] = await Promise.all([
+      this.databaseService.client.user.findFirst({
+        where: {
+          id: captainId,
+          role: UserRole.CAPTAIN,
+        },
+        select: eligibilityCaptainSelect,
+      }),
+      this.databaseService.client.team.findUnique({
+        where: { captainId },
+        select: eligibilityTeamSelect,
+      }),
+      this.databaseService.client.tournament.findUnique({
+        where: { id: tournamentId },
+        select: eligibilityTournamentSelect,
+      }),
+    ]);
+
+    if (!captain) {
+      throw new NotFoundException('Captain profile was not found');
+    }
+
+    if (!team) {
+      throw new UnprocessableEntityException('Captain team was not found');
+    }
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament was not found');
+    }
+
+    const issues = this.evaluateTournamentEligibility(
+      captain,
+      team,
+      tournament,
+      new Date(),
+    );
+
+    return {
+      eligible: issues.length === 0,
+      team: {
+        id: team.id,
+        name: team.name,
+      },
+      issues,
+    };
   }
 
   async publishOrganizerTournament(
@@ -1270,6 +1388,198 @@ export class TournamentsService {
     }
 
     return room;
+  }
+
+  private evaluateTournamentEligibility(
+    captain: EligibilityCaptain,
+    team: EligibilityTeam,
+    tournament: EligibilityTournament,
+    now: Date,
+  ): TournamentEligibilityIssueDto[] {
+    const issues: TournamentEligibilityIssueDto[] = [];
+    const starters = team.rosterPlayers.filter(
+      (player) => player.rosterType === RosterType.STARTER,
+    );
+    const substitutes = team.rosterPlayers.filter(
+      (player) => player.rosterType === RosterType.SUBSTITUTE,
+    );
+
+    if (!captain.phoneNumber) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.CAPTAIN_PROFILE_INCOMPLETE,
+        'profile.phoneNumber',
+        'Captain profile must include a phone number before registration.',
+      );
+    }
+
+    if (team.status !== TeamStatus.ACTIVE) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.TEAM_INACTIVE,
+        'team.status',
+        'Only active teams can register for tournaments.',
+      );
+    }
+
+    if (tournament.visibility !== TournamentVisibility.PUBLIC) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.REGISTRATION_NOT_OPEN,
+        'tournament.visibility',
+        'This tournament is not publicly open for Captain registration.',
+      );
+    }
+
+    if (tournament.status !== TournamentStatus.REGISTRATION_OPEN) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.REGISTRATION_NOT_OPEN,
+        'tournament.status',
+        'Tournament registration is not open.',
+      );
+    }
+
+    if (
+      tournament.cancelledAt ||
+      tournament.status === TournamentStatus.CANCELLED ||
+      tournament.status === TournamentStatus.ARCHIVED
+    ) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.REGISTRATION_NOT_OPEN,
+        'tournament.status',
+        'Cancelled or archived tournaments are not open for registration.',
+      );
+    }
+
+    if (now > tournament.registrationClosesAt) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.REGISTRATION_DEADLINE_PASSED,
+        'tournament.registrationClosesAt',
+        'The tournament registration deadline has passed.',
+      );
+    }
+
+    if (now < tournament.registrationOpensAt) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.REGISTRATION_NOT_OPEN,
+        'tournament.registrationOpensAt',
+        'The tournament registration window has not opened yet.',
+      );
+    }
+
+    if (team.gameKey !== tournament.gameKey) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.GAME_MISMATCH,
+        'team.gameKey',
+        'Team game must match the tournament game.',
+      );
+    }
+
+    if (starters.length < tournament.minimumStarters) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.INSUFFICIENT_STARTERS,
+        'roster',
+        `This tournament requires at least ${tournament.minimumStarters} starter players.`,
+      );
+    }
+
+    if (starters.length > tournament.maximumStarters) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.TOO_MANY_STARTERS,
+        'roster',
+        `This tournament allows at most ${tournament.maximumStarters} starter players.`,
+      );
+    }
+
+    if (substitutes.length > tournament.maximumSubstitutes) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.TOO_MANY_SUBSTITUTES,
+        'roster',
+        `This tournament allows at most ${tournament.maximumSubstitutes} substitute players.`,
+      );
+    }
+
+    if (
+      tournament.allowedRegion &&
+      (!team.region || team.region !== tournament.allowedRegion)
+    ) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.REGION_NOT_ALLOWED,
+        'team.region',
+        `Team region must be ${tournament.allowedRegion}.`,
+      );
+    }
+
+    for (const player of team.rosterPlayers) {
+      if (tournament.requiredGameAccountId && !player.gameAccountId.trim()) {
+        this.addEligibilityIssue(
+          issues,
+          TournamentEligibilityIssueCode.MISSING_GAME_ACCOUNT_ID,
+          `roster.${player.id}.gameAccountId`,
+          `${player.gamerTag} must have a game account ID.`,
+        );
+      }
+
+      if (!player.phoneNumber.trim()) {
+        this.addEligibilityIssue(
+          issues,
+          TournamentEligibilityIssueCode.MISSING_PLAYER_PHONE,
+          `roster.${player.id}.phoneNumber`,
+          `${player.gamerTag} must have a phone number.`,
+        );
+      }
+
+      if (
+        tournament.allowedCountries.length > 0 &&
+        (!player.country ||
+          !tournament.allowedCountries.includes(player.country))
+      ) {
+        this.addEligibilityIssue(
+          issues,
+          TournamentEligibilityIssueCode.COUNTRY_NOT_ALLOWED,
+          `roster.${player.id}.country`,
+          `${player.gamerTag} is not from an allowed country.`,
+        );
+      }
+
+      if ((tournament.minimumRank || tournament.maximumRank) && !player.rank) {
+        this.addEligibilityIssue(
+          issues,
+          TournamentEligibilityIssueCode.RANK_NOT_ALLOWED,
+          `roster.${player.id}.rank`,
+          `${player.gamerTag} must include a rank for this tournament.`,
+        );
+      }
+
+      if (player.eligibilityStatus === EligibilityStatus.INELIGIBLE) {
+        this.addEligibilityIssue(
+          issues,
+          TournamentEligibilityIssueCode.PLAYER_INELIGIBLE,
+          `roster.${player.id}.eligibilityStatus`,
+          `${player.gamerTag} is marked ineligible.`,
+        );
+      }
+    }
+
+    return issues;
+  }
+
+  private addEligibilityIssue(
+    issues: TournamentEligibilityIssueDto[],
+    code: TournamentEligibilityIssueCode,
+    field: string,
+    message: string,
+  ): void {
+    issues.push({ code, field, message });
   }
 
   private toOnlineConfigurationData(
