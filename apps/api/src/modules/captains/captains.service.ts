@@ -10,6 +10,7 @@ import { type CreateRosterPlayerDto } from './dto/create-roster-player.dto';
 import { type UpdateRosterPlayerDto } from './dto/update-roster-player.dto';
 import { type UpdateCaptainTeamDto } from './dto/update-captain-team.dto';
 import { type UpdateCaptainProfileDto } from './dto/update-captain-profile.dto';
+import { toCaptainDashboardResponse } from './mappers/captain-dashboard.mapper';
 import { toCaptainTeamResponse } from './mappers/captain-team.mapper';
 import { toCaptainProfileResponse } from './mappers/captain-profile.mapper';
 import {
@@ -43,6 +44,21 @@ const captainTeamSelect = {
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.TeamSelect;
+
+const captainDashboardTeamSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  gameKey: true,
+  region: true,
+  logoUrl: true,
+  coverUrl: true,
+  status: true,
+} satisfies Prisma.TeamSelect;
+
+const dashboardRosterPlayerSelect = {
+  rosterType: true,
+} satisfies Prisma.RosterPlayerSelect;
 
 const rosterPlayerSelect = {
   id: true,
@@ -105,6 +121,22 @@ export class CaptainsService {
     const captain = await this.findCaptainOrThrow(userId);
 
     return toCaptainProfileResponse(captain);
+  }
+
+  async getDashboard(userId: string) {
+    const captain = await this.findCaptainOrThrow(userId);
+    const team = await this.databaseService.client.team.findUnique({
+      where: { captainId: userId },
+      select: captainDashboardTeamSelect,
+    });
+    const rosterPlayers = team
+      ? await this.databaseService.client.rosterPlayer.findMany({
+          where: { teamId: team.id },
+          select: dashboardRosterPlayerSelect,
+        })
+      : [];
+
+    return toCaptainDashboardResponse(captain, team, rosterPlayers);
   }
 
   async getTeam(userId: string) {

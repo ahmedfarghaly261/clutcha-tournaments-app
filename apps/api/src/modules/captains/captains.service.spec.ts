@@ -166,6 +166,8 @@ type RosterPlayerRecord = {
 
 type RosterPlayerFindManyArgs = {
   where: { teamId: string };
+  select?: unknown;
+  orderBy?: unknown;
 };
 
 type RosterPlayerFindFirstArgs = {
@@ -897,6 +899,110 @@ describe('CaptainsService', () => {
     const result = await service.getRosterPlayer('captain-1', 'player-1');
 
     expect(result).not.toHaveProperty('playerRole');
+  });
+
+  it('returns dashboard with team null before team creation', async () => {
+    const result = await service.getDashboard('captain-1');
+
+    expect(result).toMatchObject({
+      profile: {
+        id: 'captain-1',
+        displayName: 'Captain One',
+        profileComplete: false,
+      },
+      team: null,
+      roster: null,
+      activeTournamentRegistrations: null,
+      upcomingTournament: null,
+      upcomingMatch: null,
+      actionRequired: 'CREATE_TEAM',
+    });
+    expect(result.requiredActions).toEqual(['CREATE_TEAM', 'COMPLETE_PROFILE']);
+  });
+
+  it('returns dashboard for exactly the authenticated Captain team with roster counts', async () => {
+    users[0].phoneNumber = '+201001234567';
+    teams.push(
+      createTeamRecord({ id: 'team-1', captainId: 'captain-1' }),
+      createTeamRecord({
+        id: 'team-2',
+        name: 'Other Team',
+        captainId: 'captain-2',
+      }),
+    );
+    rosterPlayers.push(
+      createRosterPlayerRecord({
+        id: 'player-1',
+        teamId: 'team-1',
+        rosterType: RosterType.STARTER,
+      }),
+      createRosterPlayerRecord({
+        id: 'player-2',
+        teamId: 'team-1',
+        rosterType: RosterType.STARTER,
+      }),
+      createRosterPlayerRecord({
+        id: 'player-3',
+        teamId: 'team-1',
+        rosterType: RosterType.SUBSTITUTE,
+      }),
+      createRosterPlayerRecord({
+        id: 'player-4',
+        teamId: 'team-2',
+        rosterType: RosterType.STARTER,
+      }),
+    );
+
+    const result = await service.getDashboard('captain-1');
+
+    expect(result.team).toMatchObject({
+      id: 'team-1',
+      name: 'Cairo Titans',
+    });
+    expect(result.roster).toEqual({
+      totalCount: 3,
+      starterCount: 2,
+      substituteCount: 1,
+    });
+    expect(result.requiredActions).toEqual(['NONE']);
+  });
+
+  it('asks for roster players when the Captain has a team but no roster', async () => {
+    users[0].phoneNumber = '+201001234567';
+    teams.push(createTeamRecord({ id: 'team-1', captainId: 'captain-1' }));
+
+    const result = await service.getDashboard('captain-1');
+
+    expect(result.roster).toEqual({
+      totalCount: 0,
+      starterCount: 0,
+      substituteCount: 0,
+    });
+    expect(result.actionRequired).toBe('ADD_ROSTER_PLAYERS');
+  });
+
+  it('does not expose Captain or roster-player contacts on dashboard', async () => {
+    users[0].phoneNumber = '+201001234567';
+    users[0].discordUsername = 'captain-discord';
+    teams.push(createTeamRecord({ id: 'team-1', captainId: 'captain-1' }));
+    rosterPlayers.push(
+      createRosterPlayerRecord({
+        id: 'player-1',
+        phoneNumber: '+201009999999',
+        email: 'player@example.com',
+        discordUsername: 'player-discord',
+      }),
+    );
+
+    const result = await service.getDashboard('captain-1');
+    const serialized = JSON.stringify(result);
+
+    expect(serialized).not.toContain('captain@example.com');
+    expect(serialized).not.toContain('+201001234567');
+    expect(serialized).not.toContain('captain-discord');
+    expect(serialized).not.toContain('+201009999999');
+    expect(serialized).not.toContain('player@example.com');
+    expect(serialized).not.toContain('player-discord');
   });
 });
 
