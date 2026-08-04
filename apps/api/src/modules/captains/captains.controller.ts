@@ -24,6 +24,7 @@ import { UserRole } from '@clutcha/database';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
+import { CaptainDashboardResponseDto } from './dto/captain-dashboard-response.dto';
 import { CaptainTeamResponseDto } from './dto/captain-team-response.dto';
 import { CreateCaptainTeamDto } from './dto/create-captain-team.dto';
 import { CreateRosterPlayerDto } from './dto/create-roster-player.dto';
@@ -61,6 +62,28 @@ export class CaptainsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CaptainProfileResponseDto> {
     return this.captainsService.getProfile(user.id);
+  }
+
+  @Get('dashboard')
+  @ApiOperation({
+    summary: 'Get Captain dashboard',
+    description:
+      'Returns a team-centered Captain dashboard with safe profile summary, the single team summary when it exists, roster counts, and real required actions. Registration, tournament, and match summaries remain null until those models exist.',
+  })
+  @ApiOkResponse({
+    description: 'Captain dashboard returned.',
+    type: CaptainDashboardResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not a Captain.',
+  })
+  async getDashboard(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<CaptainDashboardResponseDto> {
+    return this.captainsService.getDashboard(user.id);
   }
 
   @Patch('profile')

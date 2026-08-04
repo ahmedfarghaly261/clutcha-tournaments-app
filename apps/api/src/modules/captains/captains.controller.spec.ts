@@ -34,6 +34,7 @@ describe('CaptainsController', () => {
 
   it('exposes profile handlers', () => {
     expect(typeof CaptainsController.prototype.getProfile).toBe('function');
+    expect(typeof CaptainsController.prototype.getDashboard).toBe('function');
     expect(typeof CaptainsController.prototype.updateProfile).toBe('function');
   });
 
