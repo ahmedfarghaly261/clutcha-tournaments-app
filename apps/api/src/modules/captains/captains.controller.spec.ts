@@ -7,6 +7,16 @@ jest.mock('@clutcha/database', () => ({
   TeamStatus: {
     ACTIVE: 'ACTIVE',
   },
+  RosterType: {
+    STARTER: 'STARTER',
+    SUBSTITUTE: 'SUBSTITUTE',
+  },
+  VerificationStatus: {
+    UNVERIFIED: 'UNVERIFIED',
+  },
+  EligibilityStatus: {
+    PENDING_REVIEW: 'PENDING_REVIEW',
+  },
   UserRole: {
     CAPTAIN: 'CAPTAIN',
   },
@@ -31,5 +41,23 @@ describe('CaptainsController', () => {
     expect(typeof CaptainsController.prototype.createTeam).toBe('function');
     expect(typeof CaptainsController.prototype.getTeam).toBe('function');
     expect(typeof CaptainsController.prototype.updateTeam).toBe('function');
+  });
+
+  it('exposes roster-player handlers', () => {
+    expect(typeof CaptainsController.prototype.listRosterPlayers).toBe(
+      'function',
+    );
+    expect(typeof CaptainsController.prototype.createRosterPlayer).toBe(
+      'function',
+    );
+    expect(typeof CaptainsController.prototype.getRosterPlayer).toBe(
+      'function',
+    );
+    expect(typeof CaptainsController.prototype.updateRosterPlayer).toBe(
+      'function',
+    );
+    expect(typeof CaptainsController.prototype.deleteRosterPlayer).toBe(
+      'function',
+    );
   });
 });
