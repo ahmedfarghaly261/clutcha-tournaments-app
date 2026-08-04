@@ -94,6 +94,34 @@ enum GamingRoomPurpose {
   BACKUP
 }
 
+enum TournamentRegistrationStatus {
+  PENDING_PAYMENT
+  PENDING_APPROVAL
+  CONFIRMED
+  REJECTED
+  WAITLISTED
+  WITHDRAWN
+  CHECKED_IN
+  DISQUALIFIED
+  REFUND_PENDING
+  REFUNDED
+}
+
+enum RegistrationPaymentStatus {
+  NOT_REQUIRED
+  PENDING
+  PAID
+  FAILED
+  REFUND_PENDING
+  REFUNDED
+}
+
+enum RegistrationApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id           String     @id @default(uuid())
   email        String     @unique
@@ -108,10 +136,11 @@ model User {
   emailVerifiedAt DateTime?
   lastLoginAt     DateTime?
 
-  captainTeam          Team?             @relation("TeamCaptain")
+  captainTeam          Team?                    @relation("TeamCaptain")
   authSessions         AuthSession[]
   organizerProfile     OrganizerProfile?
-  organizedTournaments Tournament[]      @relation("TournamentOrganizer")
+  organizedTournaments Tournament[]             @relation("TournamentOrganizer")
+  captainRegistrations TournamentRegistration[] @relation("TournamentRegistrationCaptain")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -136,7 +165,8 @@ model Team {
   captainId String
   captain   User   @relation("TeamCaptain", fields: [captainId], references: [id], onDelete: Restrict)
 
-  rosterPlayers RosterPlayer[]
+  rosterPlayers           RosterPlayer[]
+  tournamentRegistrations TournamentRegistration[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -292,6 +322,7 @@ model Tournament {
 
   onlineConfiguration TournamentOnlineConfiguration?
   venue               TournamentVenue?
+  registrations       TournamentRegistration[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -401,4 +432,44 @@ model TournamentGamingRoom {
 
   @@index([venueId])
   @@map("tournament_gaming_rooms")
+}
+
+model TournamentRegistration {
+  id           String @id @default(uuid())
+  tournamentId String
+  teamId       String
+  captainId    String
+
+  status         TournamentRegistrationStatus @default(PENDING_APPROVAL)
+  paymentStatus  RegistrationPaymentStatus    @default(NOT_REQUIRED)
+  approvalStatus RegistrationApprovalStatus   @default(PENDING)
+
+  rosterSnapshot         Json
+  captainContactSnapshot Json
+
+  rulesVersion    String
+  rulesAcceptedAt DateTime
+  submittedAt     DateTime @default(now())
+
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  withdrawnAt     DateTime?
+  checkedInAt     DateTime?
+  disqualifiedAt  DateTime?
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Restrict)
+  team       Team       @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  captain    User       @relation("TournamentRegistrationCaptain", fields: [captainId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tournamentId, teamId])
+  @@index([captainId])
+  @@index([tournamentId])
+  @@index([status])
+  @@index([approvalStatus])
+  @@index([paymentStatus])
+  @@map("tournament_registrations")
 }
