@@ -6,10 +6,16 @@ import {
 import { Prisma, TeamStatus, UserRole } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
 import { type CreateCaptainTeamDto } from './dto/create-captain-team.dto';
+import { type CreateRosterPlayerDto } from './dto/create-roster-player.dto';
+import { type UpdateRosterPlayerDto } from './dto/update-roster-player.dto';
 import { type UpdateCaptainTeamDto } from './dto/update-captain-team.dto';
 import { type UpdateCaptainProfileDto } from './dto/update-captain-profile.dto';
 import { toCaptainTeamResponse } from './mappers/captain-team.mapper';
 import { toCaptainProfileResponse } from './mappers/captain-profile.mapper';
+import {
+  toRosterPlayerResponse,
+  toRosterPlayerResponses,
+} from './mappers/roster-player.mapper';
 
 const captainProfileSelect = {
   id: true,
@@ -38,6 +44,24 @@ const captainTeamSelect = {
   updatedAt: true,
 } satisfies Prisma.TeamSelect;
 
+const rosterPlayerSelect = {
+  id: true,
+  gamerTag: true,
+  realName: true,
+  gameAccountId: true,
+  phoneNumber: true,
+  email: true,
+  discordUsername: true,
+  rank: true,
+  country: true,
+  rosterType: true,
+  verificationStatus: true,
+  eligibilityStatus: true,
+  teamId: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.RosterPlayerSelect;
+
 type CaptainProfileMutableData = Pick<
   Prisma.UserUpdateInput,
   'displayName' | 'phoneNumber' | 'discordUsername'
@@ -55,6 +79,19 @@ type CaptainTeamMutableData = Pick<
 >;
 
 type TeamSlugTransaction = Pick<Prisma.TransactionClient, 'team'>;
+
+type RosterPlayerMutableData = Pick<
+  Prisma.RosterPlayerUpdateInput,
+  | 'gamerTag'
+  | 'realName'
+  | 'gameAccountId'
+  | 'phoneNumber'
+  | 'email'
+  | 'discordUsername'
+  | 'rank'
+  | 'country'
+  | 'rosterType'
+>;
 
 type UniqueErrorMeta = {
   target?: unknown;
@@ -184,6 +221,86 @@ export class CaptainsService {
     return toCaptainTeamResponse(team);
   }
 
+  async listRosterPlayers(userId: string) {
+    const team = await this.findCaptainTeamOrThrow(userId);
+
+    const players = await this.databaseService.client.rosterPlayer.findMany({
+      where: { teamId: team.id },
+      orderBy: [{ createdAt: 'asc' }, { gamerTag: 'asc' }],
+      select: rosterPlayerSelect,
+    });
+
+    return toRosterPlayerResponses(players);
+  }
+
+  async createRosterPlayer(userId: string, dto: CreateRosterPlayerDto) {
+    const team = await this.findCaptainTeamOrThrow(userId);
+
+    try {
+      const player = await this.databaseService.client.rosterPlayer.create({
+        data: {
+          gamerTag: dto.gamerTag,
+          realName: dto.realName,
+          gameAccountId: dto.gameAccountId,
+          phoneNumber: dto.phoneNumber,
+          email: dto.email,
+          discordUsername: dto.discordUsername,
+          rank: dto.rank,
+          country: dto.country,
+          rosterType: dto.rosterType,
+          teamId: team.id,
+        },
+        select: rosterPlayerSelect,
+      });
+
+      return toRosterPlayerResponse(player);
+    } catch (error) {
+      this.throwRosterConflictIfNeeded(error);
+      throw error;
+    }
+  }
+
+  async getRosterPlayer(userId: string, playerId: string) {
+    const team = await this.findCaptainTeamOrThrow(userId);
+    const player = await this.findRosterPlayerOrThrow(team.id, playerId);
+
+    return toRosterPlayerResponse(player);
+  }
+
+  async updateRosterPlayer(
+    userId: string,
+    playerId: string,
+    dto: UpdateRosterPlayerDto,
+  ) {
+    const team = await this.findCaptainTeamOrThrow(userId);
+    await this.findRosterPlayerOrThrow(team.id, playerId);
+
+    try {
+      const player = await this.databaseService.client.rosterPlayer.update({
+        where: { id: playerId },
+        data: this.toRosterPlayerUpdateData(dto),
+        select: rosterPlayerSelect,
+      });
+
+      return toRosterPlayerResponse(player);
+    } catch (error) {
+      this.throwRosterConflictIfNeeded(error);
+      throw error;
+    }
+  }
+
+  async deleteRosterPlayer(userId: string, playerId: string) {
+    const team = await this.findCaptainTeamOrThrow(userId);
+    await this.findRosterPlayerOrThrow(team.id, playerId);
+
+    const player = await this.databaseService.client.rosterPlayer.delete({
+      where: { id: playerId },
+      select: rosterPlayerSelect,
+    });
+
+    return toRosterPlayerResponse(player);
+  }
+
   async updateProfile(userId: string, dto: UpdateCaptainProfileDto) {
     await this.findCaptainOrThrow(userId);
 
@@ -212,6 +329,37 @@ export class CaptainsService {
     return captain;
   }
 
+  private async findCaptainTeamOrThrow(userId: string) {
+    await this.findCaptainOrThrow(userId);
+
+    const team = await this.databaseService.client.team.findUnique({
+      where: { captainId: userId },
+      select: { id: true },
+    });
+
+    if (!team) {
+      throw new NotFoundException('Captain team was not found');
+    }
+
+    return team;
+  }
+
+  private async findRosterPlayerOrThrow(teamId: string, playerId: string) {
+    const player = await this.databaseService.client.rosterPlayer.findFirst({
+      where: {
+        id: playerId,
+        teamId,
+      },
+      select: rosterPlayerSelect,
+    });
+
+    if (!player) {
+      throw new NotFoundException('Roster player was not found');
+    }
+
+    return player;
+  }
+
   private toUpdateData(
     dto: UpdateCaptainProfileDto,
   ): CaptainProfileMutableData {
@@ -231,6 +379,22 @@ export class CaptainsService {
       logoUrl: dto.logoUrl,
       coverUrl: dto.coverUrl,
       discordServerUrl: dto.discordServerUrl,
+    };
+  }
+
+  private toRosterPlayerUpdateData(
+    dto: UpdateRosterPlayerDto,
+  ): RosterPlayerMutableData {
+    return {
+      gamerTag: dto.gamerTag,
+      realName: dto.realName,
+      gameAccountId: dto.gameAccountId,
+      phoneNumber: dto.phoneNumber,
+      email: dto.email,
+      discordUsername: dto.discordUsername,
+      rank: dto.rank,
+      country: dto.country,
+      rosterType: dto.rosterType,
     };
   }
 
@@ -291,6 +455,20 @@ export class CaptainsService {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2034'
     );
+  }
+
+  private throwRosterConflictIfNeeded(error: unknown): void {
+    if (!this.isPrismaUniqueConstraintError(error)) {
+      return;
+    }
+
+    const target = this.getUniqueConstraintTarget(error);
+
+    if (target.includes('teamId') && target.includes('gameAccountId')) {
+      throw new ConflictException(
+        'A roster player with this game account already exists on the team',
+      );
+    }
   }
 
   private getUniqueConstraintTarget(

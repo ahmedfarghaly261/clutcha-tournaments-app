@@ -2,9 +2,18 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { Prisma, TeamStatus, UserRole, UserStatus } from '@clutcha/database';
+import {
+  EligibilityStatus,
+  Prisma,
+  RosterType,
+  TeamStatus,
+  UserRole,
+  UserStatus,
+  VerificationStatus,
+} from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
 import { CaptainsService } from './captains.service';
+import { CreateRosterPlayerDto } from './dto/create-roster-player.dto';
 import { UpdateCaptainTeamDto } from './dto/update-captain-team.dto';
 import { UpdateCaptainProfileDto } from './dto/update-captain-profile.dto';
 
@@ -32,6 +41,16 @@ jest.mock('@clutcha/database', () => {
     },
     TeamStatus: {
       ACTIVE: 'ACTIVE',
+    },
+    RosterType: {
+      STARTER: 'STARTER',
+      SUBSTITUTE: 'SUBSTITUTE',
+    },
+    VerificationStatus: {
+      UNVERIFIED: 'UNVERIFIED',
+    },
+    EligibilityStatus: {
+      PENDING_REVIEW: 'PENDING_REVIEW',
     },
     UserRole: {
       CAPTAIN: 'CAPTAIN',
@@ -127,6 +146,69 @@ type TeamUpdateArgs = {
   }>;
 };
 
+type RosterPlayerRecord = {
+  id: string;
+  gamerTag: string;
+  realName: string | null;
+  gameAccountId: string;
+  phoneNumber: string;
+  email: string | null;
+  discordUsername: string | null;
+  rank: string | null;
+  country: string | null;
+  rosterType: RosterType;
+  verificationStatus: VerificationStatus;
+  eligibilityStatus: EligibilityStatus;
+  teamId: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type RosterPlayerFindManyArgs = {
+  where: { teamId: string };
+};
+
+type RosterPlayerFindFirstArgs = {
+  where: {
+    id: string;
+    teamId: string;
+  };
+};
+
+type RosterPlayerCreateArgs = {
+  data: {
+    gamerTag: string;
+    realName?: string | null;
+    gameAccountId: string;
+    phoneNumber: string;
+    email?: string | null;
+    discordUsername?: string | null;
+    rank?: string | null;
+    country?: string | null;
+    rosterType?: RosterType;
+    teamId: string;
+  };
+};
+
+type RosterPlayerUpdateArgs = {
+  where: { id: string };
+  data: Partial<{
+    gamerTag: string;
+    realName: string | null;
+    gameAccountId: string;
+    phoneNumber: string;
+    email: string | null;
+    discordUsername: string | null;
+    rank: string | null;
+    country: string | null;
+    rosterType: RosterType;
+  }>;
+};
+
+type RosterPlayerDeleteArgs = {
+  where: { id: string };
+};
+
 type TeamTransactionClient = {
   team: {
     findUnique: (
@@ -160,6 +242,7 @@ describe('CaptainsService', () => {
   let service: CaptainsService;
   let users: CaptainUserRecord[];
   let teams: CaptainTeamRecord[];
+  let rosterPlayers: RosterPlayerRecord[];
   let findFirst: jest.Mock<
     Promise<CaptainUserRecord | null>,
     [UserFindFirstArgs]
@@ -171,6 +254,26 @@ describe('CaptainsService', () => {
   >;
   let teamCreate: jest.Mock<Promise<CaptainTeamRecord>, [TeamCreateArgs]>;
   let teamUpdate: jest.Mock<Promise<CaptainTeamRecord>, [TeamUpdateArgs]>;
+  let rosterPlayerFindMany: jest.Mock<
+    Promise<RosterPlayerRecord[]>,
+    [RosterPlayerFindManyArgs]
+  >;
+  let rosterPlayerFindFirst: jest.Mock<
+    Promise<RosterPlayerRecord | null>,
+    [RosterPlayerFindFirstArgs]
+  >;
+  let rosterPlayerCreate: jest.Mock<
+    Promise<RosterPlayerRecord>,
+    [RosterPlayerCreateArgs]
+  >;
+  let rosterPlayerUpdate: jest.Mock<
+    Promise<RosterPlayerRecord>,
+    [RosterPlayerUpdateArgs]
+  >;
+  let rosterPlayerDelete: jest.Mock<
+    Promise<RosterPlayerRecord>,
+    [RosterPlayerDeleteArgs]
+  >;
 
   beforeEach(async () => {
     users = [
@@ -188,6 +291,7 @@ describe('CaptainsService', () => {
       }),
     ];
     teams = [];
+    rosterPlayers = [];
 
     findFirst = jest.fn((args: UserFindFirstArgs) =>
       Promise.resolve(
@@ -272,6 +376,92 @@ describe('CaptainsService', () => {
 
       return Promise.resolve(team);
     });
+    rosterPlayerFindMany = jest.fn((args: RosterPlayerFindManyArgs) =>
+      Promise.resolve(
+        rosterPlayers.filter((player) => player.teamId === args.where.teamId),
+      ),
+    );
+    rosterPlayerFindFirst = jest.fn((args: RosterPlayerFindFirstArgs) =>
+      Promise.resolve(
+        rosterPlayers.find(
+          (player) =>
+            player.id === args.where.id && player.teamId === args.where.teamId,
+        ) ?? null,
+      ),
+    );
+    rosterPlayerCreate = jest.fn((args: RosterPlayerCreateArgs) => {
+      if (
+        rosterPlayers.some(
+          (player) =>
+            player.teamId === args.data.teamId &&
+            player.gameAccountId === args.data.gameAccountId,
+        )
+      ) {
+        throw createPrismaKnownRequestError('P2002', [
+          'teamId',
+          'gameAccountId',
+        ]);
+      }
+
+      const player = createRosterPlayerRecord({
+        id: `player-${rosterPlayers.length + 1}`,
+        gamerTag: args.data.gamerTag,
+        realName: args.data.realName ?? null,
+        gameAccountId: args.data.gameAccountId,
+        phoneNumber: args.data.phoneNumber,
+        email: args.data.email ?? null,
+        discordUsername: args.data.discordUsername ?? null,
+        rank: args.data.rank ?? null,
+        country: args.data.country ?? null,
+        rosterType: args.data.rosterType ?? RosterType.STARTER,
+        teamId: args.data.teamId,
+      });
+
+      rosterPlayers.push(player);
+
+      return Promise.resolve(player);
+    });
+    rosterPlayerUpdate = jest.fn((args: RosterPlayerUpdateArgs) => {
+      const player = rosterPlayers.find((item) => item.id === args.where.id);
+
+      if (!player) {
+        throw new Error('Roster player not found in fake database.');
+      }
+
+      if (
+        args.data.gameAccountId &&
+        rosterPlayers.some(
+          (item) =>
+            item.id !== player.id &&
+            item.teamId === player.teamId &&
+            item.gameAccountId === args.data.gameAccountId,
+        )
+      ) {
+        throw createPrismaKnownRequestError('P2002', [
+          'teamId',
+          'gameAccountId',
+        ]);
+      }
+
+      Object.assign(player, args.data, {
+        updatedAt: new Date('2026-08-04T13:00:00.000Z'),
+      });
+
+      return Promise.resolve(player);
+    });
+    rosterPlayerDelete = jest.fn((args: RosterPlayerDeleteArgs) => {
+      const playerIndex = rosterPlayers.findIndex(
+        (player) => player.id === args.where.id,
+      );
+
+      if (playerIndex < 0) {
+        throw new Error('Roster player not found in fake database.');
+      }
+
+      const [player] = rosterPlayers.splice(playerIndex, 1);
+
+      return Promise.resolve(player);
+    });
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -296,6 +486,13 @@ describe('CaptainsService', () => {
                 findUnique: teamFindUnique,
                 create: teamCreate,
                 update: teamUpdate,
+              },
+              rosterPlayer: {
+                findMany: rosterPlayerFindMany,
+                findFirst: rosterPlayerFindFirst,
+                create: rosterPlayerCreate,
+                update: rosterPlayerUpdate,
+                delete: rosterPlayerDelete,
               },
             },
           },
@@ -561,6 +758,146 @@ describe('CaptainsService', () => {
     expect(dto.discordServerUrl).toBeNull();
     expect(dto.description).toBeNull();
   });
+
+  it('adds a roster player with required phone number and private contacts', async () => {
+    teams.push(createTeamRecord({ id: 'team-1', captainId: 'captain-1' }));
+
+    const result = await service.createRosterPlayer('captain-1', {
+      gamerTag: 'Fegoo',
+      realName: 'Ahmed Farghaly',
+      gameAccountId: 'VALORANT#1234',
+      phoneNumber: '+201001234567',
+      email: 'player@example.com',
+      discordUsername: 'fegoo',
+      rank: 'Immortal 2',
+      country: 'EG',
+      rosterType: RosterType.STARTER,
+    });
+
+    expect(result).toMatchObject({
+      gamerTag: 'Fegoo',
+      realName: 'Ahmed Farghaly',
+      gameAccountId: 'VALORANT#1234',
+      phoneNumber: '+201001234567',
+      email: 'player@example.com',
+      discordUsername: 'fegoo',
+      rosterType: RosterType.STARTER,
+      verificationStatus: VerificationStatus.UNVERIFIED,
+      eligibilityStatus: EligibilityStatus.PENDING_REVIEW,
+      teamId: 'team-1',
+    });
+  });
+
+  it('rejects missing roster-player phone number in the request DTO', async () => {
+    const dto = plainToInstance(CreateRosterPlayerDto, {
+      gamerTag: 'Fegoo',
+      gameAccountId: 'VALORANT#1234',
+    });
+
+    await expect(validate(dto)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          property: 'phoneNumber',
+        }),
+      ]),
+    );
+  });
+
+  it('normalizes optional roster-player email and Discord username', async () => {
+    const dto = plainToInstance(CreateRosterPlayerDto, {
+      gamerTag: 'Fegoo',
+      gameAccountId: 'VALORANT#1234',
+      phoneNumber: '+201001234567',
+      email: ' PLAYER@EXAMPLE.COM ',
+      discordUsername: '  fegoo  ',
+    });
+
+    await expect(validate(dto)).resolves.toHaveLength(0);
+    expect(dto.email).toBe('player@example.com');
+    expect(dto.discordUsername).toBe('fegoo');
+  });
+
+  it('lists, reads, updates, and deletes roster players for the authenticated Captain team', async () => {
+    teams.push(createTeamRecord({ id: 'team-1', captainId: 'captain-1' }));
+    rosterPlayers.push(createRosterPlayerRecord({ id: 'player-1' }));
+
+    await expect(service.listRosterPlayers('captain-1')).resolves.toHaveLength(
+      1,
+    );
+    await expect(
+      service.getRosterPlayer('captain-1', 'player-1'),
+    ).resolves.toMatchObject({ id: 'player-1' });
+
+    const updated = await service.updateRosterPlayer('captain-1', 'player-1', {
+      gamerTag: 'UpdatedFegoo',
+      rosterType: RosterType.SUBSTITUTE,
+      email: null,
+      discordUsername: 'updated-fegoo',
+    });
+
+    expect(updated).toMatchObject({
+      gamerTag: 'UpdatedFegoo',
+      rosterType: RosterType.SUBSTITUTE,
+      email: null,
+      discordUsername: 'updated-fegoo',
+    });
+
+    const deleted = await service.deleteRosterPlayer('captain-1', 'player-1');
+
+    expect(deleted.id).toBe('player-1');
+    expect(rosterPlayers).toHaveLength(0);
+  });
+
+  it('does not allow another Captain to access a roster player outside their team', async () => {
+    teams.push(createTeamRecord({ id: 'team-1', captainId: 'captain-1' }));
+    rosterPlayers.push(
+      createRosterPlayerRecord({ id: 'player-2', teamId: 'other-team' }),
+    );
+
+    await expect(
+      service.getRosterPlayer('captain-1', 'player-2'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('returns 409 for duplicate game account IDs on the same team', async () => {
+    teams.push(createTeamRecord({ id: 'team-1', captainId: 'captain-1' }));
+    rosterPlayers.push(
+      createRosterPlayerRecord({
+        id: 'player-1',
+        teamId: 'team-1',
+        gameAccountId: 'VALORANT#1234',
+      }),
+    );
+
+    await expect(
+      service.createRosterPlayer('captain-1', {
+        gamerTag: 'Duplicate',
+        gameAccountId: 'VALORANT#1234',
+        phoneNumber: '+201009876543',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('does not create a User account for roster players', async () => {
+    teams.push(createTeamRecord({ id: 'team-1', captainId: 'captain-1' }));
+
+    await service.createRosterPlayer('captain-1', {
+      gamerTag: 'NoLoginPlayer',
+      gameAccountId: 'NOLOGIN#1234',
+      phoneNumber: '+201001234567',
+    });
+
+    expect(users).toHaveLength(2);
+  });
+
+  it('does not expose legacy playerRole on roster-player responses', async () => {
+    teams.push(createTeamRecord({ id: 'team-1', captainId: 'captain-1' }));
+    rosterPlayers.push(createRosterPlayerRecord({ id: 'player-1' }));
+
+    const result = await service.getRosterPlayer('captain-1', 'player-1');
+
+    expect(result).not.toHaveProperty('playerRole');
+  });
 });
 
 const createUserRecord = (
@@ -595,5 +932,26 @@ const createTeamRecord = (
   captainId: 'captain-1',
   createdAt: new Date('2026-08-03T12:00:00.000Z'),
   updatedAt: new Date('2026-08-03T12:00:00.000Z'),
+  ...overrides,
+});
+
+const createRosterPlayerRecord = (
+  overrides: Partial<RosterPlayerRecord> = {},
+): RosterPlayerRecord => ({
+  id: 'player-1',
+  gamerTag: 'Fegoo',
+  realName: null,
+  gameAccountId: 'VALORANT#1234',
+  phoneNumber: '+201001234567',
+  email: null,
+  discordUsername: null,
+  rank: null,
+  country: null,
+  rosterType: RosterType.STARTER,
+  verificationStatus: VerificationStatus.UNVERIFIED,
+  eligibilityStatus: EligibilityStatus.PENDING_REVIEW,
+  teamId: 'team-1',
+  createdAt: new Date('2026-08-04T12:00:00.000Z'),
+  updatedAt: new Date('2026-08-04T12:00:00.000Z'),
   ...overrides,
 });
