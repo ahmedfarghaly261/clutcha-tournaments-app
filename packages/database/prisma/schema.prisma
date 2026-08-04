@@ -147,13 +147,15 @@ model Team {
 }
 
 model RosterPlayer {
-  id            String  @id @default(uuid())
-  gamerTag      String
-  realName      String?
-  gameAccountId String
-  playerRole    String?
-  rank          String?
-  country       String?
+  id              String  @id @default(uuid())
+  gamerTag        String
+  realName        String?
+  gameAccountId   String
+  phoneNumber     String
+  email           String?
+  discordUsername String?
+  rank            String?
+  country         String?
 
   rosterType         RosterType         @default(STARTER)
   verificationStatus VerificationStatus @default(UNVERIFIED)
