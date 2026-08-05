@@ -16,6 +16,10 @@ import {
   TournamentFormat,
   TournamentMode,
   TournamentRegistrationStatus,
+  TournamentMatchDisputeStatus,
+  TournamentMatchForfeitStatus,
+  TournamentMatchOfficialResultStatus,
+  TournamentMatchStatus,
   TournamentSeedingMethod,
   TournamentStatus,
   TournamentVisibility,
@@ -75,6 +79,31 @@ jest.mock('@clutcha/database', () => ({
     DISQUALIFIED: 'DISQUALIFIED',
     REFUND_PENDING: 'REFUND_PENDING',
     REFUNDED: 'REFUNDED',
+  },
+  TournamentMatchDisputeStatus: {
+    NONE: 'NONE',
+    OPEN: 'OPEN',
+    RESOLVED: 'RESOLVED',
+    REJECTED: 'REJECTED',
+  },
+  TournamentMatchForfeitStatus: {
+    NONE: 'NONE',
+    TEAM_A: 'TEAM_A',
+    TEAM_B: 'TEAM_B',
+    BOTH: 'BOTH',
+  },
+  TournamentMatchOfficialResultStatus: {
+    PENDING: 'PENDING',
+    CONFIRMED: 'CONFIRMED',
+    OVERTURNED: 'OVERTURNED',
+  },
+  TournamentMatchStatus: {
+    SCHEDULED: 'SCHEDULED',
+    LIVE: 'LIVE',
+    COMPLETED: 'COMPLETED',
+    POSTPONED: 'POSTPONED',
+    CANCELLED: 'CANCELLED',
+    FORFEIT: 'FORFEIT',
   },
   EligibilityStatus: {
     ELIGIBLE: 'ELIGIBLE',
@@ -211,6 +240,28 @@ type TournamentRegistrationUpdateArgs = {
   select: Record<string, unknown>;
 };
 
+type TournamentMatchFindManyArgs = {
+  where: TournamentMatchWhere;
+  orderBy: Record<string, unknown>[];
+  select: Record<string, unknown>;
+};
+
+type TournamentMatchFindFirstArgs = {
+  where: TournamentMatchWhere & {
+    id?: string;
+  };
+  select: Record<string, unknown>;
+};
+
+type TournamentMatchWhere = {
+  id?: string;
+  tournamentId?: string;
+  OR?: Array<{
+    teamAId?: string;
+    teamBId?: string;
+  }>;
+};
+
 type UserFindFirstArgs = {
   where: {
     id: string;
@@ -278,6 +329,7 @@ let onlineConfigurations: Record<string, unknown>[];
 let venues: Record<string, unknown>[];
 let gamingRooms: Record<string, unknown>[];
 let tournamentRegistrations: Record<string, unknown>[];
+let tournamentMatches: Record<string, unknown>[];
 
 describe('TournamentsService', () => {
   let service: TournamentsService;
@@ -325,6 +377,14 @@ describe('TournamentsService', () => {
   let updateTournamentRegistration: jest.Mock<
     Promise<Record<string, unknown>>,
     [TournamentRegistrationUpdateArgs]
+  >;
+  let findManyTournamentMatches: jest.Mock<
+    Promise<Record<string, unknown>[]>,
+    [TournamentMatchFindManyArgs]
+  >;
+  let findFirstTournamentMatch: jest.Mock<
+    Promise<Record<string, unknown> | null>,
+    [TournamentMatchFindFirstArgs]
   >;
   let findFirstUser: jest.Mock<
     Promise<Record<string, unknown> | null>,
@@ -476,6 +536,7 @@ describe('TournamentsService', () => {
       }),
     ];
     tournamentRegistrations = [];
+    tournamentMatches = [];
     findUnique = jest.fn((args: TournamentFindUniqueArgs) =>
       Promise.resolve(
         createdTournaments.find(
@@ -740,6 +801,18 @@ describe('TournamentsService', () => {
         return Promise.resolve(registration);
       },
     );
+    findManyTournamentMatches = jest.fn((args: TournamentMatchFindManyArgs) =>
+      Promise.resolve(
+        filterTournamentMatches(args.where).sort(compareTournamentMatches),
+      ),
+    );
+    findFirstTournamentMatch = jest.fn((args: TournamentMatchFindFirstArgs) =>
+      Promise.resolve(
+        filterTournamentMatches(args.where).find(
+          (match) => !args.where.id || match.id === args.where.id,
+        ) ?? null,
+      ),
+    );
 
     const tournamentClient = {
       findUnique,
@@ -756,6 +829,10 @@ describe('TournamentsService', () => {
       findMany: findManyTournamentRegistrations,
       findFirst: findFirstTournamentRegistration,
       update: updateTournamentRegistration,
+    };
+    const tournamentMatchClient = {
+      findMany: findManyTournamentMatches,
+      findFirst: findFirstTournamentMatch,
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -776,6 +853,7 @@ describe('TournamentsService', () => {
                 return callback({
                   tournament: tournamentClient,
                   tournamentRegistration: tournamentRegistrationClient,
+                  tournamentMatch: tournamentMatchClient,
                   user: {
                     findFirst: findFirstUser,
                   },
@@ -786,6 +864,7 @@ describe('TournamentsService', () => {
               }),
               tournament: tournamentClient,
               tournamentRegistration: tournamentRegistrationClient,
+              tournamentMatch: tournamentMatchClient,
               user: {
                 findFirst: findFirstUser,
               },
@@ -1807,6 +1886,235 @@ describe('TournamentsService', () => {
         'captain-hub-pending-registration',
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('lists only matches involving the approved Captain team', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-match-cup',
+      name: 'Captain Match Cup',
+      mode: TournamentMode.ONLINE,
+      timezone: 'Africa/Cairo',
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-match-registration',
+        captainId: 'captain-1',
+        teamId: 'team-1',
+        status: TournamentRegistrationStatus.CONFIRMED,
+        paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        team: createTeamRecord({ id: 'team-1', name: 'Cairo Titans' }),
+      }),
+    ];
+    tournamentMatches = [
+      createTournamentMatchRecord({
+        id: 'match-visible',
+        tournamentId: tournament.id,
+        tournament,
+        teamAId: 'team-1',
+        teamA: createTeamRecord({ id: 'team-1', name: 'Cairo Titans' }),
+        teamBId: 'team-opponent',
+        teamB: createTeamRecord({
+          id: 'team-opponent',
+          captainId: 'opponent-captain',
+          name: 'Falcons',
+        }),
+        status: TournamentMatchStatus.COMPLETED,
+        teamAScore: 2,
+        teamBScore: 1,
+        winnerTeamId: 'team-1',
+        officialResultStatus: TournamentMatchOfficialResultStatus.CONFIRMED,
+        evidenceUrl: 'https://cdn.example.com/evidence.png',
+        onlineServerInfo: {
+          lobbyCode: 'CLUTCHA-123',
+          serverRegion: 'EU West',
+        },
+        games: [
+          createTournamentMatchGameRecord({
+            id: 'match-visible-game-1',
+            matchId: 'match-visible',
+            gameNumber: 1,
+            mapName: 'Bind',
+            teamAScore: 13,
+            teamBScore: 9,
+            winnerTeamId: 'team-1',
+          }),
+        ],
+      }),
+      createTournamentMatchRecord({
+        id: 'match-hidden',
+        tournamentId: tournament.id,
+        teamAId: 'other-team-a',
+        teamBId: 'other-team-b',
+      }),
+    ];
+
+    const result = await service.listCaptainRegistrationMatches(
+      'captain-1',
+      'captain-match-registration',
+    );
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      id: 'match-visible',
+      tournament: {
+        id: 'captain-match-cup',
+        name: 'Captain Match Cup',
+        mode: TournamentMode.ONLINE,
+      },
+      stage: 'GROUP_STAGE',
+      round: 1,
+      bracketPosition: 'A1',
+      opponent: {
+        teamId: 'team-opponent',
+        teamName: 'Falcons',
+      },
+      timezone: 'Africa/Cairo',
+      status: TournamentMatchStatus.COMPLETED,
+      captainTeamScore: 2,
+      opponentScore: 1,
+      winnerTeamId: 'team-1',
+      officialResultStatus: TournamentMatchOfficialResultStatus.CONFIRMED,
+      evidenceAvailable: true,
+      disputeStatus: TournamentMatchDisputeStatus.NONE,
+      onlineServer: {
+        onlineServerInfo: {
+          lobbyCode: 'CLUTCHA-123',
+          serverRegion: 'EU West',
+        },
+      },
+      onsiteAssignment: null,
+    });
+    expect(result.items[0].mapResults).toEqual([
+      {
+        id: 'match-visible-game-1',
+        gameNumber: 1,
+        mapName: 'Bind',
+        captainTeamScore: 13,
+        opponentScore: 9,
+        winnerTeamId: 'team-1',
+        evidenceAvailable: false,
+      },
+    ]);
+  });
+
+  it('normalizes scores and room assignments when the Captain team is team B', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-onsite-match-cup',
+      name: 'Captain Onsite Match Cup',
+      mode: TournamentMode.ONSITE,
+      timezone: 'Africa/Cairo',
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-onsite-match-registration',
+        captainId: 'captain-1',
+        teamId: 'team-1',
+        status: TournamentRegistrationStatus.CHECKED_IN,
+        paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        team: createTeamRecord({ id: 'team-1', name: 'Cairo Titans' }),
+      }),
+    ];
+    tournamentMatches = [
+      createTournamentMatchRecord({
+        id: 'match-onsite',
+        tournamentId: tournament.id,
+        tournament,
+        teamAId: 'team-opponent',
+        teamA: createTeamRecord({
+          id: 'team-opponent',
+          captainId: 'opponent-captain',
+          name: 'Falcons',
+        }),
+        teamBId: 'team-1',
+        teamB: createTeamRecord({ id: 'team-1', name: 'Cairo Titans' }),
+        teamAScore: 0,
+        teamBScore: 2,
+        gamingRoomId: 'gaming-room-1',
+        gamingRoom: createGamingRoomRecord({
+          id: 'gaming-room-1',
+          name: 'Main Stage Room',
+        }),
+        onsiteStationLabel: 'Station A-04',
+      }),
+    ];
+
+    const result = await service.getCaptainRegistrationMatch(
+      'captain-1',
+      'captain-onsite-match-registration',
+      'match-onsite',
+    );
+
+    expect(result).toMatchObject({
+      id: 'match-onsite',
+      opponent: {
+        teamId: 'team-opponent',
+        teamName: 'Falcons',
+      },
+      captainTeamScore: 2,
+      opponentScore: 0,
+      onlineServer: null,
+      onsiteAssignment: {
+        gamingRoomId: 'gaming-room-1',
+        roomName: 'Main Stage Room',
+        stationLabel: 'Station A-04',
+      },
+    });
+  });
+
+  it('blocks unapproved registrations and foreign matches from Captain match views', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-match-private-cup',
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-match-pending-registration',
+        captainId: 'captain-1',
+        teamId: 'team-1',
+        status: TournamentRegistrationStatus.PENDING_APPROVAL,
+        approvalStatus: RegistrationApprovalStatus.PENDING,
+        tournamentId: tournament.id,
+        tournament,
+        team: createTeamRecord({ id: 'team-1' }),
+      }),
+      createTournamentRegistrationRecord({
+        id: 'captain-match-approved-registration',
+        captainId: 'captain-1',
+        teamId: 'team-1',
+        status: TournamentRegistrationStatus.CONFIRMED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        team: createTeamRecord({ id: 'team-1' }),
+      }),
+    ];
+    tournamentMatches = [
+      createTournamentMatchRecord({
+        id: 'foreign-match',
+        tournamentId: tournament.id,
+        teamAId: 'other-team-a',
+        teamBId: 'other-team-b',
+      }),
+    ];
+
+    await expect(
+      service.listCaptainRegistrationMatches(
+        'captain-1',
+        'captain-match-pending-registration',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.getCaptainRegistrationMatch(
+        'captain-1',
+        'captain-match-approved-registration',
+        'foreign-match',
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('withdraws the authenticated Captain registration without deleting snapshots', async () => {
@@ -3210,6 +3518,83 @@ const createTournamentRegistrationRecord = (
   ...overrides,
 });
 
+const createTournamentMatchGameRecord = (
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> => ({
+  id: 'match-game-1',
+  matchId: 'match-1',
+  gameNumber: 1,
+  mapName: 'Bind',
+  teamAScore: null,
+  teamBScore: null,
+  winnerTeamId: null,
+  evidenceUrl: null,
+  createdAt: new Date('2026-08-06T12:00:00.000Z'),
+  updatedAt: new Date('2026-08-06T12:00:00.000Z'),
+  ...overrides,
+});
+
+const createTournamentMatchRecord = (
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> => {
+  const tournamentId =
+    typeof overrides.tournamentId === 'string'
+      ? overrides.tournamentId
+      : 'tournament-1';
+  const teamAId =
+    typeof overrides.teamAId === 'string' ? overrides.teamAId : 'team-1';
+  const teamBId =
+    typeof overrides.teamBId === 'string' ? overrides.teamBId : 'opponent-team';
+  const tournament =
+    createdTournaments.find((item) => item.id === tournamentId) ??
+    createTournamentRecord({ id: tournamentId });
+  const teamA =
+    teams.find((item) => item.id === teamAId) ??
+    createTeamRecord({ id: teamAId, name: 'Captain Team' });
+  const teamB =
+    teams.find((item) => item.id === teamBId) ??
+    createTeamRecord({
+      id: teamBId,
+      captainId: 'opponent-captain',
+      name: 'Opponent Team',
+    });
+  const gamingRoom =
+    typeof overrides.gamingRoomId === 'string'
+      ? gamingRooms.find((item) => item.id === overrides.gamingRoomId)
+      : null;
+
+  return {
+    id: 'match-1',
+    tournamentId,
+    stage: 'GROUP_STAGE',
+    round: 1,
+    bracketPosition: 'A1',
+    bestOf: 3,
+    scheduledAt: new Date('2026-09-12T18:00:00.000Z'),
+    teamAId,
+    teamBId,
+    winnerTeamId: null,
+    status: TournamentMatchStatus.SCHEDULED,
+    teamAScore: null,
+    teamBScore: null,
+    forfeitStatus: TournamentMatchForfeitStatus.NONE,
+    officialResultStatus: TournamentMatchOfficialResultStatus.PENDING,
+    disputeStatus: TournamentMatchDisputeStatus.NONE,
+    evidenceUrl: null,
+    onlineServerInfo: null,
+    gamingRoomId: null,
+    onsiteStationLabel: null,
+    tournament,
+    teamA,
+    teamB,
+    gamingRoom: gamingRoom ?? null,
+    games: [],
+    createdAt: new Date('2026-08-06T12:00:00.000Z'),
+    updatedAt: new Date('2026-08-06T12:00:00.000Z'),
+    ...overrides,
+  };
+};
+
 function filterTournamentRegistrations(
   where: Record<string, unknown>,
 ): Record<string, unknown>[] {
@@ -3295,6 +3680,53 @@ function filterTournamentRegistrations(
 
     return true;
   });
+}
+
+function filterTournamentMatches(
+  where: TournamentMatchWhere,
+): Record<string, unknown>[] {
+  return tournamentMatches.filter((match) => {
+    if (where.id && match.id !== where.id) {
+      return false;
+    }
+
+    if (where.tournamentId && match.tournamentId !== where.tournamentId) {
+      return false;
+    }
+
+    if (
+      where.OR &&
+      !where.OR.some((condition) => matchMatchesTeam(match, condition))
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function matchMatchesTeam(
+  match: Record<string, unknown>,
+  condition: { teamAId?: string; teamBId?: string },
+): boolean {
+  return (
+    (condition.teamAId !== undefined && match.teamAId === condition.teamAId) ||
+    (condition.teamBId !== undefined && match.teamBId === condition.teamBId)
+  );
+}
+
+function compareTournamentMatches(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+): number {
+  const leftDate = left.scheduledAt;
+  const rightDate = right.scheduledAt;
+
+  if (leftDate instanceof Date && rightDate instanceof Date) {
+    return leftDate.getTime() - rightDate.getTime();
+  }
+
+  return Number(left.round ?? 0) - Number(right.round ?? 0);
 }
 
 function sortTournamentRegistrations(

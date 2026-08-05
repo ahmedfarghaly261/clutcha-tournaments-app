@@ -28,6 +28,10 @@ import {
   type CaptainRegistrationListResponseDto,
 } from './dto/captain-registration-response.dto';
 import { type CaptainRegistrationHubResponseDto } from './dto/captain-registration-hub-response.dto';
+import {
+  type CaptainMatchListResponseDto,
+  type CaptainMatchResponseDto,
+} from './dto/captain-registration-match-response.dto';
 import { type CancelTournamentDto } from './dto/cancel-tournament.dto';
 import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
 import { type CreateTournamentRegistrationDto } from './dto/create-tournament-registration.dto';
@@ -129,6 +133,15 @@ type CaptainRegistrationDetailRecord = Prisma.TournamentRegistrationGetPayload<{
 
 type CaptainRegistrationHubRecord = Prisma.TournamentRegistrationGetPayload<{
   select: typeof captainRegistrationHubSelect;
+}>;
+
+type CaptainMatchAccessRegistrationRecord =
+  Prisma.TournamentRegistrationGetPayload<{
+    select: typeof captainMatchAccessRegistrationSelect;
+  }>;
+
+type CaptainMatchRecord = Prisma.TournamentMatchGetPayload<{
+  select: typeof captainMatchSelect;
 }>;
 
 type OrganizerRegistrationListRecord = Prisma.TournamentRegistrationGetPayload<{
@@ -702,6 +715,85 @@ const captainRegistrationHubSelect = {
   },
 } satisfies Prisma.TournamentRegistrationSelect;
 
+const captainMatchAccessRegistrationSelect = {
+  id: true,
+  status: true,
+  paymentStatus: true,
+  approvalStatus: true,
+  team: {
+    select: {
+      id: true,
+    },
+  },
+  tournament: {
+    select: {
+      id: true,
+      status: true,
+    },
+  },
+} satisfies Prisma.TournamentRegistrationSelect;
+
+const captainMatchSelect = {
+  id: true,
+  stage: true,
+  round: true,
+  bracketPosition: true,
+  bestOf: true,
+  scheduledAt: true,
+  teamAId: true,
+  teamBId: true,
+  winnerTeamId: true,
+  status: true,
+  teamAScore: true,
+  teamBScore: true,
+  forfeitStatus: true,
+  officialResultStatus: true,
+  disputeStatus: true,
+  evidenceUrl: true,
+  onlineServerInfo: true,
+  onsiteStationLabel: true,
+  tournament: {
+    select: {
+      id: true,
+      name: true,
+      mode: true,
+      timezone: true,
+    },
+  },
+  teamA: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  teamB: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  gamingRoom: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  games: {
+    orderBy: {
+      gameNumber: 'asc',
+    },
+    select: {
+      id: true,
+      gameNumber: true,
+      mapName: true,
+      teamAScore: true,
+      teamBScore: true,
+      winnerTeamId: true,
+      evidenceUrl: true,
+    },
+  },
+} satisfies Prisma.TournamentMatchSelect;
+
 const organizerRegistrationTeamSelect = {
   id: true,
   name: true,
@@ -1031,6 +1123,53 @@ export class TournamentsService {
     this.assertRegistrationCanAccessHub(registration);
 
     return this.toCaptainRegistrationHub(registration);
+  }
+
+  async listCaptainRegistrationMatches(
+    captainId: string,
+    registrationId: string,
+  ): Promise<CaptainMatchListResponseDto> {
+    const registration = await this.findCaptainMatchAccessRegistration(
+      captainId,
+      registrationId,
+    );
+
+    const matches = await this.databaseService.client.tournamentMatch.findMany({
+      where: this.toCaptainMatchOwnershipWhere(registration),
+      orderBy: [{ scheduledAt: 'asc' }, { round: 'asc' }, { createdAt: 'asc' }],
+      select: captainMatchSelect,
+    });
+
+    return {
+      items: matches.map((match) =>
+        this.toCaptainMatchResponse(match, registration.team.id),
+      ),
+    };
+  }
+
+  async getCaptainRegistrationMatch(
+    captainId: string,
+    registrationId: string,
+    matchId: string,
+  ): Promise<CaptainMatchResponseDto> {
+    const registration = await this.findCaptainMatchAccessRegistration(
+      captainId,
+      registrationId,
+    );
+
+    const match = await this.databaseService.client.tournamentMatch.findFirst({
+      where: {
+        id: matchId,
+        ...this.toCaptainMatchOwnershipWhere(registration),
+      },
+      select: captainMatchSelect,
+    });
+
+    if (!match) {
+      throw new NotFoundException('Match was not found for this registration.');
+    }
+
+    return this.toCaptainMatchResponse(match, registration.team.id);
   }
 
   async withdrawCaptainRegistration(
@@ -2359,6 +2498,111 @@ export class TournamentsService {
     };
   }
 
+  private async findCaptainMatchAccessRegistration(
+    captainId: string,
+    registrationId: string,
+  ): Promise<CaptainMatchAccessRegistrationRecord> {
+    const registration =
+      await this.databaseService.client.tournamentRegistration.findFirst({
+        where: {
+          id: registrationId,
+          captainId,
+        },
+        select: captainMatchAccessRegistrationSelect,
+      });
+
+    if (!registration) {
+      throw new NotFoundException('Registration was not found');
+    }
+
+    this.assertRegistrationCanAccessHub(registration);
+
+    return registration;
+  }
+
+  private toCaptainMatchOwnershipWhere(
+    registration: CaptainMatchAccessRegistrationRecord,
+  ): Prisma.TournamentMatchWhereInput {
+    return {
+      tournamentId: registration.tournament.id,
+      OR: [
+        {
+          teamAId: registration.team.id,
+        },
+        {
+          teamBId: registration.team.id,
+        },
+      ],
+    };
+  }
+
+  private toCaptainMatchResponse(
+    match: CaptainMatchRecord,
+    captainTeamId: string,
+  ): CaptainMatchResponseDto {
+    const captainIsTeamA = match.teamAId === captainTeamId;
+    const opponent = captainIsTeamA ? match.teamB : match.teamA;
+    const captainTeamScore = captainIsTeamA
+      ? match.teamAScore
+      : match.teamBScore;
+    const opponentScore = captainIsTeamA ? match.teamBScore : match.teamAScore;
+
+    return {
+      id: match.id,
+      tournament: {
+        id: match.tournament.id,
+        name: match.tournament.name,
+        mode: match.tournament.mode,
+      },
+      stage: match.stage,
+      round: match.round,
+      bracketPosition: match.bracketPosition,
+      opponent: opponent
+        ? {
+            teamId: opponent.id,
+            teamName: opponent.name,
+          }
+        : null,
+      scheduledAt: match.scheduledAt,
+      timezone: match.tournament.timezone,
+      bestOf: match.bestOf,
+      status: match.status,
+      captainTeamScore,
+      opponentScore,
+      mapResults: match.games.map((game) => ({
+        id: game.id,
+        gameNumber: game.gameNumber,
+        mapName: game.mapName,
+        captainTeamScore: captainIsTeamA ? game.teamAScore : game.teamBScore,
+        opponentScore: captainIsTeamA ? game.teamBScore : game.teamAScore,
+        winnerTeamId: game.winnerTeamId,
+        evidenceAvailable: Boolean(game.evidenceUrl),
+      })),
+      winnerTeamId: match.winnerTeamId,
+      forfeitStatus: match.forfeitStatus,
+      officialResultStatus: match.officialResultStatus,
+      evidenceAvailable:
+        Boolean(match.evidenceUrl) ||
+        match.games.some((game) => Boolean(game.evidenceUrl)),
+      disputeStatus: match.disputeStatus,
+      onlineServer:
+        match.tournament.mode === TournamentMode.ONLINE &&
+        match.onlineServerInfo !== null
+          ? {
+              onlineServerInfo: match.onlineServerInfo,
+            }
+          : null,
+      onsiteAssignment:
+        match.tournament.mode === TournamentMode.ONSITE && match.gamingRoom
+          ? {
+              gamingRoomId: match.gamingRoom.id,
+              roomName: match.gamingRoom.name,
+              stationLabel: match.onsiteStationLabel,
+            }
+          : null,
+    };
+  }
+
   private toCaptainRegistrationTournamentSummary(
     tournament: CaptainRegistrationListRecord['tournament'],
   ): CaptainRegistrationListItemDto['tournament'] {
@@ -2419,7 +2663,8 @@ export class TournamentsService {
   }
 
   private assertRegistrationCanAccessHub(
-    registration: CaptainRegistrationHubRecord,
+    registration:
+      CaptainRegistrationHubRecord | CaptainMatchAccessRegistrationRecord,
   ): void {
     if (registration.approvalStatus !== RegistrationApprovalStatus.APPROVED) {
       throw new ForbiddenException(
