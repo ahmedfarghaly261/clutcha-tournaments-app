@@ -203,6 +203,12 @@ type TournamentRegistrationFindFirstArgs = {
   };
 };
 
+type TournamentRegistrationUpdateArgs = {
+  where: { id: string };
+  data: Record<string, unknown>;
+  select: Record<string, unknown>;
+};
+
 type UserFindFirstArgs = {
   where: {
     id: string;
@@ -313,6 +319,10 @@ describe('TournamentsService', () => {
   let findFirstTournamentRegistration: jest.Mock<
     Promise<Record<string, unknown> | null>,
     [TournamentRegistrationFindFirstArgs]
+  >;
+  let updateTournamentRegistration: jest.Mock<
+    Promise<Record<string, unknown>>,
+    [TournamentRegistrationUpdateArgs]
   >;
   let findFirstUser: jest.Mock<
     Promise<Record<string, unknown> | null>,
@@ -705,6 +715,26 @@ describe('TournamentsService', () => {
           ) ?? null,
         ),
     );
+    updateTournamentRegistration = jest.fn(
+      (args: TournamentRegistrationUpdateArgs) => {
+        const registration = tournamentRegistrations.find(
+          (item) => item.id === args.where.id,
+        );
+
+        if (!registration) {
+          throw new Error('Registration not found in fake database.');
+        }
+
+        Object.entries(args.data).forEach(([key, value]) => {
+          if (value !== undefined) {
+            registration[key] = value;
+          }
+        });
+        registration.updatedAt = new Date('2026-08-05T12:00:00.000Z');
+
+        return Promise.resolve(registration);
+      },
+    );
 
     const tournamentClient = {
       findUnique,
@@ -720,6 +750,7 @@ describe('TournamentsService', () => {
       create: createTournamentRegistration,
       findMany: findManyTournamentRegistrations,
       findFirst: findFirstTournamentRegistration,
+      update: updateTournamentRegistration,
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -1587,6 +1618,116 @@ describe('TournamentsService', () => {
         'registration-private',
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('withdraws the authenticated Captain registration without deleting snapshots', async () => {
+    const rosterSnapshot = [
+      {
+        rosterPlayerId: 'starter-1',
+        gamerTag: 'Starter One',
+        phoneNumber: '+201001234567',
+      },
+    ];
+    const captainContactSnapshot = {
+      displayName: 'Captain One',
+      email: 'captain@example.com',
+      phoneNumber: '+201001234567',
+    };
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'registration-withdrawable',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.CONFIRMED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournament: createTournamentRecord({
+          id: 'withdrawable-cup',
+          status: TournamentStatus.REGISTRATION_OPEN,
+        }),
+        rosterSnapshot,
+        captainContactSnapshot,
+      }),
+    ];
+
+    const result = await service.withdrawCaptainRegistration(
+      'captain-1',
+      'registration-withdrawable',
+      { reason: 'The team is no longer available.' },
+    );
+
+    const updateArgs = updateTournamentRegistration.mock.calls[0][0];
+    expect(updateArgs.where).toEqual({ id: 'registration-withdrawable' });
+    expect(updateArgs.data.status).toBe(TournamentRegistrationStatus.WITHDRAWN);
+    expect(updateArgs.data.withdrawnAt).toBeInstanceOf(Date);
+    expect(result.lifecycle.status).toBe(
+      TournamentRegistrationStatus.WITHDRAWN,
+    );
+    expect(result.lifecycle.withdrawnAt).toBeInstanceOf(Date);
+    expect(result.rosterSnapshot).toEqual(rosterSnapshot);
+    expect(result.captainContactSnapshot).toEqual(captainContactSnapshot);
+    expect(tournamentRegistrations).toHaveLength(1);
+  });
+
+  it('returns 404 when another Captain attempts to withdraw a registration', async () => {
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'registration-other-owner',
+        captainId: 'captain-1',
+        tournament: createTournamentRecord({
+          id: 'other-owner-cup',
+        }),
+      }),
+    ];
+
+    await expect(
+      service.withdrawCaptainRegistration(
+        'other-captain',
+        'registration-other-owner',
+        {},
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(updateTournamentRegistration).not.toHaveBeenCalled();
+  });
+
+  it('rejects withdrawal for blocked registration and tournament lifecycles', async () => {
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'registration-disqualified',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.DISQUALIFIED,
+        tournament: createTournamentRecord({
+          id: 'blocked-registration-cup',
+          status: TournamentStatus.REGISTRATION_OPEN,
+        }),
+      }),
+    ];
+
+    await expect(
+      service.withdrawCaptainRegistration(
+        'captain-1',
+        'registration-disqualified',
+        {},
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'registration-started-tournament',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.CONFIRMED,
+        tournament: createTournamentRecord({
+          id: 'started-tournament-cup',
+          status: TournamentStatus.IN_PROGRESS,
+        }),
+      }),
+    ];
+
+    await expect(
+      service.withdrawCaptainRegistration(
+        'captain-1',
+        'registration-started-tournament',
+        {},
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('returns public on-site tournament details with venue and gaming-room hardware only', async () => {

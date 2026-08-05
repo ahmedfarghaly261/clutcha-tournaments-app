@@ -64,6 +64,7 @@ import { type UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto
 import { type UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.dto';
 import { type UpsertVenueDto } from './dto/upsert-venue.dto';
 import { type VenueResponseDto } from './dto/venue-response.dto';
+import { type WithdrawCaptainRegistrationDto } from './dto/withdraw-captain-registration.dto';
 import { toGamingRoomResponse } from './mappers/gaming-room.mapper';
 import { toOnlineConfigurationResponse } from './mappers/online-configuration.mapper';
 import { toPublicTournamentDetailResponse } from './mappers/public-tournament-detail.mapper';
@@ -151,6 +152,22 @@ const activeRegistrationStatuses = [
   TournamentRegistrationStatus.CHECKED_IN,
   TournamentRegistrationStatus.REFUND_PENDING,
 ] as const;
+
+const withdrawalBlockedTournamentStatuses: readonly TournamentStatus[] = [
+  TournamentStatus.CHECK_IN_OPEN,
+  TournamentStatus.IN_PROGRESS,
+  TournamentStatus.COMPLETED,
+  TournamentStatus.CANCELLED,
+  TournamentStatus.ARCHIVED,
+] as const;
+
+const withdrawalBlockedRegistrationStatuses: readonly TournamentRegistrationStatus[] =
+  [
+    TournamentRegistrationStatus.WITHDRAWN,
+    TournamentRegistrationStatus.CHECKED_IN,
+    TournamentRegistrationStatus.DISQUALIFIED,
+    TournamentRegistrationStatus.REFUNDED,
+  ] as const;
 
 const tournamentSelect = {
   id: true,
@@ -879,6 +896,43 @@ export class TournamentsService {
     if (!registration) {
       throw new NotFoundException('Registration was not found');
     }
+
+    return this.toCaptainRegistrationDetail(registration);
+  }
+
+  async withdrawCaptainRegistration(
+    captainId: string,
+    registrationId: string,
+    dto: WithdrawCaptainRegistrationDto,
+  ): Promise<CaptainRegistrationDetailResponseDto> {
+    void dto.reason;
+
+    const registration = await this.databaseService.client.$transaction(
+      async (transaction) => {
+        const existing = await transaction.tournamentRegistration.findFirst({
+          where: {
+            id: registrationId,
+            captainId,
+          },
+          select: captainRegistrationDetailSelect,
+        });
+
+        if (!existing) {
+          throw new NotFoundException('Registration was not found');
+        }
+
+        this.assertRegistrationCanBeWithdrawn(existing);
+
+        return transaction.tournamentRegistration.update({
+          where: { id: existing.id },
+          data: {
+            status: TournamentRegistrationStatus.WITHDRAWN,
+            withdrawnAt: new Date(),
+          },
+          select: captainRegistrationDetailSelect,
+        });
+      },
+    );
 
     return this.toCaptainRegistrationDetail(registration);
   }
@@ -1878,6 +1932,35 @@ export class TournamentsService {
     }
 
     return CaptainRegistrationNextAction.NONE;
+  }
+
+  private assertRegistrationCanBeWithdrawn(
+    registration: CaptainRegistrationDetailRecord,
+  ): void {
+    if (
+      withdrawalBlockedRegistrationStatuses.includes(registration.status) ||
+      registration.paymentStatus === RegistrationPaymentStatus.REFUNDED
+    ) {
+      throw new ConflictException(
+        'This registration can no longer be withdrawn.',
+      );
+    }
+
+    if (registration.tournament.status === TournamentStatus.COMPLETED) {
+      throw new ConflictException(
+        'Completed tournaments cannot be withdrawn from.',
+      );
+    }
+
+    if (
+      withdrawalBlockedTournamentStatuses.includes(
+        registration.tournament.status,
+      )
+    ) {
+      throw new ConflictException(
+        'Tournament lifecycle no longer allows withdrawal.',
+      );
+    }
   }
 
   private async getRegistrationContextForEligibility(
