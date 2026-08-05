@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import {
+  BadRequestException,
   ConflictException,
   NotFoundException,
   UnprocessableEntityException,
@@ -7,10 +8,13 @@ import {
 import {
   EligibilityStatus,
   GamingRoomPurpose,
+  RegistrationApprovalStatus,
+  RegistrationPaymentStatus,
   RosterType,
   TeamStatus,
   TournamentFormat,
   TournamentMode,
+  TournamentRegistrationStatus,
   TournamentSeedingMethod,
   TournamentStatus,
   TournamentVisibility,
@@ -28,7 +32,44 @@ import { PublicTournamentSortBy } from './dto/list-public-tournaments-query.dto'
 import { TournamentsService } from './tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
-  Prisma: {},
+  Prisma: {
+    PrismaClientKnownRequestError: class PrismaClientKnownRequestError extends Error {
+      code: string;
+
+      meta?: unknown;
+
+      constructor(message: string, options: { code: string; meta?: unknown }) {
+        super(message);
+        this.code = options.code;
+        this.meta = options.meta;
+      }
+    },
+  },
+  RegistrationApprovalStatus: {
+    PENDING: 'PENDING',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+  },
+  RegistrationPaymentStatus: {
+    NOT_REQUIRED: 'NOT_REQUIRED',
+    PENDING: 'PENDING',
+    PAID: 'PAID',
+    FAILED: 'FAILED',
+    REFUND_PENDING: 'REFUND_PENDING',
+    REFUNDED: 'REFUNDED',
+  },
+  TournamentRegistrationStatus: {
+    PENDING_PAYMENT: 'PENDING_PAYMENT',
+    PENDING_APPROVAL: 'PENDING_APPROVAL',
+    CONFIRMED: 'CONFIRMED',
+    REJECTED: 'REJECTED',
+    WAITLISTED: 'WAITLISTED',
+    WITHDRAWN: 'WITHDRAWN',
+    CHECKED_IN: 'CHECKED_IN',
+    DISQUALIFIED: 'DISQUALIFIED',
+    REFUND_PENDING: 'REFUND_PENDING',
+    REFUNDED: 'REFUNDED',
+  },
   EligibilityStatus: {
     ELIGIBLE: 'ELIGIBLE',
     INELIGIBLE: 'INELIGIBLE',
@@ -128,6 +169,21 @@ type TournamentCountArgs = {
   where: Record<string, unknown>;
 };
 
+type TournamentRegistrationCountArgs = {
+  where: {
+    tournamentId?: string;
+    teamId?: string;
+    status?: {
+      in?: string[];
+    };
+  };
+};
+
+type TournamentRegistrationCreateArgs = {
+  data: Record<string, unknown>;
+  select: Record<string, unknown>;
+};
+
 type UserFindFirstArgs = {
   where: {
     id: string;
@@ -194,6 +250,7 @@ let teams: Record<string, unknown>[];
 let onlineConfigurations: Record<string, unknown>[];
 let venues: Record<string, unknown>[];
 let gamingRooms: Record<string, unknown>[];
+let tournamentRegistrations: Record<string, unknown>[];
 
 describe('TournamentsService', () => {
   let service: TournamentsService;
@@ -222,6 +279,14 @@ describe('TournamentsService', () => {
     [TournamentDeleteArgs]
   >;
   let count: jest.Mock<Promise<number>, [TournamentCountArgs]>;
+  let countTournamentRegistrations: jest.Mock<
+    Promise<number>,
+    [TournamentRegistrationCountArgs]
+  >;
+  let createTournamentRegistration: jest.Mock<
+    Promise<Record<string, unknown>>,
+    [TournamentRegistrationCreateArgs]
+  >;
   let findFirstUser: jest.Mock<
     Promise<Record<string, unknown> | null>,
     [UserFindFirstArgs]
@@ -371,6 +436,7 @@ describe('TournamentsService', () => {
         venueId: 'venue-1',
       }),
     ];
+    tournamentRegistrations = [];
     findUnique = jest.fn((args: TournamentFindUniqueArgs) =>
       Promise.resolve(
         createdTournaments.find(
@@ -554,6 +620,71 @@ describe('TournamentsService', () => {
 
       return Promise.resolve({ id: args.where.id });
     });
+    countTournamentRegistrations = jest.fn(
+      (args: TournamentRegistrationCountArgs) =>
+        Promise.resolve(
+          tournamentRegistrations.filter((registration) => {
+            if (
+              args.where.tournamentId &&
+              registration.tournamentId !== args.where.tournamentId
+            ) {
+              return false;
+            }
+
+            if (
+              args.where.teamId &&
+              registration.teamId !== args.where.teamId
+            ) {
+              return false;
+            }
+
+            const allowedStatuses = args.where.status?.in;
+            if (
+              allowedStatuses &&
+              !allowedStatuses.includes(String(registration.status))
+            ) {
+              return false;
+            }
+
+            return true;
+          }).length,
+        ),
+    );
+    createTournamentRegistration = jest.fn(
+      (args: TournamentRegistrationCreateArgs) => {
+        const duplicate = tournamentRegistrations.find(
+          (registration) =>
+            registration.tournamentId === args.data.tournamentId &&
+            registration.teamId === args.data.teamId,
+        );
+
+        if (duplicate) {
+          throw new ConflictException(
+            'Team is already registered for this tournament.',
+          );
+        }
+
+        const tournament = createdTournaments.find(
+          (item) => item.id === args.data.tournamentId,
+        );
+        const team = teams.find((item) => item.id === args.data.teamId);
+
+        if (!tournament || !team) {
+          throw new Error('Registration relation not found in fake database.');
+        }
+
+        const registration = {
+          id: `registration-${tournamentRegistrations.length + 1}`,
+          ...args.data,
+          tournament,
+          team,
+          createdAt: new Date('2026-08-04T16:00:00.000Z'),
+          updatedAt: new Date('2026-08-04T16:00:00.000Z'),
+        };
+        tournamentRegistrations.push(registration);
+        return Promise.resolve(registration);
+      },
+    );
 
     const tournamentClient = {
       findUnique,
@@ -563,6 +694,10 @@ describe('TournamentsService', () => {
       update,
       delete: deleteTournament,
       count,
+    };
+    const tournamentRegistrationClient = {
+      count: countTournamentRegistrations,
+      create: createTournamentRegistration,
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -580,9 +715,19 @@ describe('TournamentsService', () => {
                 const callback = input as (
                   transaction: unknown,
                 ) => Promise<unknown>;
-                return callback({ tournament: tournamentClient });
+                return callback({
+                  tournament: tournamentClient,
+                  tournamentRegistration: tournamentRegistrationClient,
+                  user: {
+                    findFirst: findFirstUser,
+                  },
+                  team: {
+                    findUnique: findUniqueTeam,
+                  },
+                });
               }),
               tournament: tournamentClient,
+              tournamentRegistration: tournamentRegistrationClient,
               user: {
                 findFirst: findFirstUser,
               },
@@ -1059,6 +1204,192 @@ describe('TournamentsService', () => {
     await expect(
       service.getCaptainTournamentEligibility('captain-1', 'missing-cup'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('creates a free tournament registration with private snapshots', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'free-registration-cup',
+        slug: 'free-registration-cup',
+        status: TournamentStatus.REGISTRATION_OPEN,
+        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
+        registrationClosesAt: new Date('2026-08-10T20:00:00.000Z'),
+        allowedRegion: 'MENA',
+        allowedCountries: ['EG'],
+        rulesVersion: '2.1',
+      }),
+    );
+
+    const result = await service.createCaptainTournamentRegistration(
+      'captain-1',
+      'free-registration-cup',
+      { acceptRules: true },
+    );
+    const createArgs = createTournamentRegistration.mock.calls[0][0];
+
+    expect(result).toMatchObject({
+      id: 'registration-1',
+      status: TournamentRegistrationStatus.PENDING_APPROVAL,
+      paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
+      approvalStatus: RegistrationApprovalStatus.PENDING,
+      rulesVersion: '2.1',
+      tournament: {
+        id: 'free-registration-cup',
+        slug: 'free-registration-cup',
+        name: 'CLUTCHA Valorant Cairo Cup',
+        gameKey: 'valorant',
+        mode: TournamentMode.ONLINE,
+        registrationFee: '0',
+        currency: 'EGP',
+      },
+      team: {
+        id: 'team-1',
+        name: 'Cairo Titans',
+      },
+    });
+    expect(createArgs.data).toMatchObject({
+      tournamentId: 'free-registration-cup',
+      teamId: 'team-1',
+      captainId: 'captain-1',
+      status: TournamentRegistrationStatus.PENDING_APPROVAL,
+      paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
+      approvalStatus: RegistrationApprovalStatus.PENDING,
+      rulesVersion: '2.1',
+    });
+    expect(createArgs.data).not.toHaveProperty('teamIdFromClient');
+    expect(createArgs.data).not.toHaveProperty('captainIdFromClient');
+    expect(createArgs.data.rosterSnapshot).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rosterPlayerId: 'starter-1',
+          gamerTag: 'Starter One',
+          gameAccountId: 'VALORANT#1234',
+          phoneNumber: '+201001234567',
+          rosterType: RosterType.STARTER,
+        }),
+      ]),
+    );
+    expect(createArgs.data.captainContactSnapshot).toEqual({
+      displayName: 'Captain One',
+      email: 'captain@example.com',
+      phoneNumber: '+201001234567',
+      discordUsername: null,
+    });
+    expect(result).not.toHaveProperty('rosterSnapshot');
+    expect(result).not.toHaveProperty('captainContactSnapshot');
+  });
+
+  it('creates a paid tournament registration in pending-payment status', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'paid-registration-cup',
+        slug: 'paid-registration-cup',
+        status: TournamentStatus.REGISTRATION_OPEN,
+        registrationFee: { toString: () => '150.00' },
+        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
+        registrationClosesAt: new Date('2026-08-10T20:00:00.000Z'),
+        allowedRegion: 'MENA',
+        allowedCountries: ['EG'],
+      }),
+    );
+
+    const result = await service.createCaptainTournamentRegistration(
+      'captain-1',
+      'paid-registration-cup',
+      { acceptRules: true },
+    );
+
+    expect(result.status).toBe(TournamentRegistrationStatus.PENDING_PAYMENT);
+    expect(result.paymentStatus).toBe(RegistrationPaymentStatus.PENDING);
+    expect(result.approvalStatus).toBe(RegistrationApprovalStatus.PENDING);
+    expect(result.tournament.registrationFee).toBe('150.00');
+  });
+
+  it('requires accepting tournament rules before registration', async () => {
+    await expect(
+      service.createCaptainTournamentRegistration('captain-1', 'tournament-1', {
+        acceptRules: false,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('returns conflict when the team is already registered', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'duplicate-registration-cup',
+        status: TournamentStatus.REGISTRATION_OPEN,
+        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
+        registrationClosesAt: new Date('2026-08-10T20:00:00.000Z'),
+        allowedRegion: 'MENA',
+        allowedCountries: ['EG'],
+      }),
+    );
+    tournamentRegistrations.push(
+      createTournamentRegistrationRecord({
+        tournamentId: 'duplicate-registration-cup',
+        teamId: 'team-1',
+        captainId: 'captain-1',
+      }),
+    );
+
+    await expect(
+      service.createCaptainTournamentRegistration(
+        'captain-1',
+        'duplicate-registration-cup',
+        { acceptRules: true },
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('returns structured eligibility issues for duplicate and full tournaments', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'full-registration-cup',
+        status: TournamentStatus.REGISTRATION_OPEN,
+        maximumTeams: 1,
+        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
+        registrationClosesAt: new Date('2026-08-10T20:00:00.000Z'),
+        allowedRegion: 'MENA',
+        allowedCountries: ['EG'],
+      }),
+    );
+    tournamentRegistrations.push(
+      createTournamentRegistrationRecord({
+        tournamentId: 'full-registration-cup',
+        teamId: 'team-1',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.CONFIRMED,
+      }),
+    );
+
+    const result = await service.getCaptainTournamentEligibility(
+      'captain-1',
+      'full-registration-cup',
+    );
+
+    expect(result.eligible).toBe(false);
+    expect(result.issues.map((issue) => issue.code)).toEqual(
+      expect.arrayContaining(['TOURNAMENT_FULL', 'ALREADY_REGISTERED']),
+    );
+  });
+
+  it('rejects registration when eligibility checks fail', async () => {
+    createdTournaments.push(
+      createTournamentRecord({
+        id: 'ineligible-registration-cup',
+        status: TournamentStatus.PUBLISHED,
+        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
+        registrationClosesAt: new Date('2026-08-10T20:00:00.000Z'),
+      }),
+    );
+
+    await expect(
+      service.createCaptainTournamentRegistration(
+        'captain-1',
+        'ineligible-registration-cup',
+        { acceptRules: true },
+      ),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
   });
 
   it('returns public on-site tournament details with venue and gaming-room hardware only', async () => {
@@ -2018,6 +2349,7 @@ const createUserRecord = (
   email: 'captain@example.com',
   displayName: 'Captain One',
   phoneNumber: '+201001234567',
+  discordUsername: null,
   role: UserRole.CAPTAIN,
   status: UserStatus.ACTIVE,
   ...overrides,
@@ -2048,6 +2380,32 @@ const createRosterPlayerRecord = (
   rank: 'Gold',
   rosterType: RosterType.STARTER,
   eligibilityStatus: EligibilityStatus.PENDING_REVIEW,
+  ...overrides,
+});
+
+const createTournamentRegistrationRecord = (
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> => ({
+  id: 'registration-1',
+  tournamentId: 'tournament-1',
+  teamId: 'team-1',
+  captainId: 'captain-1',
+  status: TournamentRegistrationStatus.PENDING_APPROVAL,
+  paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
+  approvalStatus: RegistrationApprovalStatus.PENDING,
+  rosterSnapshot: [],
+  captainContactSnapshot: {},
+  rulesVersion: '1.0',
+  rulesAcceptedAt: new Date('2026-08-04T16:00:00.000Z'),
+  submittedAt: new Date('2026-08-04T16:00:00.000Z'),
+  approvedAt: null,
+  rejectedAt: null,
+  rejectionReason: null,
+  withdrawnAt: null,
+  checkedInAt: null,
+  disqualifiedAt: null,
+  createdAt: new Date('2026-08-04T16:00:00.000Z'),
+  updatedAt: new Date('2026-08-04T16:00:00.000Z'),
   ...overrides,
 });
 

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -7,9 +8,12 @@ import {
 import {
   EligibilityStatus,
   Prisma,
+  RegistrationApprovalStatus,
+  RegistrationPaymentStatus,
   RosterType,
   TeamStatus,
   TournamentMode,
+  TournamentRegistrationStatus,
   TournamentSeedingMethod,
   TournamentStatus,
   TournamentVisibility,
@@ -18,6 +22,7 @@ import {
 import { DatabaseService } from '../../database/database.service';
 import { type CancelTournamentDto } from './dto/cancel-tournament.dto';
 import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
+import { type CreateTournamentRegistrationDto } from './dto/create-tournament-registration.dto';
 import { type CreateTournamentDto } from './dto/create-tournament.dto';
 import { type GamingRoomListResponseDto } from './dto/gaming-room-list-response.dto';
 import { type GamingRoomResponseDto } from './dto/gaming-room-response.dto';
@@ -40,6 +45,7 @@ import {
   type TournamentEligibilityIssueDto,
   type TournamentEligibilityResponseDto,
 } from './dto/tournament-eligibility-response.dto';
+import { type TournamentRegistrationResponseDto } from './dto/tournament-registration-response.dto';
 import { type TournamentResponseDto } from './dto/tournament-response.dto';
 import { type UpdateGamingRoomDto } from './dto/update-gaming-room.dto';
 import { type UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
@@ -87,6 +93,44 @@ type EligibilityTeam = Prisma.TeamGetPayload<{
 type EligibilityTournament = Prisma.TournamentGetPayload<{
   select: typeof eligibilityTournamentSelect;
 }>;
+
+type RegistrationRecord = Prisma.TournamentRegistrationGetPayload<{
+  select: typeof tournamentRegistrationSelect;
+}>;
+
+type RegistrationContext = {
+  activeRegistrationCount: number;
+  existingTeamRegistrationCount: number;
+};
+
+type RosterSnapshotItem = {
+  rosterPlayerId: string;
+  gamerTag: string;
+  realName: string | null;
+  gameAccountId: string;
+  phoneNumber: string;
+  email: string | null;
+  discordUsername: string | null;
+  rosterType: RosterType;
+  rank: string | null;
+  country: string | null;
+};
+
+type CaptainContactSnapshot = {
+  displayName: string;
+  email: string;
+  phoneNumber: string | null;
+  discordUsername: string | null;
+};
+
+const activeRegistrationStatuses = [
+  TournamentRegistrationStatus.PENDING_PAYMENT,
+  TournamentRegistrationStatus.PENDING_APPROVAL,
+  TournamentRegistrationStatus.CONFIRMED,
+  TournamentRegistrationStatus.WAITLISTED,
+  TournamentRegistrationStatus.CHECKED_IN,
+  TournamentRegistrationStatus.REFUND_PENDING,
+] as const;
 
 const tournamentSelect = {
   id: true,
@@ -398,8 +442,10 @@ const gamingRoomSelect = {
 
 const eligibilityCaptainSelect = {
   id: true,
+  email: true,
   displayName: true,
   phoneNumber: true,
+  discordUsername: true,
   role: true,
 } satisfies Prisma.UserSelect;
 
@@ -413,8 +459,11 @@ const eligibilityTeamSelect = {
     select: {
       id: true,
       gamerTag: true,
+      realName: true,
       gameAccountId: true,
       phoneNumber: true,
+      email: true,
+      discordUsername: true,
       country: true,
       rank: true,
       rosterType: true,
@@ -428,6 +477,7 @@ const eligibilityTournamentSelect = {
   gameKey: true,
   visibility: true,
   status: true,
+  maximumTeams: true,
   minimumStarters: true,
   maximumStarters: true,
   maximumSubstitutes: true,
@@ -441,6 +491,61 @@ const eligibilityTournamentSelect = {
   registrationClosesAt: true,
   cancelledAt: true,
 } satisfies Prisma.TournamentSelect;
+
+const registrationTournamentSelect = {
+  id: true,
+  slug: true,
+  name: true,
+  gameKey: true,
+  mode: true,
+  visibility: true,
+  status: true,
+  maximumTeams: true,
+  minimumStarters: true,
+  maximumStarters: true,
+  maximumSubstitutes: true,
+  requiredGameAccountId: true,
+  allowedRegion: true,
+  allowedCountries: true,
+  allowedPlatforms: true,
+  minimumRank: true,
+  maximumRank: true,
+  registrationFee: true,
+  currency: true,
+  rulesVersion: true,
+  registrationOpensAt: true,
+  registrationClosesAt: true,
+  startsAt: true,
+  cancelledAt: true,
+} satisfies Prisma.TournamentSelect;
+
+const tournamentRegistrationSelect = {
+  id: true,
+  status: true,
+  paymentStatus: true,
+  approvalStatus: true,
+  rulesVersion: true,
+  rulesAcceptedAt: true,
+  submittedAt: true,
+  tournament: {
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      gameKey: true,
+      mode: true,
+      registrationFee: true,
+      currency: true,
+      startsAt: true,
+    },
+  },
+  team: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+} satisfies Prisma.TournamentRegistrationSelect;
 
 @Injectable()
 export class TournamentsService {
@@ -532,11 +637,16 @@ export class TournamentsService {
       throw new NotFoundException('Tournament was not found');
     }
 
+    const registrationContext = await this.getRegistrationContextForEligibility(
+      tournament.id,
+      team.id,
+    );
     const issues = this.evaluateTournamentEligibility(
       captain,
       team,
       tournament,
       new Date(),
+      registrationContext,
     );
 
     return {
@@ -547,6 +657,118 @@ export class TournamentsService {
       },
       issues,
     };
+  }
+
+  async createCaptainTournamentRegistration(
+    captainId: string,
+    tournamentId: string,
+    dto: CreateTournamentRegistrationDto,
+  ): Promise<TournamentRegistrationResponseDto> {
+    if (dto.acceptRules !== true) {
+      throw new BadRequestException('Tournament rules must be accepted.');
+    }
+
+    try {
+      const registration = await this.databaseService.client.$transaction(
+        async (transaction) => {
+          const [captain, team, tournament] = await Promise.all([
+            transaction.user.findFirst({
+              where: {
+                id: captainId,
+                role: UserRole.CAPTAIN,
+              },
+              select: eligibilityCaptainSelect,
+            }),
+            transaction.team.findUnique({
+              where: { captainId },
+              select: eligibilityTeamSelect,
+            }),
+            transaction.tournament.findUnique({
+              where: { id: tournamentId },
+              select: registrationTournamentSelect,
+            }),
+          ]);
+
+          if (!captain) {
+            throw new NotFoundException('Captain profile was not found');
+          }
+
+          if (!team) {
+            throw new UnprocessableEntityException(
+              'Captain team was not found',
+            );
+          }
+
+          if (!tournament) {
+            throw new NotFoundException('Tournament was not found');
+          }
+
+          const registrationContext =
+            await this.getRegistrationContextForEligibility(
+              tournament.id,
+              team.id,
+              transaction,
+            );
+
+          if (registrationContext.existingTeamRegistrationCount > 0) {
+            throw new ConflictException(
+              'Team is already registered for this tournament.',
+            );
+          }
+
+          const issues = this.evaluateTournamentEligibility(
+            captain,
+            team,
+            tournament,
+            new Date(),
+            registrationContext,
+          );
+
+          if (issues.length > 0) {
+            throw new UnprocessableEntityException({
+              message: 'Captain team is not eligible for this tournament.',
+              issues,
+            });
+          }
+
+          const paidTournament =
+            Number(tournament.registrationFee.toString()) > 0;
+          const now = new Date();
+
+          return transaction.tournamentRegistration.create({
+            data: {
+              tournamentId: tournament.id,
+              teamId: team.id,
+              captainId: captain.id,
+              status: paidTournament
+                ? TournamentRegistrationStatus.PENDING_PAYMENT
+                : TournamentRegistrationStatus.PENDING_APPROVAL,
+              paymentStatus: paidTournament
+                ? RegistrationPaymentStatus.PENDING
+                : RegistrationPaymentStatus.NOT_REQUIRED,
+              approvalStatus: RegistrationApprovalStatus.PENDING,
+              rosterSnapshot: this.createRosterSnapshot(team),
+              captainContactSnapshot:
+                this.createCaptainContactSnapshot(captain),
+              rulesVersion: tournament.rulesVersion,
+              rulesAcceptedAt: now,
+              submittedAt: now,
+            },
+            select: tournamentRegistrationSelect,
+          });
+        },
+      );
+
+      return this.toTournamentRegistrationResponse(registration);
+    } catch (error) {
+      if (this.isPrismaUniqueConstraintError(error)) {
+        throw new ConflictException(
+          'Team is already registered for this tournament.',
+        );
+      }
+
+      throw error;
+    }
   }
 
   async publishOrganizerTournament(
@@ -1390,11 +1612,42 @@ export class TournamentsService {
     return room;
   }
 
+  private async getRegistrationContextForEligibility(
+    tournamentId: string,
+    teamId: string,
+    client: Prisma.TransactionClient | DatabaseService['client'] = this
+      .databaseService.client,
+  ): Promise<RegistrationContext> {
+    const [activeRegistrationCount, existingTeamRegistrationCount] =
+      await Promise.all([
+        client.tournamentRegistration.count({
+          where: {
+            tournamentId,
+            status: {
+              in: [...activeRegistrationStatuses],
+            },
+          },
+        }),
+        client.tournamentRegistration.count({
+          where: {
+            tournamentId,
+            teamId,
+          },
+        }),
+      ]);
+
+    return {
+      activeRegistrationCount,
+      existingTeamRegistrationCount,
+    };
+  }
+
   private evaluateTournamentEligibility(
     captain: EligibilityCaptain,
     team: EligibilityTeam,
     tournament: EligibilityTournament,
     now: Date,
+    registrationContext: RegistrationContext,
   ): TournamentEligibilityIssueDto[] {
     const issues: TournamentEligibilityIssueDto[] = [];
     const starters = team.rosterPlayers.filter(
@@ -1468,6 +1721,26 @@ export class TournamentsService {
         TournamentEligibilityIssueCode.REGISTRATION_NOT_OPEN,
         'tournament.registrationOpensAt',
         'The tournament registration window has not opened yet.',
+      );
+    }
+
+    if (
+      registrationContext.activeRegistrationCount >= tournament.maximumTeams
+    ) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.TOURNAMENT_FULL,
+        'tournament.maximumTeams',
+        'This tournament has reached its team capacity.',
+      );
+    }
+
+    if (registrationContext.existingTeamRegistrationCount > 0) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.ALREADY_REGISTERED,
+        'team',
+        'This team is already registered for this tournament.',
       );
     }
 
@@ -1571,6 +1844,64 @@ export class TournamentsService {
     }
 
     return issues;
+  }
+
+  private createRosterSnapshot(team: EligibilityTeam): Prisma.InputJsonValue {
+    const snapshot: RosterSnapshotItem[] = team.rosterPlayers.map((player) => ({
+      rosterPlayerId: player.id,
+      gamerTag: player.gamerTag,
+      realName: player.realName,
+      gameAccountId: player.gameAccountId,
+      phoneNumber: player.phoneNumber,
+      email: player.email,
+      discordUsername: player.discordUsername,
+      rosterType: player.rosterType,
+      rank: player.rank,
+      country: player.country,
+    }));
+
+    return snapshot;
+  }
+
+  private createCaptainContactSnapshot(
+    captain: EligibilityCaptain,
+  ): Prisma.InputJsonObject {
+    const snapshot: CaptainContactSnapshot = {
+      displayName: captain.displayName,
+      email: captain.email,
+      phoneNumber: captain.phoneNumber,
+      discordUsername: captain.discordUsername,
+    };
+
+    return snapshot;
+  }
+
+  private toTournamentRegistrationResponse(
+    registration: RegistrationRecord,
+  ): TournamentRegistrationResponseDto {
+    return {
+      id: registration.id,
+      status: registration.status,
+      paymentStatus: registration.paymentStatus,
+      approvalStatus: registration.approvalStatus,
+      rulesVersion: registration.rulesVersion,
+      rulesAcceptedAt: registration.rulesAcceptedAt,
+      submittedAt: registration.submittedAt,
+      tournament: {
+        id: registration.tournament.id,
+        slug: registration.tournament.slug,
+        name: registration.tournament.name,
+        gameKey: registration.tournament.gameKey,
+        mode: registration.tournament.mode,
+        registrationFee: registration.tournament.registrationFee.toString(),
+        currency: registration.tournament.currency,
+        startsAt: registration.tournament.startsAt,
+      },
+      team: {
+        id: registration.team.id,
+        name: registration.team.name,
+      },
+    };
   }
 
   private addEligibilityIssue(
@@ -2326,5 +2657,14 @@ export class TournamentsService {
 
   private toMoney(value: number): string {
     return value.toFixed(2);
+  }
+
+  private isPrismaUniqueConstraintError(
+    error: unknown,
+  ): error is Prisma.PrismaClientKnownRequestError {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 }
