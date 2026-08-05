@@ -122,6 +122,35 @@ enum RegistrationApprovalStatus {
   REJECTED
 }
 
+enum TournamentMatchStatus {
+  SCHEDULED
+  LIVE
+  COMPLETED
+  POSTPONED
+  CANCELLED
+  FORFEIT
+}
+
+enum TournamentMatchOfficialResultStatus {
+  PENDING
+  CONFIRMED
+  OVERTURNED
+}
+
+enum TournamentMatchForfeitStatus {
+  NONE
+  TEAM_A
+  TEAM_B
+  BOTH
+}
+
+enum TournamentMatchDisputeStatus {
+  NONE
+  OPEN
+  RESOLVED
+  REJECTED
+}
+
 model User {
   id           String     @id @default(uuid())
   email        String     @unique
@@ -167,6 +196,10 @@ model Team {
 
   rosterPlayers           RosterPlayer[]
   tournamentRegistrations TournamentRegistration[]
+  teamAMatches            TournamentMatch[]        @relation("TournamentMatchTeamA")
+  teamBMatches            TournamentMatch[]        @relation("TournamentMatchTeamB")
+  wonMatches              TournamentMatch[]        @relation("TournamentMatchWinner")
+  wonMatchGames           TournamentMatchGame[]    @relation("TournamentMatchGameWinner")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -323,6 +356,7 @@ model Tournament {
   onlineConfiguration TournamentOnlineConfiguration?
   venue               TournamentVenue?
   registrations       TournamentRegistration[]
+  matches             TournamentMatch[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -427,6 +461,8 @@ model TournamentGamingRoom {
 
   venue TournamentVenue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
+  tournamentMatches TournamentMatch[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -472,4 +508,75 @@ model TournamentRegistration {
   @@index([approvalStatus])
   @@index([paymentStatus])
   @@map("tournament_registrations")
+}
+
+model TournamentMatch {
+  id           String @id @default(uuid())
+  tournamentId String
+
+  stage           String
+  round           Int
+  bracketPosition String?
+  bestOf          Int       @default(1)
+  scheduledAt     DateTime?
+
+  teamAId      String?
+  teamBId      String?
+  winnerTeamId String?
+
+  status               TournamentMatchStatus               @default(SCHEDULED)
+  teamAScore           Int?
+  teamBScore           Int?
+  forfeitStatus        TournamentMatchForfeitStatus        @default(NONE)
+  officialResultStatus TournamentMatchOfficialResultStatus @default(PENDING)
+  disputeStatus        TournamentMatchDisputeStatus        @default(NONE)
+
+  evidenceUrl      String?
+  onlineServerInfo Json?
+
+  gamingRoomId       String?
+  onsiteStationLabel String?
+
+  tournament Tournament            @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  teamA      Team?                 @relation("TournamentMatchTeamA", fields: [teamAId], references: [id], onDelete: SetNull)
+  teamB      Team?                 @relation("TournamentMatchTeamB", fields: [teamBId], references: [id], onDelete: SetNull)
+  winnerTeam Team?                 @relation("TournamentMatchWinner", fields: [winnerTeamId], references: [id], onDelete: SetNull)
+  gamingRoom TournamentGamingRoom? @relation(fields: [gamingRoomId], references: [id], onDelete: SetNull)
+
+  games TournamentMatchGame[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tournamentId])
+  @@index([teamAId])
+  @@index([teamBId])
+  @@index([winnerTeamId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("tournament_matches")
+}
+
+model TournamentMatchGame {
+  id      String @id @default(uuid())
+  matchId String
+
+  gameNumber Int
+  mapName    String?
+
+  teamAScore   Int?
+  teamBScore   Int?
+  winnerTeamId String?
+  evidenceUrl  String?
+
+  match      TournamentMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  winnerTeam Team?           @relation("TournamentMatchGameWinner", fields: [winnerTeamId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([matchId, gameNumber])
+  @@index([matchId])
+  @@index([winnerTeamId])
+  @@map("tournament_match_games")
 }
