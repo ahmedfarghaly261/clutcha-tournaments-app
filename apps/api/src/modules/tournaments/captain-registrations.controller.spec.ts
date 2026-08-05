@@ -33,6 +33,31 @@ jest.mock('@clutcha/database', () => ({
     REFUND_PENDING: 'REFUND_PENDING',
     REFUNDED: 'REFUNDED',
   },
+  TournamentMatchDisputeStatus: {
+    NONE: 'NONE',
+    OPEN: 'OPEN',
+    RESOLVED: 'RESOLVED',
+    REJECTED: 'REJECTED',
+  },
+  TournamentMatchForfeitStatus: {
+    NONE: 'NONE',
+    TEAM_A: 'TEAM_A',
+    TEAM_B: 'TEAM_B',
+    BOTH: 'BOTH',
+  },
+  TournamentMatchOfficialResultStatus: {
+    PENDING: 'PENDING',
+    CONFIRMED: 'CONFIRMED',
+    OVERTURNED: 'OVERTURNED',
+  },
+  TournamentMatchStatus: {
+    SCHEDULED: 'SCHEDULED',
+    LIVE: 'LIVE',
+    COMPLETED: 'COMPLETED',
+    POSTPONED: 'POSTPONED',
+    CANCELLED: 'CANCELLED',
+    FORFEIT: 'FORFEIT',
+  },
   TournamentStatus: {
     DRAFT: 'DRAFT',
     PUBLISHED: 'PUBLISHED',
@@ -57,7 +82,7 @@ describe('CaptainRegistrationsController', () => {
     ).toEqual([UserRole.CAPTAIN]);
   });
 
-  it('exposes registration list, detail, hub, and withdrawal handlers', () => {
+  it('exposes registration list, detail, hub, match, and withdrawal handlers', () => {
     expect(
       typeof CaptainRegistrationsController.prototype.listRegistrations,
     ).toBe('function');
@@ -66,6 +91,12 @@ describe('CaptainRegistrationsController', () => {
     ).toBe('function');
     expect(
       typeof CaptainRegistrationsController.prototype.getRegistrationHub,
+    ).toBe('function');
+    expect(
+      typeof CaptainRegistrationsController.prototype.listRegistrationMatches,
+    ).toBe('function');
+    expect(
+      typeof CaptainRegistrationsController.prototype.getRegistrationMatch,
     ).toBe('function');
     expect(
       typeof CaptainRegistrationsController.prototype.withdrawRegistration,

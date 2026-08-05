@@ -18,6 +18,10 @@ import {
   CaptainRegistrationListResponseDto,
 } from './dto/captain-registration-response.dto';
 import { CaptainRegistrationHubResponseDto } from './dto/captain-registration-hub-response.dto';
+import {
+  CaptainMatchListResponseDto,
+  CaptainMatchResponseDto,
+} from './dto/captain-registration-match-response.dto';
 import { ListCaptainRegistrationsQueryDto } from './dto/list-captain-registrations-query.dto';
 import { WithdrawCaptainRegistrationDto } from './dto/withdraw-captain-registration.dto';
 import { TournamentsService } from './tournaments.service';
@@ -108,6 +112,69 @@ export class CaptainRegistrationsController {
     return this.tournamentsService.getCaptainRegistrationHub(
       user.id,
       registrationId,
+    );
+  }
+
+  @Get(':registrationId/matches')
+  @ApiOperation({
+    summary: 'List Captain registration matches',
+    description:
+      'Returns the authenticated Captain team schedule and official read-only results for an approved tournament registration. Only matches involving the Captain team are returned.',
+  })
+  @ApiOkResponse({
+    description: 'Captain registration matches returned.',
+    type: CaptainMatchListResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'The registration is not approved, paid/free, or otherwise allowed into the private tournament hub.',
+  })
+  @ApiNotFoundResponse({
+    description: 'The registration does not exist for this Captain.',
+  })
+  async listRegistrationMatches(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('registrationId') registrationId: string,
+  ): Promise<CaptainMatchListResponseDto> {
+    return this.tournamentsService.listCaptainRegistrationMatches(
+      user.id,
+      registrationId,
+    );
+  }
+
+  @Get(':registrationId/matches/:matchId')
+  @ApiOperation({
+    summary: 'Get Captain registration match details',
+    description:
+      'Returns one official read-only match result/schedule record involving the authenticated Captain team. Foreign registrations or matches outside the Captain team return 404.',
+  })
+  @ApiOkResponse({
+    description: 'Captain registration match returned.',
+    type: CaptainMatchResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'The registration is not approved, paid/free, or otherwise allowed into the private tournament hub.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The registration does not exist for this Captain, or the match does not involve this Captain team.',
+  })
+  async getRegistrationMatch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('registrationId') registrationId: string,
+    @Param('matchId') matchId: string,
+  ): Promise<CaptainMatchResponseDto> {
+    return this.tournamentsService.getCaptainRegistrationMatch(
+      user.id,
+      registrationId,
+      matchId,
     );
   }
 
