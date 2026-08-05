@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -26,6 +27,7 @@ import {
   type CaptainRegistrationListItemDto,
   type CaptainRegistrationListResponseDto,
 } from './dto/captain-registration-response.dto';
+import { type CaptainRegistrationHubResponseDto } from './dto/captain-registration-hub-response.dto';
 import { type CancelTournamentDto } from './dto/cancel-tournament.dto';
 import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
 import { type CreateTournamentRegistrationDto } from './dto/create-tournament-registration.dto';
@@ -52,6 +54,12 @@ import { type OrganizerTournamentListResponseDto } from './dto/organizer-tournam
 import { type OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
 import { type PublicTournamentDetailResponseDto } from './dto/public-tournament-detail-response.dto';
 import { type PublicTournamentListResponseDto } from './dto/public-tournament-list-response.dto';
+import {
+  type OrganizerRegistrationDetailResponseDto,
+  type OrganizerRegistrationListItemDto,
+  type OrganizerRegistrationListResponseDto,
+} from './dto/organizer-registration-response.dto';
+import { type RejectOrganizerRegistrationDto } from './dto/reject-organizer-registration.dto';
 import {
   TournamentEligibilityIssueCode,
   type TournamentEligibilityIssueDto,
@@ -118,6 +126,19 @@ type CaptainRegistrationListRecord = Prisma.TournamentRegistrationGetPayload<{
 type CaptainRegistrationDetailRecord = Prisma.TournamentRegistrationGetPayload<{
   select: typeof captainRegistrationDetailSelect;
 }>;
+
+type CaptainRegistrationHubRecord = Prisma.TournamentRegistrationGetPayload<{
+  select: typeof captainRegistrationHubSelect;
+}>;
+
+type OrganizerRegistrationListRecord = Prisma.TournamentRegistrationGetPayload<{
+  select: typeof organizerRegistrationListSelect;
+}>;
+
+type OrganizerRegistrationDetailRecord =
+  Prisma.TournamentRegistrationGetPayload<{
+    select: typeof organizerRegistrationDetailSelect;
+  }>;
 
 type RegistrationContext = {
   activeRegistrationCount: number;
@@ -622,6 +643,96 @@ const captainRegistrationDetailSelect = {
   captainContactSnapshot: true,
 } satisfies Prisma.TournamentRegistrationSelect;
 
+const captainRegistrationHubSelect = {
+  id: true,
+  status: true,
+  paymentStatus: true,
+  approvalStatus: true,
+  submittedAt: true,
+  approvedAt: true,
+  rulesVersion: true,
+  rulesAcceptedAt: true,
+  rosterSnapshot: true,
+  team: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  tournament: {
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      logoUrl: true,
+      coverUrl: true,
+      gameKey: true,
+      mode: true,
+      status: true,
+      startsAt: true,
+      endsAt: true,
+      timezone: true,
+      onlineConfiguration: {
+        select: {
+          serverRegion: true,
+          connectionRules: true,
+          discordServerUrl: true,
+          captainSupportChannel: true,
+          matchReportingChannel: true,
+          lobbyInstructions: true,
+          privateSupportContact: true,
+        },
+      },
+      venue: {
+        select: {
+          name: true,
+          country: true,
+          city: true,
+          address: true,
+          mapUrl: true,
+          checkInLocation: true,
+          venueRules: true,
+          parkingInfo: true,
+          equipmentProvided: true,
+          playersMayBring: true,
+          playersMustBring: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.TournamentRegistrationSelect;
+
+const organizerRegistrationTeamSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  gameKey: true,
+  region: true,
+  status: true,
+} satisfies Prisma.TeamSelect;
+
+const organizerRegistrationListSelect = {
+  id: true,
+  status: true,
+  paymentStatus: true,
+  approvalStatus: true,
+  rulesVersion: true,
+  submittedAt: true,
+  rejectionReason: true,
+  team: {
+    select: organizerRegistrationTeamSelect,
+  },
+} satisfies Prisma.TournamentRegistrationSelect;
+
+const organizerRegistrationDetailSelect = {
+  ...organizerRegistrationListSelect,
+  rulesAcceptedAt: true,
+  approvedAt: true,
+  rejectedAt: true,
+  rosterSnapshot: true,
+  captainContactSnapshot: true,
+} satisfies Prisma.TournamentRegistrationSelect;
+
 @Injectable()
 export class TournamentsService {
   constructor(private readonly databaseService: DatabaseService) {}
@@ -900,6 +1011,28 @@ export class TournamentsService {
     return this.toCaptainRegistrationDetail(registration);
   }
 
+  async getCaptainRegistrationHub(
+    captainId: string,
+    registrationId: string,
+  ): Promise<CaptainRegistrationHubResponseDto> {
+    const registration =
+      await this.databaseService.client.tournamentRegistration.findFirst({
+        where: {
+          id: registrationId,
+          captainId,
+        },
+        select: captainRegistrationHubSelect,
+      });
+
+    if (!registration) {
+      throw new NotFoundException('Registration was not found');
+    }
+
+    this.assertRegistrationCanAccessHub(registration);
+
+    return this.toCaptainRegistrationHub(registration);
+  }
+
   async withdrawCaptainRegistration(
     captainId: string,
     registrationId: string,
@@ -935,6 +1068,152 @@ export class TournamentsService {
     );
 
     return this.toCaptainRegistrationDetail(registration);
+  }
+
+  async listOrganizerTournamentRegistrations(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<OrganizerRegistrationListResponseDto> {
+    await this.findOwnedTournamentOrThrow(organizerId, tournamentId);
+
+    const where: Prisma.TournamentRegistrationWhereInput = { tournamentId };
+    const [items, totalItems] = await this.databaseService.client.$transaction([
+      this.databaseService.client.tournamentRegistration.findMany({
+        where,
+        orderBy: { submittedAt: 'desc' },
+        skip: 0,
+        take: 100,
+        select: organizerRegistrationListSelect,
+      }),
+      this.databaseService.client.tournamentRegistration.count({ where }),
+    ]);
+
+    return {
+      items: items.map((item) => this.toOrganizerRegistrationListItem(item)),
+      meta: {
+        page: 1,
+        limit: 100,
+        totalItems,
+        totalPages: totalItems > 0 ? 1 : 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    };
+  }
+
+  async getOrganizerTournamentRegistration(
+    organizerId: string,
+    tournamentId: string,
+    registrationId: string,
+  ): Promise<OrganizerRegistrationDetailResponseDto> {
+    await this.findOwnedTournamentOrThrow(organizerId, tournamentId);
+
+    const registration = await this.findOrganizerRegistrationOrThrow(
+      tournamentId,
+      registrationId,
+    );
+
+    return this.toOrganizerRegistrationDetail(registration);
+  }
+
+  async approveOrganizerTournamentRegistration(
+    organizerId: string,
+    tournamentId: string,
+    registrationId: string,
+  ): Promise<OrganizerRegistrationDetailResponseDto> {
+    const registration = await this.databaseService.client.$transaction(
+      async (transaction) => {
+        const tournament = await this.findOwnedTournamentOrThrow(
+          organizerId,
+          tournamentId,
+          transaction,
+        );
+        const existing = await this.findOrganizerRegistrationOrThrow(
+          tournamentId,
+          registrationId,
+          transaction,
+        );
+
+        this.assertOrganizerRegistrationCanBeApproved(existing);
+        const activeRegistrationCount =
+          await transaction.tournamentRegistration.count({
+            where: {
+              tournamentId,
+              status: {
+                in: [
+                  TournamentRegistrationStatus.CONFIRMED,
+                  TournamentRegistrationStatus.CHECKED_IN,
+                ],
+              },
+            },
+          });
+
+        if (activeRegistrationCount >= tournament.maximumTeams) {
+          throw new ConflictException(
+            'Tournament capacity has already been reached.',
+          );
+        }
+
+        const eligibility = this.getOrganizerRegistrationEligibility(existing);
+
+        if (!eligibility.eligible) {
+          throw new ConflictException(
+            'Team no longer meets tournament registration requirements.',
+          );
+        }
+
+        return transaction.tournamentRegistration.update({
+          where: { id: existing.id },
+          data: {
+            status: TournamentRegistrationStatus.CONFIRMED,
+            approvalStatus: RegistrationApprovalStatus.APPROVED,
+            approvedAt: new Date(),
+            rejectedAt: null,
+            rejectionReason: null,
+          },
+          select: organizerRegistrationDetailSelect,
+        });
+      },
+    );
+
+    return this.toOrganizerRegistrationDetail(registration);
+  }
+
+  async rejectOrganizerTournamentRegistration(
+    organizerId: string,
+    tournamentId: string,
+    registrationId: string,
+    dto: RejectOrganizerRegistrationDto,
+  ): Promise<OrganizerRegistrationDetailResponseDto> {
+    const registration = await this.databaseService.client.$transaction(
+      async (transaction) => {
+        await this.findOwnedTournamentOrThrow(
+          organizerId,
+          tournamentId,
+          transaction,
+        );
+        const existing = await this.findOrganizerRegistrationOrThrow(
+          tournamentId,
+          registrationId,
+          transaction,
+        );
+
+        this.assertOrganizerRegistrationCanBeRejected(existing);
+
+        return transaction.tournamentRegistration.update({
+          where: { id: existing.id },
+          data: {
+            status: TournamentRegistrationStatus.REJECTED,
+            approvalStatus: RegistrationApprovalStatus.REJECTED,
+            rejectedAt: new Date(),
+            rejectionReason: dto.reason,
+          },
+          select: organizerRegistrationDetailSelect,
+        });
+      },
+    );
+
+    return this.toOrganizerRegistrationDetail(registration);
   }
 
   async publishOrganizerTournament(
@@ -1646,8 +1925,10 @@ export class TournamentsService {
   private async findOwnedTournamentOrThrow(
     organizerId: string,
     tournamentId: string,
+    client: Pick<Prisma.TransactionClient, 'tournament'> = this.databaseService
+      .client,
   ): Promise<Prisma.TournamentGetPayload<{ select: typeof tournamentSelect }>> {
-    const tournament = await this.databaseService.client.tournament.findFirst({
+    const tournament = await client.tournament.findFirst({
       where: {
         id: tournamentId,
         organizerId,
@@ -1778,6 +2059,124 @@ export class TournamentsService {
     return room;
   }
 
+  private async findOrganizerRegistrationOrThrow(
+    tournamentId: string,
+    registrationId: string,
+    client: Pick<Prisma.TransactionClient, 'tournamentRegistration'> = this
+      .databaseService.client,
+  ): Promise<OrganizerRegistrationDetailRecord> {
+    const registration = await client.tournamentRegistration.findFirst({
+      where: {
+        id: registrationId,
+        tournamentId,
+      },
+      select: organizerRegistrationDetailSelect,
+    });
+
+    if (!registration) {
+      throw new NotFoundException('Registration was not found');
+    }
+
+    return registration;
+  }
+
+  private toOrganizerRegistrationListItem(
+    registration: OrganizerRegistrationListRecord,
+  ): OrganizerRegistrationListItemDto {
+    const eligibility = this.getOrganizerRegistrationEligibility(registration);
+
+    return {
+      registrationId: registration.id,
+      team: registration.team,
+      status: registration.status,
+      paymentStatus: registration.paymentStatus,
+      approvalStatus: registration.approvalStatus,
+      rulesVersion: registration.rulesVersion,
+      submittedAt: registration.submittedAt,
+      rejectionReason: registration.rejectionReason,
+      eligibility,
+    };
+  }
+
+  private toOrganizerRegistrationDetail(
+    registration: OrganizerRegistrationDetailRecord,
+  ): OrganizerRegistrationDetailResponseDto {
+    return {
+      ...this.toOrganizerRegistrationListItem(registration),
+      captainContactSnapshot: registration.captainContactSnapshot,
+      rosterSnapshot: registration.rosterSnapshot,
+      approvedAt: registration.approvedAt,
+      rejectedAt: registration.rejectedAt,
+    };
+  }
+
+  private getOrganizerRegistrationEligibility(
+    registration: OrganizerRegistrationListRecord,
+  ): OrganizerRegistrationListItemDto['eligibility'] {
+    const issues: TournamentEligibilityIssueDto[] = [];
+
+    if (registration.team.status !== TeamStatus.ACTIVE) {
+      this.addEligibilityIssue(
+        issues,
+        TournamentEligibilityIssueCode.TEAM_INACTIVE,
+        'team.status',
+        'Only active teams can be approved for tournaments.',
+      );
+    }
+
+    return {
+      eligible: issues.length === 0,
+      issues,
+    };
+  }
+
+  private assertOrganizerRegistrationCanBeApproved(
+    registration: OrganizerRegistrationDetailRecord,
+  ): void {
+    if (
+      registration.paymentStatus !== RegistrationPaymentStatus.PAID &&
+      registration.paymentStatus !== RegistrationPaymentStatus.NOT_REQUIRED
+    ) {
+      throw new ConflictException('Unpaid registrations cannot be approved.');
+    }
+
+    if (registration.approvalStatus !== RegistrationApprovalStatus.PENDING) {
+      throw new ConflictException(
+        'Only pending registrations can be approved.',
+      );
+    }
+
+    if (
+      registration.status !== TournamentRegistrationStatus.PENDING_APPROVAL &&
+      registration.status !== TournamentRegistrationStatus.WAITLISTED
+    ) {
+      throw new ConflictException(
+        'Registration status does not allow approval.',
+      );
+    }
+  }
+
+  private assertOrganizerRegistrationCanBeRejected(
+    registration: OrganizerRegistrationDetailRecord,
+  ): void {
+    if (registration.approvalStatus !== RegistrationApprovalStatus.PENDING) {
+      throw new ConflictException(
+        'Only pending registrations can be rejected.',
+      );
+    }
+
+    if (
+      registration.status === TournamentRegistrationStatus.WITHDRAWN ||
+      registration.status === TournamentRegistrationStatus.CHECKED_IN ||
+      registration.status === TournamentRegistrationStatus.DISQUALIFIED ||
+      registration.status === TournamentRegistrationStatus.REFUNDED
+    ) {
+      throw new ConflictException(
+        'Registration status does not allow rejection.',
+      );
+    }
+  }
+
   private toCaptainRegistrationWhere(
     captainId: string,
     query: ListCaptainRegistrationsQueryDto,
@@ -1875,6 +2274,91 @@ export class TournamentsService {
     };
   }
 
+  private toCaptainRegistrationHub(
+    registration: CaptainRegistrationHubRecord,
+  ): CaptainRegistrationHubResponseDto {
+    return {
+      registration: {
+        id: registration.id,
+        status: registration.status,
+        paymentStatus: registration.paymentStatus,
+        approvalStatus: registration.approvalStatus,
+        submittedAt: registration.submittedAt,
+        approvedAt: registration.approvedAt,
+        rulesVersion: registration.rulesVersion,
+        rulesAcceptedAt: registration.rulesAcceptedAt,
+      },
+      tournament: {
+        id: registration.tournament.id,
+        slug: registration.tournament.slug,
+        name: registration.tournament.name,
+        logoUrl: registration.tournament.logoUrl,
+        coverUrl: registration.tournament.coverUrl,
+        gameKey: registration.tournament.gameKey,
+        mode: registration.tournament.mode,
+        status: registration.tournament.status,
+        startsAt: registration.tournament.startsAt,
+        endsAt: registration.tournament.endsAt,
+        timezone: registration.tournament.timezone,
+      },
+      team: {
+        id: registration.team.id,
+        name: registration.team.name,
+        seed: null,
+      },
+      rosterSnapshot: registration.rosterSnapshot,
+      privateInformationAvailable: true,
+      onlinePrivateInfo: registration.tournament.onlineConfiguration
+        ? {
+            serverRegion:
+              registration.tournament.onlineConfiguration.serverRegion,
+            connectionRules:
+              registration.tournament.onlineConfiguration.connectionRules,
+            discordServerUrl:
+              registration.tournament.onlineConfiguration.discordServerUrl,
+            captainSupportChannel:
+              registration.tournament.onlineConfiguration.captainSupportChannel,
+            matchReportingChannel:
+              registration.tournament.onlineConfiguration.matchReportingChannel,
+            lobbyInstructions:
+              registration.tournament.onlineConfiguration.lobbyInstructions,
+            privateSupportContact:
+              registration.tournament.onlineConfiguration.privateSupportContact,
+          }
+        : null,
+      venuePrivateInfo: registration.tournament.venue
+        ? {
+            name: registration.tournament.venue.name,
+            country: registration.tournament.venue.country,
+            city: registration.tournament.venue.city,
+            address: registration.tournament.venue.address,
+            mapUrl: registration.tournament.venue.mapUrl,
+            checkInLocation: registration.tournament.venue.checkInLocation,
+            venueRules: registration.tournament.venue.venueRules,
+            parkingInfo: registration.tournament.venue.parkingInfo,
+            equipmentProvided: registration.tournament.venue.equipmentProvided,
+            playersMayBring: registration.tournament.venue.playersMayBring,
+            playersMustBring: registration.tournament.venue.playersMustBring,
+          }
+        : null,
+      progress: {
+        currentStage: null,
+        currentRound: null,
+        nextMatch: null,
+        upcomingMatches: [],
+        officialScoreSummary: null,
+        wins: null,
+        losses: null,
+        placement: null,
+        qualificationState: null,
+      },
+      checkedIn:
+        registration.status === TournamentRegistrationStatus.CHECKED_IN,
+      announcements: [],
+      requiredActions: this.getCaptainHubRequiredActions(registration),
+    };
+  }
+
   private toCaptainRegistrationTournamentSummary(
     tournament: CaptainRegistrationListRecord['tournament'],
   ): CaptainRegistrationListItemDto['tournament'] {
@@ -1932,6 +2416,51 @@ export class TournamentsService {
     }
 
     return CaptainRegistrationNextAction.NONE;
+  }
+
+  private assertRegistrationCanAccessHub(
+    registration: CaptainRegistrationHubRecord,
+  ): void {
+    if (registration.approvalStatus !== RegistrationApprovalStatus.APPROVED) {
+      throw new ForbiddenException(
+        'Only approved registrations can access the tournament hub.',
+      );
+    }
+
+    if (
+      registration.status !== TournamentRegistrationStatus.CONFIRMED &&
+      registration.status !== TournamentRegistrationStatus.CHECKED_IN
+    ) {
+      throw new ForbiddenException(
+        'Registration status does not allow tournament hub access.',
+      );
+    }
+
+    if (
+      registration.paymentStatus !== RegistrationPaymentStatus.PAID &&
+      registration.paymentStatus !== RegistrationPaymentStatus.NOT_REQUIRED
+    ) {
+      throw new ForbiddenException(
+        'Registration payment must be completed before accessing the tournament hub.',
+      );
+    }
+  }
+
+  private getCaptainHubRequiredActions(
+    registration: CaptainRegistrationHubRecord,
+  ): CaptainRegistrationNextAction[] {
+    if (
+      registration.status === TournamentRegistrationStatus.CONFIRMED &&
+      registration.tournament.status === TournamentStatus.CHECK_IN_OPEN
+    ) {
+      return [CaptainRegistrationNextAction.CHECK_IN];
+    }
+
+    if (registration.tournament.status === TournamentStatus.COMPLETED) {
+      return [CaptainRegistrationNextAction.TOURNAMENT_COMPLETED];
+    }
+
+    return [CaptainRegistrationNextAction.NONE];
   }
 
   private assertRegistrationCanBeWithdrawn(
