@@ -57,12 +57,15 @@ describe('CaptainRegistrationsController', () => {
     ).toEqual([UserRole.CAPTAIN]);
   });
 
-  it('exposes registration list and detail handlers', () => {
+  it('exposes registration list, detail, and withdrawal handlers', () => {
     expect(
       typeof CaptainRegistrationsController.prototype.listRegistrations,
     ).toBe('function');
     expect(
       typeof CaptainRegistrationsController.prototype.getRegistration,
+    ).toBe('function');
+    expect(
+      typeof CaptainRegistrationsController.prototype.withdrawRegistration,
     ).toBe('function');
   });
 });

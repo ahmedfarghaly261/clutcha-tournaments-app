@@ -1,6 +1,7 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -17,6 +18,7 @@ import {
   CaptainRegistrationListResponseDto,
 } from './dto/captain-registration-response.dto';
 import { ListCaptainRegistrationsQueryDto } from './dto/list-captain-registrations-query.dto';
+import { WithdrawCaptainRegistrationDto } from './dto/withdraw-captain-registration.dto';
 import { TournamentsService } from './tournaments.service';
 
 @ApiTags('Captain Registrations')
@@ -75,6 +77,41 @@ export class CaptainRegistrationsController {
     return this.tournamentsService.getCaptainRegistrationDetails(
       user.id,
       registrationId,
+    );
+  }
+
+  @Post(':registrationId/withdraw')
+  @ApiOperation({
+    summary: 'Withdraw Captain tournament registration',
+    description:
+      'Withdraws a registration owned by the authenticated Captain without deleting it. Submitted roster and Captain contact snapshots are preserved.',
+  })
+  @ApiOkResponse({
+    description: 'Captain registration withdrawn.',
+    type: CaptainRegistrationDetailResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not a Captain.',
+  })
+  @ApiNotFoundResponse({
+    description: 'The registration does not exist for this Captain.',
+  })
+  @ApiConflictResponse({
+    description:
+      'The registration or tournament lifecycle no longer allows withdrawal.',
+  })
+  async withdrawRegistration(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('registrationId') registrationId: string,
+    @Body() dto: WithdrawCaptainRegistrationDto,
+  ): Promise<CaptainRegistrationDetailResponseDto> {
+    return this.tournamentsService.withdrawCaptainRegistration(
+      user.id,
+      registrationId,
+      dto,
     );
   }
 }
