@@ -32,6 +32,11 @@ jest.mock('@clutcha/database', () => ({
   GamingRoomPurpose: {
     COMPETITION: 'COMPETITION',
   },
+  TeamStatus: {
+    ACTIVE: 'ACTIVE',
+    INACTIVE: 'INACTIVE',
+    SUSPENDED: 'SUSPENDED',
+  },
   UserRole: {
     ORGANIZER: 'ORGANIZER',
   },
@@ -139,6 +144,24 @@ describe('OrganizerTournamentsController', () => {
     ).toBe('function');
     expect(
       typeof OrganizerTournamentsController.prototype.cancelTournament,
+    ).toBe('function');
+  });
+
+  it('exposes registration review handlers', () => {
+    expect(
+      typeof OrganizerTournamentsController.prototype
+        .listTournamentRegistrations,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype.getTournamentRegistration,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype
+        .approveTournamentRegistration,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype
+        .rejectTournamentRegistration,
     ).toBe('function');
   });
 });

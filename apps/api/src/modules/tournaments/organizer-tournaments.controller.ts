@@ -38,7 +38,12 @@ import { ListOrganizerTournamentsQueryDto } from './dto/list-organizer-tournamen
 import { OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
 import { OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
 import { OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
+import {
+  OrganizerRegistrationDetailResponseDto,
+  OrganizerRegistrationListResponseDto,
+} from './dto/organizer-registration-response.dto';
 import { TournamentResponseDto } from './dto/tournament-response.dto';
+import { RejectOrganizerRegistrationDto } from './dto/reject-organizer-registration.dto';
 import { UpdateGamingRoomDto } from './dto/update-gaming-room.dto';
 import { UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
 import { UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.dto';
@@ -109,6 +114,154 @@ export class OrganizerTournamentsController {
     return this.tournamentsService.getOrganizerTournamentDetails(
       user.id,
       tournamentId,
+    );
+  }
+
+  @Get(':tournamentId/registrations')
+  @ApiOperation({
+    summary: 'List organizer tournament registrations',
+    description:
+      'Returns registrations submitted to an organizer-owned tournament. Captain and roster contact snapshots are visible only because the team submitted to this organizer tournament.',
+  })
+  @ApiOkResponse({
+    description: 'Organizer tournament registrations returned.',
+    type: OrganizerRegistrationListResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id is not a valid UUID.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  async listTournamentRegistrations(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+  ): Promise<OrganizerRegistrationListResponseDto> {
+    return this.tournamentsService.listOrganizerTournamentRegistrations(
+      user.id,
+      tournamentId,
+    );
+  }
+
+  @Get(':tournamentId/registrations/:registrationId')
+  @ApiOperation({
+    summary: 'Get organizer tournament registration details',
+    description:
+      'Returns a single registration for an organizer-owned tournament, including submitted Captain and roster contact snapshots.',
+  })
+  @ApiOkResponse({
+    description: 'Organizer tournament registration details returned.',
+    type: OrganizerRegistrationDetailResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id or registration id is not a valid UUID.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament or registration does not exist for this organizer.',
+  })
+  async getTournamentRegistration(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Param('registrationId', new ParseUUIDPipe()) registrationId: string,
+  ): Promise<OrganizerRegistrationDetailResponseDto> {
+    return this.tournamentsService.getOrganizerTournamentRegistration(
+      user.id,
+      tournamentId,
+      registrationId,
+    );
+  }
+
+  @Post(':tournamentId/registrations/:registrationId/approve')
+  @ApiOperation({
+    summary: 'Approve organizer tournament registration',
+    description:
+      'Approves a pending registration for an organizer-owned tournament when payment, capacity, and eligibility requirements pass.',
+  })
+  @ApiOkResponse({
+    description: 'Registration approved.',
+    type: OrganizerRegistrationDetailResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id or registration id is not a valid UUID.',
+  })
+  @ApiConflictResponse({
+    description:
+      'The registration cannot be approved because of payment, approval, lifecycle, capacity, or eligibility requirements.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament or registration does not exist for this organizer.',
+  })
+  async approveTournamentRegistration(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Param('registrationId', new ParseUUIDPipe()) registrationId: string,
+  ): Promise<OrganizerRegistrationDetailResponseDto> {
+    return this.tournamentsService.approveOrganizerTournamentRegistration(
+      user.id,
+      tournamentId,
+      registrationId,
+    );
+  }
+
+  @Post(':tournamentId/registrations/:registrationId/reject')
+  @ApiOperation({
+    summary: 'Reject organizer tournament registration',
+    description:
+      'Rejects a pending registration for an organizer-owned tournament. A rejection reason is required.',
+  })
+  @ApiOkResponse({
+    description: 'Registration rejected.',
+    type: OrganizerRegistrationDetailResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'The tournament id, registration id, or rejection payload is invalid.',
+  })
+  @ApiConflictResponse({
+    description: 'The registration cannot be rejected from its current state.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament or registration does not exist for this organizer.',
+  })
+  async rejectTournamentRegistration(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Param('registrationId', new ParseUUIDPipe()) registrationId: string,
+    @Body() dto: RejectOrganizerRegistrationDto,
+  ): Promise<OrganizerRegistrationDetailResponseDto> {
+    return this.tournamentsService.rejectOrganizerTournamentRegistration(
+      user.id,
+      tournamentId,
+      registrationId,
+      dto,
     );
   }
 
