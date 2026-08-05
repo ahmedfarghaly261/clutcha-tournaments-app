@@ -5,6 +5,31 @@ import { CaptainTournamentEligibilityController } from './captain-tournament-eli
 
 jest.mock('@clutcha/database', () => ({
   Prisma: {},
+  RegistrationApprovalStatus: {
+    PENDING: 'PENDING',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+  },
+  RegistrationPaymentStatus: {
+    NOT_REQUIRED: 'NOT_REQUIRED',
+    PENDING: 'PENDING',
+    PAID: 'PAID',
+    FAILED: 'FAILED',
+    REFUND_PENDING: 'REFUND_PENDING',
+    REFUNDED: 'REFUNDED',
+  },
+  TournamentRegistrationStatus: {
+    PENDING_PAYMENT: 'PENDING_PAYMENT',
+    PENDING_APPROVAL: 'PENDING_APPROVAL',
+    CONFIRMED: 'CONFIRMED',
+    REJECTED: 'REJECTED',
+    WAITLISTED: 'WAITLISTED',
+    WITHDRAWN: 'WITHDRAWN',
+    CHECKED_IN: 'CHECKED_IN',
+    DISQUALIFIED: 'DISQUALIFIED',
+    REFUND_PENDING: 'REFUND_PENDING',
+    REFUNDED: 'REFUNDED',
+  },
   EligibilityStatus: {
     ELIGIBLE: 'ELIGIBLE',
     INELIGIBLE: 'INELIGIBLE',
@@ -78,6 +103,13 @@ describe('CaptainTournamentEligibilityController', () => {
   it('exposes the eligibility handler', () => {
     expect(
       typeof CaptainTournamentEligibilityController.prototype.getEligibility,
+    ).toBe('function');
+  });
+
+  it('exposes the registration handler', () => {
+    expect(
+      typeof CaptainTournamentEligibilityController.prototype
+        .createRegistration,
     ).toBe('function');
   });
 });
