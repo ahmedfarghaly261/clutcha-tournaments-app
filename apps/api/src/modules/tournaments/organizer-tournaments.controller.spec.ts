@@ -4,6 +4,31 @@ import { ROLES_KEY } from '../auth/decorators/roles.decorator';
 import { OrganizerTournamentsController } from './organizer-tournaments.controller';
 
 jest.mock('@clutcha/database', () => ({
+  RegistrationApprovalStatus: {
+    PENDING: 'PENDING',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+  },
+  RegistrationPaymentStatus: {
+    NOT_REQUIRED: 'NOT_REQUIRED',
+    PENDING: 'PENDING',
+    PAID: 'PAID',
+    FAILED: 'FAILED',
+    REFUND_PENDING: 'REFUND_PENDING',
+    REFUNDED: 'REFUNDED',
+  },
+  TournamentRegistrationStatus: {
+    PENDING_PAYMENT: 'PENDING_PAYMENT',
+    PENDING_APPROVAL: 'PENDING_APPROVAL',
+    CONFIRMED: 'CONFIRMED',
+    REJECTED: 'REJECTED',
+    WAITLISTED: 'WAITLISTED',
+    WITHDRAWN: 'WITHDRAWN',
+    CHECKED_IN: 'CHECKED_IN',
+    DISQUALIFIED: 'DISQUALIFIED',
+    REFUND_PENDING: 'REFUND_PENDING',
+    REFUNDED: 'REFUNDED',
+  },
   GamingRoomPurpose: {
     COMPETITION: 'COMPETITION',
   },
