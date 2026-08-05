@@ -20,6 +20,12 @@ import {
   UserRole,
 } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
+import {
+  CaptainRegistrationNextAction,
+  type CaptainRegistrationDetailResponseDto,
+  type CaptainRegistrationListItemDto,
+  type CaptainRegistrationListResponseDto,
+} from './dto/captain-registration-response.dto';
 import { type CancelTournamentDto } from './dto/cancel-tournament.dto';
 import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
 import { type CreateTournamentRegistrationDto } from './dto/create-tournament-registration.dto';
@@ -31,6 +37,12 @@ import {
   OrganizerTournamentSortBy,
   SortDirection,
 } from './dto/list-organizer-tournaments-query.dto';
+import {
+  CaptainRegistrationSortDirection,
+  CaptainRegistrationSortBy,
+  CaptainRegistrationTimeFilter,
+  type ListCaptainRegistrationsQueryDto,
+} from './dto/list-captain-registrations-query.dto';
 import {
   type ListPublicTournamentsQueryDto,
   PublicTournamentSortBy,
@@ -96,6 +108,14 @@ type EligibilityTournament = Prisma.TournamentGetPayload<{
 
 type RegistrationRecord = Prisma.TournamentRegistrationGetPayload<{
   select: typeof tournamentRegistrationSelect;
+}>;
+
+type CaptainRegistrationListRecord = Prisma.TournamentRegistrationGetPayload<{
+  select: typeof captainRegistrationListSelect;
+}>;
+
+type CaptainRegistrationDetailRecord = Prisma.TournamentRegistrationGetPayload<{
+  select: typeof captainRegistrationDetailSelect;
 }>;
 
 type RegistrationContext = {
@@ -547,6 +567,44 @@ const tournamentRegistrationSelect = {
   },
 } satisfies Prisma.TournamentRegistrationSelect;
 
+const captainRegistrationTournamentSummarySelect = {
+  id: true,
+  slug: true,
+  name: true,
+  logoUrl: true,
+  gameKey: true,
+  mode: true,
+  status: true,
+  registrationFee: true,
+  currency: true,
+  startsAt: true,
+} satisfies Prisma.TournamentSelect;
+
+const captainRegistrationListSelect = {
+  id: true,
+  status: true,
+  paymentStatus: true,
+  approvalStatus: true,
+  submittedAt: true,
+  rejectionReason: true,
+  tournament: {
+    select: captainRegistrationTournamentSummarySelect,
+  },
+} satisfies Prisma.TournamentRegistrationSelect;
+
+const captainRegistrationDetailSelect = {
+  ...captainRegistrationListSelect,
+  rulesVersion: true,
+  rulesAcceptedAt: true,
+  approvedAt: true,
+  rejectedAt: true,
+  withdrawnAt: true,
+  checkedInAt: true,
+  disqualifiedAt: true,
+  rosterSnapshot: true,
+  captainContactSnapshot: true,
+} satisfies Prisma.TournamentRegistrationSelect;
+
 @Injectable()
 export class TournamentsService {
   constructor(private readonly databaseService: DatabaseService) {}
@@ -769,6 +827,60 @@ export class TournamentsService {
 
       throw error;
     }
+  }
+
+  async listCaptainRegistrations(
+    captainId: string,
+    query: ListCaptainRegistrationsQueryDto,
+  ): Promise<CaptainRegistrationListResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = this.toCaptainRegistrationWhere(captainId, query);
+    const orderBy = this.toCaptainRegistrationOrderBy(query);
+
+    const [items, totalItems] = await this.databaseService.client.$transaction([
+      this.databaseService.client.tournamentRegistration.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+        select: captainRegistrationListSelect,
+      }),
+      this.databaseService.client.tournamentRegistration.count({ where }),
+    ]);
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      items: items.map((item) => this.toCaptainRegistrationListItem(item)),
+      meta: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  async getCaptainRegistrationDetails(
+    captainId: string,
+    registrationId: string,
+  ): Promise<CaptainRegistrationDetailResponseDto> {
+    const registration =
+      await this.databaseService.client.tournamentRegistration.findFirst({
+        where: {
+          id: registrationId,
+          captainId,
+        },
+        select: captainRegistrationDetailSelect,
+      });
+
+    if (!registration) {
+      throw new NotFoundException('Registration was not found');
+    }
+
+    return this.toCaptainRegistrationDetail(registration);
   }
 
   async publishOrganizerTournament(
@@ -1610,6 +1722,162 @@ export class TournamentsService {
     }
 
     return room;
+  }
+
+  private toCaptainRegistrationWhere(
+    captainId: string,
+    query: ListCaptainRegistrationsQueryDto,
+  ): Prisma.TournamentRegistrationWhereInput {
+    const tournament: Prisma.TournamentWhereInput = {};
+
+    if (query.gameKey) {
+      tournament.gameKey = {
+        equals: query.gameKey,
+        mode: 'insensitive',
+      };
+    }
+
+    if (query.mode) {
+      tournament.mode = query.mode;
+    }
+
+    if (query.time === CaptainRegistrationTimeFilter.UPCOMING) {
+      tournament.startsAt = { gte: new Date() };
+    }
+
+    if (query.time === CaptainRegistrationTimeFilter.PAST) {
+      tournament.startsAt = { lt: new Date() };
+    }
+
+    return {
+      captainId,
+      ...(query.status ? { status: query.status } : {}),
+      ...(Object.keys(tournament).length > 0 ? { tournament } : {}),
+    };
+  }
+
+  private toCaptainRegistrationOrderBy(
+    query: ListCaptainRegistrationsQueryDto,
+  ): Prisma.TournamentRegistrationOrderByWithRelationInput {
+    const direction =
+      query.sortDirection ?? CaptainRegistrationSortDirection.DESC;
+    const sortBy = query.sortBy ?? CaptainRegistrationSortBy.SUBMITTED_AT;
+
+    if (sortBy === CaptainRegistrationSortBy.TOURNAMENT_STARTS_AT) {
+      return {
+        tournament: {
+          startsAt: direction,
+        },
+      };
+    }
+
+    return {
+      submittedAt: direction,
+    };
+  }
+
+  private toCaptainRegistrationListItem(
+    registration: CaptainRegistrationListRecord,
+  ): CaptainRegistrationListItemDto {
+    return {
+      registrationId: registration.id,
+      tournament: this.toCaptainRegistrationTournamentSummary(
+        registration.tournament,
+      ),
+      status: registration.status,
+      paymentStatus: registration.paymentStatus,
+      approvalStatus: registration.approvalStatus,
+      submittedAt: registration.submittedAt,
+      rejectionReason: registration.rejectionReason,
+      nextAction: this.getCaptainRegistrationNextAction(registration),
+    };
+  }
+
+  private toCaptainRegistrationDetail(
+    registration: CaptainRegistrationDetailRecord,
+  ): CaptainRegistrationDetailResponseDto {
+    return {
+      registrationId: registration.id,
+      tournament: this.toCaptainRegistrationTournamentSummary(
+        registration.tournament,
+      ),
+      lifecycle: {
+        status: registration.status,
+        paymentStatus: registration.paymentStatus,
+        approvalStatus: registration.approvalStatus,
+        submittedAt: registration.submittedAt,
+        approvedAt: registration.approvedAt,
+        rejectedAt: registration.rejectedAt,
+        rejectionReason: registration.rejectionReason,
+        withdrawnAt: registration.withdrawnAt,
+        checkedInAt: registration.checkedInAt,
+        disqualifiedAt: registration.disqualifiedAt,
+      },
+      rulesVersion: registration.rulesVersion,
+      rulesAcceptedAt: registration.rulesAcceptedAt,
+      rosterSnapshot: registration.rosterSnapshot,
+      captainContactSnapshot: registration.captainContactSnapshot,
+      nextAction: this.getCaptainRegistrationNextAction(registration),
+    };
+  }
+
+  private toCaptainRegistrationTournamentSummary(
+    tournament: CaptainRegistrationListRecord['tournament'],
+  ): CaptainRegistrationListItemDto['tournament'] {
+    return {
+      id: tournament.id,
+      slug: tournament.slug,
+      name: tournament.name,
+      logoUrl: tournament.logoUrl,
+      gameKey: tournament.gameKey,
+      mode: tournament.mode,
+      status: tournament.status,
+      startsAt: tournament.startsAt,
+      registrationFee: tournament.registrationFee.toString(),
+      currency: tournament.currency,
+    };
+  }
+
+  private getCaptainRegistrationNextAction(
+    registration: Pick<
+      CaptainRegistrationListRecord,
+      'status' | 'paymentStatus' | 'approvalStatus' | 'tournament'
+    >,
+  ): CaptainRegistrationNextAction {
+    if (
+      registration.paymentStatus === RegistrationPaymentStatus.PENDING ||
+      registration.status === TournamentRegistrationStatus.PENDING_PAYMENT
+    ) {
+      return CaptainRegistrationNextAction.COMPLETE_PAYMENT;
+    }
+
+    if (registration.approvalStatus === RegistrationApprovalStatus.REJECTED) {
+      return CaptainRegistrationNextAction.REVIEW_REJECTION;
+    }
+
+    if (registration.status === TournamentRegistrationStatus.PENDING_APPROVAL) {
+      return CaptainRegistrationNextAction.WAIT_FOR_APPROVAL;
+    }
+
+    if (registration.tournament.status === TournamentStatus.COMPLETED) {
+      return CaptainRegistrationNextAction.TOURNAMENT_COMPLETED;
+    }
+
+    if (
+      registration.status === TournamentRegistrationStatus.CONFIRMED &&
+      registration.tournament.status === TournamentStatus.CHECK_IN_OPEN
+    ) {
+      return CaptainRegistrationNextAction.CHECK_IN;
+    }
+
+    if (
+      registration.status === TournamentRegistrationStatus.CONFIRMED ||
+      registration.status === TournamentRegistrationStatus.CHECKED_IN
+    ) {
+      return CaptainRegistrationNextAction.OPEN_TOURNAMENT_HUB;
+    }
+
+    return CaptainRegistrationNextAction.NONE;
   }
 
   private async getRegistrationContextForEligibility(

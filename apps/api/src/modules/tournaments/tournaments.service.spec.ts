@@ -25,6 +25,11 @@ import { DatabaseService } from '../../database/database.service';
 import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
 import { type CreateTournamentDto } from './dto/create-tournament.dto';
 import {
+  CaptainRegistrationSortDirection,
+  CaptainRegistrationSortBy,
+  CaptainRegistrationTimeFilter,
+} from './dto/list-captain-registrations-query.dto';
+import {
   OrganizerTournamentSortBy,
   SortDirection,
 } from './dto/list-organizer-tournaments-query.dto';
@@ -184,6 +189,20 @@ type TournamentRegistrationCreateArgs = {
   select: Record<string, unknown>;
 };
 
+type TournamentRegistrationFindManyArgs = {
+  where: Record<string, unknown>;
+  orderBy: Record<string, unknown>;
+  skip: number;
+  take: number;
+};
+
+type TournamentRegistrationFindFirstArgs = {
+  where: {
+    id: string;
+    captainId: string;
+  };
+};
+
 type UserFindFirstArgs = {
   where: {
     id: string;
@@ -286,6 +305,14 @@ describe('TournamentsService', () => {
   let createTournamentRegistration: jest.Mock<
     Promise<Record<string, unknown>>,
     [TournamentRegistrationCreateArgs]
+  >;
+  let findManyTournamentRegistrations: jest.Mock<
+    Promise<Record<string, unknown>[]>,
+    [TournamentRegistrationFindManyArgs]
+  >;
+  let findFirstTournamentRegistration: jest.Mock<
+    Promise<Record<string, unknown> | null>,
+    [TournamentRegistrationFindFirstArgs]
   >;
   let findFirstUser: jest.Mock<
     Promise<Record<string, unknown> | null>,
@@ -622,33 +649,7 @@ describe('TournamentsService', () => {
     });
     countTournamentRegistrations = jest.fn(
       (args: TournamentRegistrationCountArgs) =>
-        Promise.resolve(
-          tournamentRegistrations.filter((registration) => {
-            if (
-              args.where.tournamentId &&
-              registration.tournamentId !== args.where.tournamentId
-            ) {
-              return false;
-            }
-
-            if (
-              args.where.teamId &&
-              registration.teamId !== args.where.teamId
-            ) {
-              return false;
-            }
-
-            const allowedStatuses = args.where.status?.in;
-            if (
-              allowedStatuses &&
-              !allowedStatuses.includes(String(registration.status))
-            ) {
-              return false;
-            }
-
-            return true;
-          }).length,
-        ),
+        Promise.resolve(filterTournamentRegistrations(args.where).length),
     );
     createTournamentRegistration = jest.fn(
       (args: TournamentRegistrationCreateArgs) => {
@@ -685,6 +686,25 @@ describe('TournamentsService', () => {
         return Promise.resolve(registration);
       },
     );
+    findManyTournamentRegistrations = jest.fn(
+      (args: TournamentRegistrationFindManyArgs) =>
+        Promise.resolve(
+          sortTournamentRegistrations(
+            filterTournamentRegistrations(args.where),
+            args.orderBy,
+          ).slice(args.skip, args.skip + args.take),
+        ),
+    );
+    findFirstTournamentRegistration = jest.fn(
+      (args: TournamentRegistrationFindFirstArgs) =>
+        Promise.resolve(
+          tournamentRegistrations.find(
+            (registration) =>
+              registration.id === args.where.id &&
+              registration.captainId === args.where.captainId,
+          ) ?? null,
+        ),
+    );
 
     const tournamentClient = {
       findUnique,
@@ -698,6 +718,8 @@ describe('TournamentsService', () => {
     const tournamentRegistrationClient = {
       count: countTournamentRegistrations,
       create: createTournamentRegistration,
+      findMany: findManyTournamentRegistrations,
+      findFirst: findFirstTournamentRegistration,
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -1390,6 +1412,181 @@ describe('TournamentsService', () => {
         { acceptRules: true },
       ),
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
+  });
+
+  it('lists only the authenticated Captain registrations with pagination and filters', async () => {
+    const upcomingTournament = createTournamentRecord({
+      id: 'captain-registration-upcoming-cup',
+      slug: 'captain-registration-upcoming-cup',
+      name: 'Upcoming Captain Cup',
+      gameKey: 'valorant',
+      mode: TournamentMode.ONLINE,
+      status: TournamentStatus.REGISTRATION_OPEN,
+      startsAt: new Date('2026-09-12T18:00:00.000Z'),
+    });
+    const otherGameTournament = createTournamentRecord({
+      id: 'captain-registration-other-game-cup',
+      slug: 'captain-registration-other-game-cup',
+      name: 'Other Game Cup',
+      gameKey: 'apex',
+      mode: TournamentMode.ONLINE,
+      status: TournamentStatus.REGISTRATION_OPEN,
+      startsAt: new Date('2026-09-13T18:00:00.000Z'),
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'registration-upcoming',
+        captainId: 'captain-1',
+        tournamentId: upcomingTournament.id,
+        tournament: upcomingTournament,
+        submittedAt: new Date('2026-08-04T12:00:00.000Z'),
+      }),
+      createTournamentRegistrationRecord({
+        id: 'registration-other-game',
+        captainId: 'captain-1',
+        tournamentId: otherGameTournament.id,
+        tournament: otherGameTournament,
+        submittedAt: new Date('2026-08-04T13:00:00.000Z'),
+      }),
+      createTournamentRegistrationRecord({
+        id: 'registration-other-captain',
+        captainId: 'other-captain',
+        tournamentId: upcomingTournament.id,
+        tournament: upcomingTournament,
+      }),
+    ];
+
+    const result = await service.listCaptainRegistrations('captain-1', {
+      page: 1,
+      limit: 10,
+      gameKey: 'VALORANT',
+      mode: TournamentMode.ONLINE,
+      status: TournamentRegistrationStatus.PENDING_APPROVAL,
+      time: CaptainRegistrationTimeFilter.UPCOMING,
+      sortBy: CaptainRegistrationSortBy.TOURNAMENT_STARTS_AT,
+      sortDirection: CaptainRegistrationSortDirection.ASC,
+    });
+
+    expect(result.meta).toEqual({
+      page: 1,
+      limit: 10,
+      totalItems: 1,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      registrationId: 'registration-upcoming',
+      status: TournamentRegistrationStatus.PENDING_APPROVAL,
+      paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
+      approvalStatus: RegistrationApprovalStatus.PENDING,
+      nextAction: 'WAIT_FOR_APPROVAL',
+      tournament: {
+        id: 'captain-registration-upcoming-cup',
+        slug: 'captain-registration-upcoming-cup',
+        name: 'Upcoming Captain Cup',
+        gameKey: 'valorant',
+        mode: TournamentMode.ONLINE,
+      },
+    });
+    expect(result.items[0]).not.toHaveProperty('rosterSnapshot');
+    expect(result.items[0]).not.toHaveProperty('captainContactSnapshot');
+    expect(findManyTournamentRegistrations.mock.calls[0][0]).toMatchObject({
+      where: {
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.PENDING_APPROVAL,
+      },
+      orderBy: {
+        tournament: {
+          startsAt: CaptainRegistrationSortDirection.ASC,
+        },
+      },
+    });
+  });
+
+  it('returns Captain registration details with private owned snapshots', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-registration-detail-cup',
+      slug: 'captain-registration-detail-cup',
+      name: 'Detail Captain Cup',
+      status: TournamentStatus.CHECK_IN_OPEN,
+      startsAt: new Date('2026-09-12T18:00:00.000Z'),
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'registration-detail',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.CONFIRMED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        rosterSnapshot: [
+          {
+            rosterPlayerId: 'starter-1',
+            gamerTag: 'Starter One',
+            phoneNumber: '+201001234567',
+          },
+        ],
+        captainContactSnapshot: {
+          displayName: 'Captain One',
+          email: 'captain@example.com',
+          phoneNumber: '+201001234567',
+        },
+        approvedAt: new Date('2026-08-04T17:00:00.000Z'),
+      }),
+    ];
+
+    const result = await service.getCaptainRegistrationDetails(
+      'captain-1',
+      'registration-detail',
+    );
+
+    expect(result).toMatchObject({
+      registrationId: 'registration-detail',
+      nextAction: 'CHECK_IN',
+      lifecycle: {
+        status: TournamentRegistrationStatus.CONFIRMED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        approvedAt: new Date('2026-08-04T17:00:00.000Z'),
+      },
+      tournament: {
+        id: 'captain-registration-detail-cup',
+        slug: 'captain-registration-detail-cup',
+        name: 'Detail Captain Cup',
+      },
+    });
+    expect(result.rosterSnapshot).toEqual([
+      {
+        rosterPlayerId: 'starter-1',
+        gamerTag: 'Starter One',
+        phoneNumber: '+201001234567',
+      },
+    ]);
+    expect(result.captainContactSnapshot).toEqual({
+      displayName: 'Captain One',
+      email: 'captain@example.com',
+      phoneNumber: '+201001234567',
+    });
+  });
+
+  it('returns 404 when another Captain requests registration details', async () => {
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'registration-private',
+        captainId: 'captain-1',
+        tournament: createTournamentRecord({
+          id: 'private-registration-cup',
+        }),
+      }),
+    ];
+
+    await expect(
+      service.getCaptainRegistrationDetails(
+        'other-captain',
+        'registration-private',
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('returns public on-site tournament details with venue and gaming-room hardware only', async () => {
@@ -2408,6 +2605,126 @@ const createTournamentRegistrationRecord = (
   updatedAt: new Date('2026-08-04T16:00:00.000Z'),
   ...overrides,
 });
+
+function filterTournamentRegistrations(
+  where: Record<string, unknown>,
+): Record<string, unknown>[] {
+  return tournamentRegistrations.filter((registration) => {
+    if (
+      typeof where.tournamentId === 'string' &&
+      registration.tournamentId !== where.tournamentId
+    ) {
+      return false;
+    }
+
+    if (
+      typeof where.teamId === 'string' &&
+      registration.teamId !== where.teamId
+    ) {
+      return false;
+    }
+
+    if (
+      typeof where.captainId === 'string' &&
+      registration.captainId !== where.captainId
+    ) {
+      return false;
+    }
+
+    if (
+      typeof where.status === 'string' &&
+      registration.status !== where.status
+    ) {
+      return false;
+    }
+
+    const statusFilter = where.status as { in?: string[] } | undefined;
+    if (
+      statusFilter?.in &&
+      !statusFilter.in.includes(String(registration.status))
+    ) {
+      return false;
+    }
+
+    const tournamentFilter = where.tournament as
+      | {
+          gameKey?: { equals: string };
+          mode?: TournamentMode;
+          startsAt?: { gte?: Date; lt?: Date };
+        }
+      | undefined;
+    const tournament = registration.tournament as
+      Record<string, unknown> | undefined;
+
+    if (tournamentFilter && !tournament) {
+      return false;
+    }
+
+    if (
+      tournamentFilter?.gameKey &&
+      String(tournament?.gameKey).toLowerCase() !==
+        tournamentFilter.gameKey.equals.toLowerCase()
+    ) {
+      return false;
+    }
+
+    if (tournamentFilter?.mode && tournament?.mode !== tournamentFilter.mode) {
+      return false;
+    }
+
+    const startsAt = tournament?.startsAt;
+    if (
+      tournamentFilter?.startsAt?.gte &&
+      startsAt instanceof Date &&
+      startsAt < tournamentFilter.startsAt.gte
+    ) {
+      return false;
+    }
+
+    if (
+      tournamentFilter?.startsAt?.lt &&
+      startsAt instanceof Date &&
+      startsAt >= tournamentFilter.startsAt.lt
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function sortTournamentRegistrations(
+  registrations: Record<string, unknown>[],
+  orderBy: Record<string, unknown>,
+): Record<string, unknown>[] {
+  const direction =
+    orderBy.submittedAt === SortDirection.ASC ||
+    (orderBy.tournament as { startsAt?: string } | undefined)?.startsAt ===
+      SortDirection.ASC
+      ? 1
+      : -1;
+
+  return [...registrations].sort((left, right) => {
+    const leftValue = getRegistrationSortValue(left, orderBy);
+    const rightValue = getRegistrationSortValue(right, orderBy);
+
+    return (leftValue - rightValue) * direction;
+  });
+}
+
+function getRegistrationSortValue(
+  registration: Record<string, unknown>,
+  orderBy: Record<string, unknown>,
+): number {
+  if (orderBy.tournament) {
+    const tournament = registration.tournament as Record<string, unknown>;
+    const startsAt = tournament.startsAt;
+    return startsAt instanceof Date ? startsAt.getTime() : 0;
+  }
+
+  const submittedAt = registration.submittedAt;
+  return submittedAt instanceof Date ? submittedAt.getTime() : 0;
+}
 
 const createGamingRoomRecord = (
   overrides: Partial<Record<string, unknown>> = {},
