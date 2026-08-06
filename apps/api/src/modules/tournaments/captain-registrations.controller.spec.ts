@@ -93,6 +93,9 @@ describe('CaptainRegistrationsController', () => {
       typeof CaptainRegistrationsController.prototype.getRegistrationHub,
     ).toBe('function');
     expect(
+      typeof CaptainRegistrationsController.prototype.getRegistrationProgress,
+    ).toBe('function');
+    expect(
       typeof CaptainRegistrationsController.prototype.listRegistrationMatches,
     ).toBe('function');
     expect(
