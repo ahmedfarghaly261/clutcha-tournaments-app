@@ -22,6 +22,7 @@ import {
   CaptainMatchListResponseDto,
   CaptainMatchResponseDto,
 } from './dto/captain-registration-match-response.dto';
+import { CaptainRegistrationProgressResponseDto } from './dto/captain-registration-progress-response.dto';
 import { ListCaptainRegistrationsQueryDto } from './dto/list-captain-registrations-query.dto';
 import { WithdrawCaptainRegistrationDto } from './dto/withdraw-captain-registration.dto';
 import { TournamentsService } from './tournaments.service';
@@ -110,6 +111,36 @@ export class CaptainRegistrationsController {
     @Param('registrationId') registrationId: string,
   ): Promise<CaptainRegistrationHubResponseDto> {
     return this.tournamentsService.getCaptainRegistrationHub(
+      user.id,
+      registrationId,
+    );
+  }
+
+  @Get(':registrationId/progress')
+  @ApiOperation({
+    summary: 'Get Captain tournament progress',
+    description:
+      'Returns real progress statistics for the authenticated Captain team in an approved tournament registration, calculated from official match data only. Placement and qualification remain null until standings/bracket rules are implemented.',
+  })
+  @ApiOkResponse({
+    description: 'Captain tournament progress returned.',
+    type: CaptainRegistrationProgressResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'The registration is not approved, paid/free, or otherwise allowed into the private tournament hub.',
+  })
+  @ApiNotFoundResponse({
+    description: 'The registration does not exist for this Captain.',
+  })
+  async getRegistrationProgress(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('registrationId') registrationId: string,
+  ): Promise<CaptainRegistrationProgressResponseDto> {
+    return this.tournamentsService.getCaptainRegistrationProgress(
       user.id,
       registrationId,
     );
