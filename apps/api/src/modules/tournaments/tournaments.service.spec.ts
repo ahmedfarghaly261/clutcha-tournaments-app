@@ -2117,6 +2117,195 @@ describe('TournamentsService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('returns Captain tournament progress from official match data', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-progress-cup',
+      name: 'Captain Progress Cup',
+      mode: TournamentMode.ONLINE,
+      timezone: 'Africa/Cairo',
+    });
+    const captainTeam = createTeamRecord({
+      id: 'team-1',
+      name: 'Cairo Titans',
+    });
+    const opponent = createTeamRecord({
+      id: 'team-opponent',
+      captainId: 'opponent-captain',
+      name: 'Falcons',
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-progress-registration',
+        captainId: 'captain-1',
+        teamId: captainTeam.id,
+        status: TournamentRegistrationStatus.CONFIRMED,
+        paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        team: captainTeam,
+      }),
+    ];
+    tournamentMatches = [
+      createTournamentMatchRecord({
+        id: 'progress-win',
+        tournamentId: tournament.id,
+        tournament,
+        teamAId: captainTeam.id,
+        teamA: captainTeam,
+        teamBId: opponent.id,
+        teamB: opponent,
+        scheduledAt: new Date('2026-08-01T18:00:00.000Z'),
+        status: TournamentMatchStatus.COMPLETED,
+        teamAScore: 2,
+        teamBScore: 1,
+        winnerTeamId: captainTeam.id,
+        officialResultStatus: TournamentMatchOfficialResultStatus.CONFIRMED,
+        games: [
+          createTournamentMatchGameRecord({
+            id: 'progress-win-game-1',
+            matchId: 'progress-win',
+            gameNumber: 1,
+            winnerTeamId: captainTeam.id,
+          }),
+          createTournamentMatchGameRecord({
+            id: 'progress-win-game-2',
+            matchId: 'progress-win',
+            gameNumber: 2,
+            winnerTeamId: opponent.id,
+          }),
+          createTournamentMatchGameRecord({
+            id: 'progress-win-game-3',
+            matchId: 'progress-win',
+            gameNumber: 3,
+            winnerTeamId: captainTeam.id,
+          }),
+        ],
+      }),
+      createTournamentMatchRecord({
+        id: 'progress-loss',
+        tournamentId: tournament.id,
+        tournament,
+        teamAId: opponent.id,
+        teamA: opponent,
+        teamBId: captainTeam.id,
+        teamB: captainTeam,
+        scheduledAt: new Date('2026-08-02T18:00:00.000Z'),
+        status: TournamentMatchStatus.COMPLETED,
+        teamAScore: 2,
+        teamBScore: 0,
+        winnerTeamId: opponent.id,
+        officialResultStatus: TournamentMatchOfficialResultStatus.CONFIRMED,
+        games: [
+          createTournamentMatchGameRecord({
+            id: 'progress-loss-game-1',
+            matchId: 'progress-loss',
+            gameNumber: 1,
+            winnerTeamId: opponent.id,
+          }),
+          createTournamentMatchGameRecord({
+            id: 'progress-loss-game-2',
+            matchId: 'progress-loss',
+            gameNumber: 2,
+            winnerTeamId: opponent.id,
+          }),
+        ],
+      }),
+      createTournamentMatchRecord({
+        id: 'progress-next',
+        tournamentId: tournament.id,
+        tournament,
+        stage: 'PLAYOFFS',
+        round: 2,
+        bracketPosition: 'SF1',
+        teamAId: captainTeam.id,
+        teamA: captainTeam,
+        teamBId: opponent.id,
+        teamB: opponent,
+        scheduledAt: new Date('2026-09-13T18:00:00.000Z'),
+        status: TournamentMatchStatus.SCHEDULED,
+      }),
+    ];
+
+    const result = await service.getCaptainRegistrationProgress(
+      'captain-1',
+      'captain-progress-registration',
+    );
+
+    expect(result).toEqual({
+      registrationId: 'captain-progress-registration',
+      tournament: {
+        id: 'captain-progress-cup',
+        name: 'Captain Progress Cup',
+      },
+      team: {
+        id: 'team-1',
+        name: 'Cairo Titans',
+      },
+      currentStage: 'PLAYOFFS',
+      currentRound: 2,
+      nextMatch: {
+        id: 'progress-next',
+        stage: 'PLAYOFFS',
+        round: 2,
+        bracketPosition: 'SF1',
+        opponent: {
+          teamId: 'team-opponent',
+          teamName: 'Falcons',
+        },
+        scheduledAt: new Date('2026-09-13T18:00:00.000Z'),
+        status: TournamentMatchStatus.SCHEDULED,
+      },
+      upcomingMatches: [
+        {
+          id: 'progress-next',
+          stage: 'PLAYOFFS',
+          round: 2,
+          bracketPosition: 'SF1',
+          opponent: {
+            teamId: 'team-opponent',
+            teamName: 'Falcons',
+          },
+          scheduledAt: new Date('2026-09-13T18:00:00.000Z'),
+          status: TournamentMatchStatus.SCHEDULED,
+        },
+      ],
+      wins: 1,
+      losses: 1,
+      matchesPlayed: 2,
+      matchesRemaining: 1,
+      officialScoreSummary: {
+        matchesWithOfficialResults: 2,
+        mapsWon: 2,
+        mapsLost: 3,
+      },
+      placement: null,
+      qualificationState: null,
+    });
+  });
+
+  it('blocks unapproved registrations from Captain progress views', async () => {
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-progress-pending-registration',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.PENDING_APPROVAL,
+        approvalStatus: RegistrationApprovalStatus.PENDING,
+        tournament: createTournamentRecord({
+          id: 'captain-progress-pending-cup',
+        }),
+        team: createTeamRecord({ id: 'team-1' }),
+      }),
+    ];
+
+    await expect(
+      service.getCaptainRegistrationProgress(
+        'captain-1',
+        'captain-progress-pending-registration',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('withdraws the authenticated Captain registration without deleting snapshots', async () => {
     const rosterSnapshot = [
       {
