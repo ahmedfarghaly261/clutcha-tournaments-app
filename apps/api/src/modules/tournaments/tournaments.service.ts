@@ -13,6 +13,8 @@ import {
   RegistrationPaymentStatus,
   RosterType,
   TeamStatus,
+  TournamentMatchOfficialResultStatus,
+  TournamentMatchStatus,
   TournamentMode,
   TournamentRegistrationStatus,
   TournamentSeedingMethod,
@@ -32,6 +34,10 @@ import {
   type CaptainMatchListResponseDto,
   type CaptainMatchResponseDto,
 } from './dto/captain-registration-match-response.dto';
+import {
+  type CaptainProgressMatchSummaryDto,
+  type CaptainRegistrationProgressResponseDto,
+} from './dto/captain-registration-progress-response.dto';
 import { type CancelTournamentDto } from './dto/cancel-tournament.dto';
 import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
 import { type CreateTournamentRegistrationDto } from './dto/create-tournament-registration.dto';
@@ -723,11 +729,13 @@ const captainMatchAccessRegistrationSelect = {
   team: {
     select: {
       id: true,
+      name: true,
     },
   },
   tournament: {
     select: {
       id: true,
+      name: true,
       status: true,
     },
   },
@@ -1170,6 +1178,28 @@ export class TournamentsService {
     }
 
     return this.toCaptainMatchResponse(match, registration.team.id);
+  }
+
+  async getCaptainRegistrationProgress(
+    captainId: string,
+    registrationId: string,
+  ): Promise<CaptainRegistrationProgressResponseDto> {
+    const registration = await this.findCaptainMatchAccessRegistration(
+      captainId,
+      registrationId,
+    );
+
+    const matches = await this.databaseService.client.tournamentMatch.findMany({
+      where: this.toCaptainMatchOwnershipWhere(registration),
+      orderBy: [{ scheduledAt: 'asc' }, { round: 'asc' }, { createdAt: 'asc' }],
+      select: captainMatchSelect,
+    });
+
+    return this.toCaptainRegistrationProgress(
+      registration,
+      matches,
+      new Date(),
+    );
   }
 
   async withdrawCaptainRegistration(
@@ -2601,6 +2631,123 @@ export class TournamentsService {
             }
           : null,
     };
+  }
+
+  private toCaptainRegistrationProgress(
+    registration: CaptainMatchAccessRegistrationRecord,
+    matches: CaptainMatchRecord[],
+    now: Date,
+  ): CaptainRegistrationProgressResponseDto {
+    const officialCompletedMatches = matches.filter((match) =>
+      this.isOfficialCompletedCaptainMatch(match),
+    );
+    const upcomingMatches = matches.filter((match) =>
+      this.isUpcomingCaptainMatch(match, now),
+    );
+    const nextMatch = upcomingMatches.at(0) ?? null;
+    const latestOfficialMatch = officialCompletedMatches.at(-1) ?? null;
+    const currentSourceMatch = nextMatch ?? latestOfficialMatch;
+    const mapsWon = officialCompletedMatches.reduce(
+      (total, match) =>
+        total +
+        match.games.filter((game) => game.winnerTeamId === registration.team.id)
+          .length,
+      0,
+    );
+    const mapsLost = officialCompletedMatches.reduce(
+      (total, match) =>
+        total +
+        match.games.filter(
+          (game) =>
+            game.winnerTeamId !== null &&
+            game.winnerTeamId !== registration.team.id,
+        ).length,
+      0,
+    );
+
+    return {
+      registrationId: registration.id,
+      tournament: {
+        id: registration.tournament.id,
+        name: registration.tournament.name,
+      },
+      team: {
+        id: registration.team.id,
+        name: registration.team.name,
+      },
+      currentStage: currentSourceMatch?.stage ?? null,
+      currentRound: currentSourceMatch?.round ?? null,
+      nextMatch: nextMatch
+        ? this.toCaptainProgressMatchSummary(nextMatch, registration.team.id)
+        : null,
+      upcomingMatches: upcomingMatches.map((match) =>
+        this.toCaptainProgressMatchSummary(match, registration.team.id),
+      ),
+      wins: officialCompletedMatches.filter(
+        (match) => match.winnerTeamId === registration.team.id,
+      ).length,
+      losses: officialCompletedMatches.filter(
+        (match) =>
+          match.winnerTeamId !== null &&
+          match.winnerTeamId !== registration.team.id,
+      ).length,
+      matchesPlayed: officialCompletedMatches.length,
+      matchesRemaining: upcomingMatches.length,
+      officialScoreSummary: {
+        matchesWithOfficialResults: officialCompletedMatches.length,
+        mapsWon,
+        mapsLost,
+      },
+      placement: null,
+      qualificationState: null,
+    };
+  }
+
+  private toCaptainProgressMatchSummary(
+    match: CaptainMatchRecord,
+    captainTeamId: string,
+  ): CaptainProgressMatchSummaryDto {
+    const opponent =
+      match.teamAId === captainTeamId ? match.teamB : match.teamA;
+
+    return {
+      id: match.id,
+      stage: match.stage,
+      round: match.round,
+      bracketPosition: match.bracketPosition,
+      opponent: opponent
+        ? {
+            teamId: opponent.id,
+            teamName: opponent.name,
+          }
+        : null,
+      scheduledAt: match.scheduledAt,
+      status: match.status,
+    };
+  }
+
+  private isOfficialCompletedCaptainMatch(match: CaptainMatchRecord): boolean {
+    return (
+      match.officialResultStatus ===
+        TournamentMatchOfficialResultStatus.CONFIRMED &&
+      (match.status === TournamentMatchStatus.COMPLETED ||
+        match.status === TournamentMatchStatus.FORFEIT)
+    );
+  }
+
+  private isUpcomingCaptainMatch(
+    match: CaptainMatchRecord,
+    now: Date,
+  ): boolean {
+    if (
+      match.status !== TournamentMatchStatus.SCHEDULED &&
+      match.status !== TournamentMatchStatus.LIVE &&
+      match.status !== TournamentMatchStatus.POSTPONED
+    ) {
+      return false;
+    }
+
+    return match.scheduledAt === null || match.scheduledAt >= now;
   }
 
   private toCaptainRegistrationTournamentSummary(
