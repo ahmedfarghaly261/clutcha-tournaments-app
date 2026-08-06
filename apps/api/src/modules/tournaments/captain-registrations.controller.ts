@@ -91,6 +91,7 @@ export class CaptainRegistrationsController {
   }
 
   @Get(':registrationId/hub')
+  @ApiTags('Captain Tournament Hub')
   @ApiOperation({
     summary: 'Get approved Captain tournament hub',
     description:
@@ -121,6 +122,7 @@ export class CaptainRegistrationsController {
   }
 
   @Get(':registrationId/progress')
+  @ApiTags('Captain Tournament Hub')
   @ApiOperation({
     summary: 'Get Captain tournament progress',
     description:
@@ -151,6 +153,7 @@ export class CaptainRegistrationsController {
   }
 
   @Get(':registrationId/bracket')
+  @ApiTags('Captain Tournament Hub')
   @ApiOperation({
     summary: 'Get Captain-visible tournament bracket',
     description:
@@ -181,6 +184,7 @@ export class CaptainRegistrationsController {
   }
 
   @Get(':registrationId/standings')
+  @ApiTags('Captain Tournament Hub')
   @ApiOperation({
     summary: 'Get Captain-visible tournament standings',
     description:
@@ -211,6 +215,7 @@ export class CaptainRegistrationsController {
   }
 
   @Get(':registrationId/information')
+  @ApiTags('Captain Tournament Hub')
   @ApiOperation({
     summary: 'Get approved Captain private tournament information',
     description:
@@ -241,6 +246,7 @@ export class CaptainRegistrationsController {
   }
 
   @Get(':registrationId/check-in')
+  @ApiTags('Captain Check-In')
   @ApiOperation({
     summary: 'Get Captain check-in readiness',
     description:
@@ -270,6 +276,7 @@ export class CaptainRegistrationsController {
   }
 
   @Post(':registrationId/check-in')
+  @ApiTags('Captain Check-In')
   @ApiOperation({
     summary: 'Check in Captain team',
     description:
@@ -302,6 +309,7 @@ export class CaptainRegistrationsController {
   }
 
   @Get(':registrationId/matches')
+  @ApiTags('Captain Matches')
   @ApiOperation({
     summary: 'List Captain registration matches',
     description:
@@ -332,6 +340,7 @@ export class CaptainRegistrationsController {
   }
 
   @Get(':registrationId/matches/:matchId')
+  @ApiTags('Captain Matches')
   @ApiOperation({
     summary: 'Get Captain registration match details',
     description:
