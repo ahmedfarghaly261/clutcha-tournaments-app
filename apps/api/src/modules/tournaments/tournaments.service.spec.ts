@@ -2306,6 +2306,323 @@ describe('TournamentsService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('returns Captain-visible bracket stages without private match data', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-bracket-cup',
+      name: 'Captain Bracket Cup',
+    });
+    const captainTeam = createTeamRecord({
+      id: 'team-1',
+      name: 'Cairo Titans',
+    });
+    const opponent = createTeamRecord({
+      id: 'team-opponent',
+      captainId: 'opponent-captain',
+      name: 'Falcons',
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-bracket-registration',
+        captainId: 'captain-1',
+        teamId: captainTeam.id,
+        status: TournamentRegistrationStatus.CONFIRMED,
+        paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        team: captainTeam,
+      }),
+    ];
+    tournamentMatches = [
+      createTournamentMatchRecord({
+        id: 'bracket-match-1',
+        tournamentId: tournament.id,
+        tournament,
+        stage: 'GROUP_STAGE',
+        round: 1,
+        bracketPosition: 'A1',
+        teamAId: captainTeam.id,
+        teamA: captainTeam,
+        teamBId: opponent.id,
+        teamB: opponent,
+        status: TournamentMatchStatus.COMPLETED,
+        teamAScore: 2,
+        teamBScore: 1,
+        winnerTeamId: captainTeam.id,
+        officialResultStatus: TournamentMatchOfficialResultStatus.CONFIRMED,
+        onlineServerInfo: {
+          privateLobbyCode: 'DO-NOT-EXPOSE',
+        },
+      }),
+      createTournamentMatchRecord({
+        id: 'bracket-match-2',
+        tournamentId: tournament.id,
+        tournament,
+        stage: 'PLAYOFFS',
+        round: 2,
+        bracketPosition: 'SF1',
+        teamAId: opponent.id,
+        teamA: opponent,
+        teamBId: null,
+        teamB: null,
+        status: TournamentMatchStatus.SCHEDULED,
+      }),
+    ];
+
+    const result = await service.getCaptainRegistrationBracket(
+      'captain-1',
+      'captain-bracket-registration',
+    );
+
+    expect(result).toEqual({
+      registrationId: 'captain-bracket-registration',
+      tournament: {
+        id: 'captain-bracket-cup',
+        name: 'Captain Bracket Cup',
+      },
+      captainTeamId: 'team-1',
+      stages: [
+        {
+          stage: 'GROUP_STAGE',
+          matches: [
+            {
+              id: 'bracket-match-1',
+              stage: 'GROUP_STAGE',
+              round: 1,
+              bracketPosition: 'A1',
+              scheduledAt: new Date('2026-09-12T18:00:00.000Z'),
+              status: TournamentMatchStatus.COMPLETED,
+              teamA: {
+                id: 'team-1',
+                name: 'Cairo Titans',
+                isCaptainTeam: true,
+              },
+              teamB: {
+                id: 'team-opponent',
+                name: 'Falcons',
+                isCaptainTeam: false,
+              },
+              teamAScore: 2,
+              teamBScore: 1,
+              winnerTeamId: 'team-1',
+              officialResultStatus:
+                TournamentMatchOfficialResultStatus.CONFIRMED,
+            },
+          ],
+        },
+        {
+          stage: 'PLAYOFFS',
+          matches: [
+            {
+              id: 'bracket-match-2',
+              stage: 'PLAYOFFS',
+              round: 2,
+              bracketPosition: 'SF1',
+              scheduledAt: new Date('2026-09-12T18:00:00.000Z'),
+              status: TournamentMatchStatus.SCHEDULED,
+              teamA: {
+                id: 'team-opponent',
+                name: 'Falcons',
+                isCaptainTeam: false,
+              },
+              teamB: null,
+              teamAScore: null,
+              teamBScore: null,
+              winnerTeamId: null,
+              officialResultStatus: TournamentMatchOfficialResultStatus.PENDING,
+            },
+          ],
+        },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain('DO-NOT-EXPOSE');
+  });
+
+  it('returns Captain-visible standings from official confirmed results', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-standings-cup',
+      name: 'Captain Standings Cup',
+    });
+    const captainTeam = createTeamRecord({
+      id: 'team-1',
+      name: 'Cairo Titans',
+    });
+    const falcons = createTeamRecord({
+      id: 'team-falcons',
+      captainId: 'falcons-captain',
+      name: 'Falcons',
+    });
+    const wolves = createTeamRecord({
+      id: 'team-wolves',
+      captainId: 'wolves-captain',
+      name: 'Wolves',
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-standings-registration',
+        captainId: 'captain-1',
+        teamId: captainTeam.id,
+        status: TournamentRegistrationStatus.CONFIRMED,
+        paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        team: captainTeam,
+      }),
+    ];
+    tournamentMatches = [
+      createTournamentMatchRecord({
+        id: 'standings-match-win',
+        tournamentId: tournament.id,
+        tournament,
+        teamAId: captainTeam.id,
+        teamA: captainTeam,
+        teamBId: falcons.id,
+        teamB: falcons,
+        status: TournamentMatchStatus.COMPLETED,
+        winnerTeamId: captainTeam.id,
+        officialResultStatus: TournamentMatchOfficialResultStatus.CONFIRMED,
+        games: [
+          createTournamentMatchGameRecord({
+            id: 'standings-match-win-game-1',
+            matchId: 'standings-match-win',
+            gameNumber: 1,
+            winnerTeamId: captainTeam.id,
+          }),
+          createTournamentMatchGameRecord({
+            id: 'standings-match-win-game-2',
+            matchId: 'standings-match-win',
+            gameNumber: 2,
+            winnerTeamId: falcons.id,
+          }),
+          createTournamentMatchGameRecord({
+            id: 'standings-match-win-game-3',
+            matchId: 'standings-match-win',
+            gameNumber: 3,
+            winnerTeamId: captainTeam.id,
+          }),
+        ],
+      }),
+      createTournamentMatchRecord({
+        id: 'standings-match-loss',
+        tournamentId: tournament.id,
+        tournament,
+        teamAId: wolves.id,
+        teamA: wolves,
+        teamBId: captainTeam.id,
+        teamB: captainTeam,
+        status: TournamentMatchStatus.FORFEIT,
+        winnerTeamId: wolves.id,
+        officialResultStatus: TournamentMatchOfficialResultStatus.CONFIRMED,
+        games: [
+          createTournamentMatchGameRecord({
+            id: 'standings-match-loss-game-1',
+            matchId: 'standings-match-loss',
+            gameNumber: 1,
+            winnerTeamId: wolves.id,
+          }),
+        ],
+      }),
+      createTournamentMatchRecord({
+        id: 'standings-match-pending',
+        tournamentId: tournament.id,
+        tournament,
+        teamAId: falcons.id,
+        teamA: falcons,
+        teamBId: wolves.id,
+        teamB: wolves,
+        status: TournamentMatchStatus.COMPLETED,
+        winnerTeamId: falcons.id,
+        officialResultStatus: TournamentMatchOfficialResultStatus.PENDING,
+      }),
+    ];
+
+    const result = await service.getCaptainRegistrationStandings(
+      'captain-1',
+      'captain-standings-registration',
+    );
+
+    expect(result).toEqual({
+      registrationId: 'captain-standings-registration',
+      tournamentId: 'captain-standings-cup',
+      tournamentName: 'Captain Standings Cup',
+      captainTeamId: 'team-1',
+      officialResultsOnly: true,
+      items: [
+        {
+          rank: 1,
+          team: {
+            id: 'team-wolves',
+            name: 'Wolves',
+            isCaptainTeam: false,
+          },
+          wins: 1,
+          losses: 0,
+          matchesPlayed: 1,
+          mapsWon: 1,
+          mapsLost: 0,
+          mapDifferential: 1,
+        },
+        {
+          rank: 2,
+          team: {
+            id: 'team-1',
+            name: 'Cairo Titans',
+            isCaptainTeam: true,
+          },
+          wins: 1,
+          losses: 1,
+          matchesPlayed: 2,
+          mapsWon: 2,
+          mapsLost: 2,
+          mapDifferential: 0,
+        },
+        {
+          rank: 3,
+          team: {
+            id: 'team-falcons',
+            name: 'Falcons',
+            isCaptainTeam: false,
+          },
+          wins: 0,
+          losses: 1,
+          matchesPlayed: 1,
+          mapsWon: 1,
+          mapsLost: 2,
+          mapDifferential: -1,
+        },
+      ],
+    });
+  });
+
+  it('blocks unapproved registrations from bracket and standings views', async () => {
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-visibility-pending-registration',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.PENDING_APPROVAL,
+        approvalStatus: RegistrationApprovalStatus.PENDING,
+        tournament: createTournamentRecord({
+          id: 'captain-visibility-pending-cup',
+        }),
+        team: createTeamRecord({ id: 'team-1' }),
+      }),
+    ];
+
+    await expect(
+      service.getCaptainRegistrationBracket(
+        'captain-1',
+        'captain-visibility-pending-registration',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.getCaptainRegistrationStandings(
+        'captain-1',
+        'captain-visibility-pending-registration',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('withdraws the authenticated Captain registration without deleting snapshots', async () => {
     const rosterSnapshot = [
       {

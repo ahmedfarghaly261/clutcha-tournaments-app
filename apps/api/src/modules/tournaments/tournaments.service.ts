@@ -29,6 +29,7 @@ import {
   type CaptainRegistrationListItemDto,
   type CaptainRegistrationListResponseDto,
 } from './dto/captain-registration-response.dto';
+import { type CaptainRegistrationBracketResponseDto } from './dto/captain-registration-bracket-response.dto';
 import { type CaptainRegistrationHubResponseDto } from './dto/captain-registration-hub-response.dto';
 import {
   type CaptainMatchListResponseDto,
@@ -38,6 +39,10 @@ import {
   type CaptainProgressMatchSummaryDto,
   type CaptainRegistrationProgressResponseDto,
 } from './dto/captain-registration-progress-response.dto';
+import {
+  type CaptainRegistrationStandingsResponseDto,
+  type CaptainStandingItemDto,
+} from './dto/captain-registration-standings-response.dto';
 import { type CancelTournamentDto } from './dto/cancel-tournament.dto';
 import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
 import { type CreateTournamentRegistrationDto } from './dto/create-tournament-registration.dto';
@@ -149,6 +154,16 @@ type CaptainMatchAccessRegistrationRecord =
 type CaptainMatchRecord = Prisma.TournamentMatchGetPayload<{
   select: typeof captainMatchSelect;
 }>;
+
+type CaptainStandingAccumulator = {
+  teamId: string;
+  teamName: string;
+  wins: number;
+  losses: number;
+  matchesPlayed: number;
+  mapsWon: number;
+  mapsLost: number;
+};
 
 type OrganizerRegistrationListRecord = Prisma.TournamentRegistrationGetPayload<{
   select: typeof organizerRegistrationListSelect;
@@ -1200,6 +1215,42 @@ export class TournamentsService {
       matches,
       new Date(),
     );
+  }
+
+  async getCaptainRegistrationBracket(
+    captainId: string,
+    registrationId: string,
+  ): Promise<CaptainRegistrationBracketResponseDto> {
+    const registration = await this.findCaptainMatchAccessRegistration(
+      captainId,
+      registrationId,
+    );
+
+    const matches = await this.databaseService.client.tournamentMatch.findMany({
+      where: { tournamentId: registration.tournament.id },
+      orderBy: [{ round: 'asc' }, { scheduledAt: 'asc' }, { createdAt: 'asc' }],
+      select: captainMatchSelect,
+    });
+
+    return this.toCaptainRegistrationBracket(registration, matches);
+  }
+
+  async getCaptainRegistrationStandings(
+    captainId: string,
+    registrationId: string,
+  ): Promise<CaptainRegistrationStandingsResponseDto> {
+    const registration = await this.findCaptainMatchAccessRegistration(
+      captainId,
+      registrationId,
+    );
+
+    const matches = await this.databaseService.client.tournamentMatch.findMany({
+      where: { tournamentId: registration.tournament.id },
+      orderBy: [{ round: 'asc' }, { scheduledAt: 'asc' }, { createdAt: 'asc' }],
+      select: captainMatchSelect,
+    });
+
+    return this.toCaptainRegistrationStandings(registration, matches);
   }
 
   async withdrawCaptainRegistration(
@@ -2701,6 +2752,184 @@ export class TournamentsService {
       placement: null,
       qualificationState: null,
     };
+  }
+
+  private toCaptainRegistrationBracket(
+    registration: CaptainMatchAccessRegistrationRecord,
+    matches: CaptainMatchRecord[],
+  ): CaptainRegistrationBracketResponseDto {
+    const stages = new Map<
+      string,
+      CaptainRegistrationBracketResponseDto['stages'][number]
+    >();
+
+    matches.forEach((match) => {
+      const existingStage = stages.get(match.stage) ?? {
+        stage: match.stage,
+        matches: [],
+      };
+
+      existingStage.matches.push({
+        id: match.id,
+        stage: match.stage,
+        round: match.round,
+        bracketPosition: match.bracketPosition,
+        scheduledAt: match.scheduledAt,
+        status: match.status,
+        teamA: match.teamA
+          ? {
+              id: match.teamA.id,
+              name: match.teamA.name,
+              isCaptainTeam: match.teamA.id === registration.team.id,
+            }
+          : null,
+        teamB: match.teamB
+          ? {
+              id: match.teamB.id,
+              name: match.teamB.name,
+              isCaptainTeam: match.teamB.id === registration.team.id,
+            }
+          : null,
+        teamAScore: match.teamAScore,
+        teamBScore: match.teamBScore,
+        winnerTeamId: match.winnerTeamId,
+        officialResultStatus: match.officialResultStatus,
+      });
+      stages.set(match.stage, existingStage);
+    });
+
+    return {
+      registrationId: registration.id,
+      tournament: {
+        id: registration.tournament.id,
+        name: registration.tournament.name,
+      },
+      captainTeamId: registration.team.id,
+      stages: Array.from(stages.values()),
+    };
+  }
+
+  private toCaptainRegistrationStandings(
+    registration: CaptainMatchAccessRegistrationRecord,
+    matches: CaptainMatchRecord[],
+  ): CaptainRegistrationStandingsResponseDto {
+    const standings = new Map<string, CaptainStandingAccumulator>();
+    const officialCompletedMatches = matches.filter((match) =>
+      this.isOfficialCompletedCaptainMatch(match),
+    );
+
+    matches.forEach((match) => {
+      this.ensureStandingTeam(standings, match.teamA);
+      this.ensureStandingTeam(standings, match.teamB);
+    });
+
+    officialCompletedMatches.forEach((match) => {
+      if (!match.teamA || !match.teamB || !match.winnerTeamId) {
+        return;
+      }
+
+      const teamAStanding = this.ensureStandingTeam(standings, match.teamA);
+      const teamBStanding = this.ensureStandingTeam(standings, match.teamB);
+      const teamAMapsWon = match.games.filter(
+        (game) => game.winnerTeamId === match.teamAId,
+      ).length;
+      const teamBMapsWon = match.games.filter(
+        (game) => game.winnerTeamId === match.teamBId,
+      ).length;
+
+      teamAStanding.matchesPlayed += 1;
+      teamBStanding.matchesPlayed += 1;
+      teamAStanding.mapsWon += teamAMapsWon;
+      teamAStanding.mapsLost += teamBMapsWon;
+      teamBStanding.mapsWon += teamBMapsWon;
+      teamBStanding.mapsLost += teamAMapsWon;
+
+      if (match.winnerTeamId === match.teamAId) {
+        teamAStanding.wins += 1;
+        teamBStanding.losses += 1;
+      } else if (match.winnerTeamId === match.teamBId) {
+        teamBStanding.wins += 1;
+        teamAStanding.losses += 1;
+      }
+    });
+
+    const items = Array.from(standings.values())
+      .sort((left, right) => this.compareCaptainStandings(left, right))
+      .map((standing, index): CaptainStandingItemDto => ({
+        rank: index + 1,
+        team: {
+          id: standing.teamId,
+          name: standing.teamName,
+          isCaptainTeam: standing.teamId === registration.team.id,
+        },
+        wins: standing.wins,
+        losses: standing.losses,
+        matchesPlayed: standing.matchesPlayed,
+        mapsWon: standing.mapsWon,
+        mapsLost: standing.mapsLost,
+        mapDifferential: standing.mapsWon - standing.mapsLost,
+      }));
+
+    return {
+      registrationId: registration.id,
+      tournamentId: registration.tournament.id,
+      tournamentName: registration.tournament.name,
+      captainTeamId: registration.team.id,
+      officialResultsOnly: true,
+      items,
+    };
+  }
+
+  private ensureStandingTeam(
+    standings: Map<string, CaptainStandingAccumulator>,
+    team: CaptainMatchRecord['teamA'],
+  ): CaptainStandingAccumulator {
+    if (!team) {
+      return {
+        teamId: '',
+        teamName: '',
+        wins: 0,
+        losses: 0,
+        matchesPlayed: 0,
+        mapsWon: 0,
+        mapsLost: 0,
+      };
+    }
+
+    const existing = standings.get(team.id);
+
+    if (existing) {
+      return existing;
+    }
+
+    const created: CaptainStandingAccumulator = {
+      teamId: team.id,
+      teamName: team.name,
+      wins: 0,
+      losses: 0,
+      matchesPlayed: 0,
+      mapsWon: 0,
+      mapsLost: 0,
+    };
+    standings.set(team.id, created);
+
+    return created;
+  }
+
+  private compareCaptainStandings(
+    left: CaptainStandingAccumulator,
+    right: CaptainStandingAccumulator,
+  ): number {
+    const leftMapDifferential = left.mapsWon - left.mapsLost;
+    const rightMapDifferential = right.mapsWon - right.mapsLost;
+
+    return (
+      right.wins - left.wins ||
+      left.losses - right.losses ||
+      rightMapDifferential - leftMapDifferential ||
+      right.mapsWon - left.mapsWon ||
+      left.teamName.localeCompare(right.teamName)
+    );
   }
 
   private toCaptainProgressMatchSummary(
