@@ -17,12 +17,14 @@ import {
   CaptainRegistrationDetailResponseDto,
   CaptainRegistrationListResponseDto,
 } from './dto/captain-registration-response.dto';
+import { CaptainRegistrationBracketResponseDto } from './dto/captain-registration-bracket-response.dto';
 import { CaptainRegistrationHubResponseDto } from './dto/captain-registration-hub-response.dto';
 import {
   CaptainMatchListResponseDto,
   CaptainMatchResponseDto,
 } from './dto/captain-registration-match-response.dto';
 import { CaptainRegistrationProgressResponseDto } from './dto/captain-registration-progress-response.dto';
+import { CaptainRegistrationStandingsResponseDto } from './dto/captain-registration-standings-response.dto';
 import { ListCaptainRegistrationsQueryDto } from './dto/list-captain-registrations-query.dto';
 import { WithdrawCaptainRegistrationDto } from './dto/withdraw-captain-registration.dto';
 import { TournamentsService } from './tournaments.service';
@@ -141,6 +143,66 @@ export class CaptainRegistrationsController {
     @Param('registrationId') registrationId: string,
   ): Promise<CaptainRegistrationProgressResponseDto> {
     return this.tournamentsService.getCaptainRegistrationProgress(
+      user.id,
+      registrationId,
+    );
+  }
+
+  @Get(':registrationId/bracket')
+  @ApiOperation({
+    summary: 'Get Captain-visible tournament bracket',
+    description:
+      'Returns read-only bracket/match structure for an approved Captain registration. It exposes safe team names, scores, statuses, stages, rounds, and bracket positions only.',
+  })
+  @ApiOkResponse({
+    description: 'Captain-visible tournament bracket returned.',
+    type: CaptainRegistrationBracketResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'The registration is not approved, paid/free, or otherwise allowed into the private tournament hub.',
+  })
+  @ApiNotFoundResponse({
+    description: 'The registration does not exist for this Captain.',
+  })
+  async getRegistrationBracket(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('registrationId') registrationId: string,
+  ): Promise<CaptainRegistrationBracketResponseDto> {
+    return this.tournamentsService.getCaptainRegistrationBracket(
+      user.id,
+      registrationId,
+    );
+  }
+
+  @Get(':registrationId/standings')
+  @ApiOperation({
+    summary: 'Get Captain-visible tournament standings',
+    description:
+      'Returns read-only standings calculated only from official confirmed completed/forfeit match results. No private organizer/internal data is exposed.',
+  })
+  @ApiOkResponse({
+    description: 'Captain-visible tournament standings returned.',
+    type: CaptainRegistrationStandingsResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'The registration is not approved, paid/free, or otherwise allowed into the private tournament hub.',
+  })
+  @ApiNotFoundResponse({
+    description: 'The registration does not exist for this Captain.',
+  })
+  async getRegistrationStandings(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('registrationId') registrationId: string,
+  ): Promise<CaptainRegistrationStandingsResponseDto> {
+    return this.tournamentsService.getCaptainRegistrationStandings(
       user.id,
       registrationId,
     );

@@ -96,6 +96,12 @@ describe('CaptainRegistrationsController', () => {
       typeof CaptainRegistrationsController.prototype.getRegistrationProgress,
     ).toBe('function');
     expect(
+      typeof CaptainRegistrationsController.prototype.getRegistrationBracket,
+    ).toBe('function');
+    expect(
+      typeof CaptainRegistrationsController.prototype.getRegistrationStandings,
+    ).toBe('function');
+    expect(
       typeof CaptainRegistrationsController.prototype.listRegistrationMatches,
     ).toBe('function');
     expect(
