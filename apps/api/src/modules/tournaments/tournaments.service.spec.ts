@@ -2623,6 +2623,231 @@ describe('TournamentsService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('returns approved Captain private tournament information with released lobby data', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-information-cup',
+      name: 'Captain Information Cup',
+      status: TournamentStatus.CHECK_IN_OPEN,
+      checkInRules: 'Captains must check in 30 minutes before start.',
+      startsAt: new Date('2026-08-06T18:00:00.000Z'),
+      onlineConfiguration: createOnlineConfigurationRecord({
+        tournamentId: 'captain-information-cup',
+        serverRegion: 'EU West',
+        connectionRules: 'Use assigned lobby only.',
+        screenshotRequirements: 'Open a support ticket for technical issues.',
+        discordServerUrl: 'https://discord.gg/clutcha-private',
+        captainSupportChannel: '#captain-support',
+        matchReportingChannel: '#match-reporting',
+        lobbyInstructions: 'Lobby code releases inside Discord.',
+        privateSupportContact: 'support@example.com',
+      }),
+    });
+    const captainTeam = createTeamRecord({
+      id: 'team-1',
+      name: 'Cairo Titans',
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-information-registration',
+        captainId: 'captain-1',
+        teamId: captainTeam.id,
+        status: TournamentRegistrationStatus.CONFIRMED,
+        paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        team: captainTeam,
+      }),
+    ];
+    tournamentMatches = [
+      createTournamentMatchRecord({
+        id: 'captain-information-match',
+        tournamentId: tournament.id,
+        tournament,
+        teamAId: captainTeam.id,
+        teamA: captainTeam,
+        teamBId: 'team-opponent',
+        teamB: createTeamRecord({
+          id: 'team-opponent',
+          captainId: 'opponent-captain',
+          name: 'Falcons',
+        }),
+        onlineServerInfo: {
+          lobbyCode: 'CLUTCHA-123',
+          password: 'team-scoped-password',
+        },
+      }),
+    ];
+
+    const result = await service.getCaptainRegistrationInformation(
+      'captain-1',
+      'captain-information-registration',
+    );
+
+    expect(result).toEqual({
+      registrationId: 'captain-information-registration',
+      tournament: {
+        id: 'captain-information-cup',
+        name: 'Captain Information Cup',
+        mode: TournamentMode.ONLINE,
+        timezone: 'Africa/Cairo',
+      },
+      releaseGate: {
+        lobbyInformationReleased: true,
+        lobbyInformationReleasesAt: new Date('2026-08-05T18:00:00.000Z'),
+      },
+      checkInInstructions: 'Captains must check in 30 minutes before start.',
+      onlineInformation: {
+        serverRegion: 'EU West',
+        connectionRules: 'Use assigned lobby only.',
+        tournamentDiscordInvitation: 'https://discord.gg/clutcha-private',
+        captainSupportChannel: '#captain-support',
+        matchReportingChannel: '#match-reporting',
+        technicalSupportInstructions:
+          'Open a support ticket for technical issues.',
+        organizerSupportContact: 'support@example.com',
+        lobbyInformation: 'Lobby code releases inside Discord.',
+        nextMatchServerInformation: {
+          lobbyCode: 'CLUTCHA-123',
+          password: 'team-scoped-password',
+        },
+      },
+      venueInformation: null,
+    });
+  });
+
+  it('time-gates lobby and match server information before release', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-information-gated-cup',
+      name: 'Captain Information Gated Cup',
+      status: TournamentStatus.REGISTRATION_CLOSED,
+      startsAt: new Date('2026-09-12T18:00:00.000Z'),
+      onlineConfiguration: createOnlineConfigurationRecord({
+        tournamentId: 'captain-information-gated-cup',
+        lobbyInstructions: 'Hidden until release.',
+      }),
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-information-gated-registration',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.CONFIRMED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        team: createTeamRecord({ id: 'team-1' }),
+      }),
+    ];
+    tournamentMatches = [
+      createTournamentMatchRecord({
+        id: 'captain-information-gated-match',
+        tournamentId: tournament.id,
+        teamAId: 'team-1',
+        onlineServerInfo: {
+          lobbyCode: 'SHOULD-NOT-SHOW',
+        },
+      }),
+    ];
+
+    const result = await service.getCaptainRegistrationInformation(
+      'captain-1',
+      'captain-information-gated-registration',
+    );
+
+    expect(result.releaseGate).toEqual({
+      lobbyInformationReleased: false,
+      lobbyInformationReleasesAt: new Date('2026-09-11T18:00:00.000Z'),
+    });
+    expect(result.onlineInformation?.lobbyInformation).toBeNull();
+    expect(result.onlineInformation?.nextMatchServerInformation).toBeNull();
+    expect(JSON.stringify(result)).not.toContain('SHOULD-NOT-SHOW');
+  });
+
+  it('returns on-site private venue and assigned station information', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-information-onsite-cup',
+      name: 'Captain Information Onsite Cup',
+      mode: TournamentMode.ONSITE,
+      status: TournamentStatus.CHECK_IN_OPEN,
+      startsAt: new Date('2026-08-06T18:00:00.000Z'),
+      checkInOpensAt: new Date('2026-08-06T16:30:00.000Z'),
+      checkInRules: 'Bring national ID to the main desk.',
+      venue: createVenueRecord({
+        tournamentId: 'captain-information-onsite-cup',
+        name: 'CLUTCHA Arena Cairo',
+        venueRules: 'No food near gaming stations.',
+        parkingInfo: 'Use gate B parking.',
+      }),
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-information-onsite-registration',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.CHECKED_IN,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        team: createTeamRecord({ id: 'team-1' }),
+      }),
+    ];
+    tournamentMatches = [
+      createTournamentMatchRecord({
+        id: 'captain-information-onsite-match',
+        tournamentId: tournament.id,
+        tournament,
+        teamAId: 'team-1',
+        gamingRoomId: 'gaming-room-1',
+        gamingRoom: createGamingRoomRecord({
+          id: 'gaming-room-1',
+          name: 'Main Stage Room',
+        }),
+        onsiteStationLabel: 'Station A-04',
+      }),
+    ];
+
+    const result = await service.getCaptainRegistrationInformation(
+      'captain-1',
+      'captain-information-onsite-registration',
+    );
+
+    expect(result.onlineInformation).toBeNull();
+    expect(result.venueInformation).toMatchObject({
+      name: 'CLUTCHA Arena Cairo',
+      country: 'EG',
+      city: 'Cairo',
+      address: '90 Street, New Cairo',
+      checkInLocation: 'Main reception',
+      venueInstructions: 'No food near gaming stations.',
+      parkingInfo: 'Use gate B parking.',
+      arrivalTime: new Date('2026-08-06T16:30:00.000Z'),
+      assignedRoomId: 'gaming-room-1',
+      assignedRoomName: 'Main Stage Room',
+      assignedStation: 'Station A-04',
+    });
+  });
+
+  it('blocks unapproved registrations from private tournament information', async () => {
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-information-pending-registration',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.PENDING_APPROVAL,
+        approvalStatus: RegistrationApprovalStatus.PENDING,
+        tournament: createTournamentRecord({
+          id: 'captain-information-pending-cup',
+        }),
+        team: createTeamRecord({ id: 'team-1' }),
+      }),
+    ];
+
+    await expect(
+      service.getCaptainRegistrationInformation(
+        'captain-1',
+        'captain-information-pending-registration',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('withdraws the authenticated Captain registration without deleting snapshots', async () => {
     const rosterSnapshot = [
       {
