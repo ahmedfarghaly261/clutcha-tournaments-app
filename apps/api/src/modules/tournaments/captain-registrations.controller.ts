@@ -18,6 +18,7 @@ import {
   CaptainRegistrationListResponseDto,
 } from './dto/captain-registration-response.dto';
 import { CaptainRegistrationBracketResponseDto } from './dto/captain-registration-bracket-response.dto';
+import { CaptainRegistrationCheckInResponseDto } from './dto/captain-registration-check-in-response.dto';
 import { CaptainRegistrationHubResponseDto } from './dto/captain-registration-hub-response.dto';
 import { CaptainRegistrationInformationResponseDto } from './dto/captain-registration-information-response.dto';
 import {
@@ -234,6 +235,67 @@ export class CaptainRegistrationsController {
     @Param('registrationId') registrationId: string,
   ): Promise<CaptainRegistrationInformationResponseDto> {
     return this.tournamentsService.getCaptainRegistrationInformation(
+      user.id,
+      registrationId,
+    );
+  }
+
+  @Get(':registrationId/check-in')
+  @ApiOperation({
+    summary: 'Get Captain check-in readiness',
+    description:
+      'Returns check-in readiness for the authenticated Captain registration. Payment is handled offline/directly with the organizer; organizer approval and CONFIRMED registration status are required before check-in.',
+  })
+  @ApiOkResponse({
+    description: 'Captain check-in readiness returned.',
+    type: CaptainRegistrationCheckInResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not a Captain.',
+  })
+  @ApiNotFoundResponse({
+    description: 'The registration does not exist for this Captain.',
+  })
+  async getRegistrationCheckIn(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('registrationId') registrationId: string,
+  ): Promise<CaptainRegistrationCheckInResponseDto> {
+    return this.tournamentsService.getCaptainRegistrationCheckIn(
+      user.id,
+      registrationId,
+    );
+  }
+
+  @Post(':registrationId/check-in')
+  @ApiOperation({
+    summary: 'Check in Captain team',
+    description:
+      'Checks in an organizer-approved confirmed Captain registration. Both free and paid tournaments require organizer approval first; payment status is informational for offline payment workflows.',
+  })
+  @ApiOkResponse({
+    description: 'Captain team checked in.',
+    type: CaptainRegistrationCheckInResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not a Captain.',
+  })
+  @ApiNotFoundResponse({
+    description: 'The registration does not exist for this Captain.',
+  })
+  @ApiConflictResponse({
+    description: 'Check-in is not currently allowed for this registration.',
+  })
+  async checkInRegistration(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('registrationId') registrationId: string,
+  ): Promise<CaptainRegistrationCheckInResponseDto> {
+    return this.tournamentsService.checkInCaptainRegistration(
       user.id,
       registrationId,
     );
