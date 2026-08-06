@@ -2848,6 +2848,247 @@ describe('TournamentsService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('returns Captain check-in readiness using organizer approval instead of payment status', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-check-in-ready-cup',
+      name: 'Captain Check-In Ready Cup',
+      status: TournamentStatus.CHECK_IN_OPEN,
+      mode: TournamentMode.ONSITE,
+      checkInRules: 'Bring national ID to the main desk.',
+      checkInOpensAt: new Date('2026-08-06T16:30:00.000Z'),
+      venue: createVenueRecord({
+        tournamentId: 'captain-check-in-ready-cup',
+        name: 'CLUTCHA Arena Cairo',
+      }),
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-check-in-ready-registration',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.CONFIRMED,
+        paymentStatus: RegistrationPaymentStatus.PENDING,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        captain: createUserRecord({
+          id: 'captain-1',
+          phoneNumber: '+201001234567',
+        }),
+        team: createTeamRecord({
+          id: 'team-1',
+          rosterPlayers: [
+            createRosterPlayerRecord({ id: 'starter-1' }),
+            createRosterPlayerRecord({ id: 'starter-2' }),
+            createRosterPlayerRecord({ id: 'starter-3' }),
+            createRosterPlayerRecord({ id: 'starter-4' }),
+            createRosterPlayerRecord({ id: 'starter-5' }),
+          ],
+        }),
+      }),
+    ];
+    tournamentMatches = [
+      createTournamentMatchRecord({
+        id: 'captain-check-in-ready-match',
+        tournamentId: tournament.id,
+        tournament,
+        teamAId: 'team-1',
+        gamingRoom: createGamingRoomRecord({
+          id: 'gaming-room-1',
+          name: 'Main Stage Room',
+        }),
+        onsiteStationLabel: 'Station A-04',
+      }),
+    ];
+
+    const result = await service.getCaptainRegistrationCheckIn(
+      'captain-1',
+      'captain-check-in-ready-registration',
+    );
+
+    expect(result).toMatchObject({
+      registrationId: 'captain-check-in-ready-registration',
+      canCheckIn: true,
+      checkedIn: false,
+      outstandingIssues: [],
+      registration: {
+        status: TournamentRegistrationStatus.CONFIRMED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        paymentStatus: RegistrationPaymentStatus.PENDING,
+        checkedInAt: null,
+      },
+      instructions: {
+        checkInInstructions: 'Bring national ID to the main desk.',
+        arrivalTime: new Date('2026-08-06T16:30:00.000Z'),
+        venueName: 'CLUTCHA Arena Cairo',
+        checkInLocation: 'Main reception',
+        assignedRoomName: 'Main Stage Room',
+        assignedStation: 'Station A-04',
+      },
+    });
+  });
+
+  it('checks in an organizer-approved confirmed registration', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-check-in-success-cup',
+      name: 'Captain Check-In Success Cup',
+      status: TournamentStatus.CHECK_IN_OPEN,
+      checkInRules: 'Join the Captain support channel.',
+      onlineConfiguration: createOnlineConfigurationRecord({
+        tournamentId: 'captain-check-in-success-cup',
+        serverRegion: 'EU West',
+        connectionRules: 'Use assigned lobby only.',
+      }),
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-check-in-success-registration',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.CONFIRMED,
+        paymentStatus: RegistrationPaymentStatus.PENDING,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        captain: createUserRecord({ phoneNumber: '+201001234567' }),
+        team: createTeamRecord({
+          id: 'team-1',
+          rosterPlayers: [
+            createRosterPlayerRecord({ id: 'starter-1' }),
+            createRosterPlayerRecord({ id: 'starter-2' }),
+            createRosterPlayerRecord({ id: 'starter-3' }),
+            createRosterPlayerRecord({ id: 'starter-4' }),
+            createRosterPlayerRecord({ id: 'starter-5' }),
+          ],
+        }),
+      }),
+    ];
+
+    const result = await service.checkInCaptainRegistration(
+      'captain-1',
+      'captain-check-in-success-registration',
+    );
+
+    expect(updateTournamentRegistration).toHaveBeenCalledWith({
+      where: { id: 'captain-check-in-success-registration' },
+      data: {
+        status: TournamentRegistrationStatus.CHECKED_IN,
+        checkedInAt: expect.any(Date) as Date,
+      },
+      select: expect.any(Object) as object,
+    });
+    expect(result.checkedIn).toBe(true);
+    expect(result.canCheckIn).toBe(false);
+    expect(result.registration.status).toBe(
+      TournamentRegistrationStatus.CHECKED_IN,
+    );
+    expect(result.instructions).toMatchObject({
+      checkInInstructions: 'Join the Captain support channel.',
+      serverRegion: 'EU West',
+      onlineInstructions: 'Use assigned lobby only.',
+    });
+  });
+
+  it('requires organizer approval before Captain check-in for free or paid tournaments', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-check-in-unapproved-cup',
+      status: TournamentStatus.CHECK_IN_OPEN,
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-check-in-unapproved-registration',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.PENDING_APPROVAL,
+        paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
+        approvalStatus: RegistrationApprovalStatus.PENDING,
+        tournamentId: tournament.id,
+        tournament,
+        captain: createUserRecord({ phoneNumber: '+201001234567' }),
+        team: createTeamRecord({
+          id: 'team-1',
+          rosterPlayers: [
+            createRosterPlayerRecord({ id: 'starter-1' }),
+            createRosterPlayerRecord({ id: 'starter-2' }),
+            createRosterPlayerRecord({ id: 'starter-3' }),
+            createRosterPlayerRecord({ id: 'starter-4' }),
+            createRosterPlayerRecord({ id: 'starter-5' }),
+          ],
+        }),
+      }),
+    ];
+
+    const readiness = await service.getCaptainRegistrationCheckIn(
+      'captain-1',
+      'captain-check-in-unapproved-registration',
+    );
+
+    expect(readiness.canCheckIn).toBe(false);
+    expect(readiness.outstandingIssues).toEqual(
+      expect.arrayContaining([
+        {
+          field: 'registration.approvalStatus',
+          message: 'Organizer must approve the team before check-in.',
+        },
+        {
+          field: 'registration.status',
+          message:
+            'Registration must be confirmed by the organizer before check-in.',
+        },
+      ]),
+    );
+    await expect(
+      service.checkInCaptainRegistration(
+        'captain-1',
+        'captain-check-in-unapproved-registration',
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(updateTournamentRegistration).not.toHaveBeenCalled();
+  });
+
+  it('reports check-in issues for closed windows and incomplete rosters', async () => {
+    const tournament = createTournamentRecord({
+      id: 'captain-check-in-issues-cup',
+      status: TournamentStatus.REGISTRATION_CLOSED,
+      checkInOpensAt: new Date('2026-09-12T16:00:00.000Z'),
+      checkInClosesAt: new Date('2026-09-12T17:00:00.000Z'),
+    });
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'captain-check-in-issues-registration',
+        captainId: 'captain-1',
+        status: TournamentRegistrationStatus.CONFIRMED,
+        approvalStatus: RegistrationApprovalStatus.APPROVED,
+        tournamentId: tournament.id,
+        tournament,
+        captain: createUserRecord({ phoneNumber: null }),
+        team: createTeamRecord({
+          id: 'team-1',
+          rosterPlayers: [
+            createRosterPlayerRecord({
+              id: 'starter-1',
+              phoneNumber: '',
+              gameAccountId: '',
+            }),
+          ],
+        }),
+      }),
+    ];
+
+    const result = await service.getCaptainRegistrationCheckIn(
+      'captain-1',
+      'captain-check-in-issues-registration',
+    );
+
+    expect(result.canCheckIn).toBe(false);
+    expect(result.outstandingIssues.map((issue) => issue.field)).toEqual(
+      expect.arrayContaining([
+        'tournament.checkInWindow',
+        'captain.phoneNumber',
+        'team.rosterPlayers',
+        'team.rosterPlayers.starter-1.gameAccountId',
+        'team.rosterPlayers.starter-1.phoneNumber',
+      ]),
+    );
+  });
+
   it('withdraws the authenticated Captain registration without deleting snapshots', async () => {
     const rosterSnapshot = [
       {

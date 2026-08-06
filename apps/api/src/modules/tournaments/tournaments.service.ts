@@ -30,6 +30,10 @@ import {
   type CaptainRegistrationListResponseDto,
 } from './dto/captain-registration-response.dto';
 import { type CaptainRegistrationBracketResponseDto } from './dto/captain-registration-bracket-response.dto';
+import {
+  type CaptainCheckInIssueDto,
+  type CaptainRegistrationCheckInResponseDto,
+} from './dto/captain-registration-check-in-response.dto';
 import { type CaptainRegistrationHubResponseDto } from './dto/captain-registration-hub-response.dto';
 import { type CaptainRegistrationInformationResponseDto } from './dto/captain-registration-information-response.dto';
 import {
@@ -155,6 +159,11 @@ type CaptainMatchAccessRegistrationRecord =
 type CaptainInformationRegistrationRecord =
   Prisma.TournamentRegistrationGetPayload<{
     select: typeof captainInformationRegistrationSelect;
+  }>;
+
+type CaptainCheckInRegistrationRecord =
+  Prisma.TournamentRegistrationGetPayload<{
+    select: typeof captainCheckInRegistrationSelect;
   }>;
 
 type CaptainMatchRecord = Prisma.TournamentMatchGetPayload<{
@@ -811,6 +820,52 @@ const captainInformationRegistrationSelect = {
   },
 } satisfies Prisma.TournamentRegistrationSelect;
 
+const captainCheckInRegistrationSelect = {
+  id: true,
+  status: true,
+  paymentStatus: true,
+  approvalStatus: true,
+  checkedInAt: true,
+  captain: {
+    select: {
+      id: true,
+      phoneNumber: true,
+    },
+  },
+  team: {
+    select: eligibilityTeamSelect,
+  },
+  tournament: {
+    select: {
+      id: true,
+      name: true,
+      mode: true,
+      status: true,
+      startsAt: true,
+      checkInOpensAt: true,
+      checkInClosesAt: true,
+      checkInRules: true,
+      timezone: true,
+      minimumStarters: true,
+      maximumStarters: true,
+      maximumSubstitutes: true,
+      requiredGameAccountId: true,
+      onlineConfiguration: {
+        select: {
+          serverRegion: true,
+          connectionRules: true,
+        },
+      },
+      venue: {
+        select: {
+          name: true,
+          checkInLocation: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.TournamentRegistrationSelect;
+
 const captainMatchSelect = {
   id: true,
   stage: true,
@@ -1340,6 +1395,71 @@ export class TournamentsService {
 
     return this.toCaptainRegistrationInformation(
       registration,
+      nextMatch,
+      new Date(),
+    );
+  }
+
+  async getCaptainRegistrationCheckIn(
+    captainId: string,
+    registrationId: string,
+  ): Promise<CaptainRegistrationCheckInResponseDto> {
+    const registration = await this.findCaptainCheckInRegistrationOrThrow(
+      captainId,
+      registrationId,
+    );
+    const nextMatch = await this.findNextCaptainMatch(registration);
+
+    return this.toCaptainRegistrationCheckIn(
+      registration,
+      nextMatch,
+      new Date(),
+    );
+  }
+
+  async checkInCaptainRegistration(
+    captainId: string,
+    registrationId: string,
+  ): Promise<CaptainRegistrationCheckInResponseDto> {
+    const updatedRegistration = await this.databaseService.client.$transaction(
+      async (transaction) => {
+        const registration = await transaction.tournamentRegistration.findFirst(
+          {
+            where: {
+              id: registrationId,
+              captainId,
+            },
+            select: captainCheckInRegistrationSelect,
+          },
+        );
+
+        if (!registration) {
+          throw new NotFoundException('Registration was not found');
+        }
+
+        const issues = this.getCaptainCheckInIssues(registration, new Date());
+
+        if (issues.length > 0) {
+          throw new ConflictException({
+            message: 'Registration cannot be checked in.',
+            issues,
+          });
+        }
+
+        return transaction.tournamentRegistration.update({
+          where: { id: registration.id },
+          data: {
+            status: TournamentRegistrationStatus.CHECKED_IN,
+            checkedInAt: new Date(),
+          },
+          select: captainCheckInRegistrationSelect,
+        });
+      },
+    );
+    const nextMatch = await this.findNextCaptainMatch(updatedRegistration);
+
+    return this.toCaptainRegistrationCheckIn(
+      updatedRegistration,
       nextMatch,
       new Date(),
     );
@@ -2696,7 +2816,8 @@ export class TournamentsService {
   private toCaptainMatchOwnershipWhere(
     registration:
       | CaptainMatchAccessRegistrationRecord
-      | CaptainInformationRegistrationRecord,
+      | CaptainInformationRegistrationRecord
+      | CaptainCheckInRegistrationRecord,
   ): Prisma.TournamentMatchWhereInput {
     return {
       tournamentId: registration.tournament.id,
@@ -3047,6 +3168,202 @@ export class TournamentsService {
           }
         : null,
     };
+  }
+
+  private async findCaptainCheckInRegistrationOrThrow(
+    captainId: string,
+    registrationId: string,
+  ): Promise<CaptainCheckInRegistrationRecord> {
+    const registration =
+      await this.databaseService.client.tournamentRegistration.findFirst({
+        where: {
+          id: registrationId,
+          captainId,
+        },
+        select: captainCheckInRegistrationSelect,
+      });
+
+    if (!registration) {
+      throw new NotFoundException('Registration was not found');
+    }
+
+    return registration;
+  }
+
+  private async findNextCaptainMatch(
+    registration:
+      CaptainCheckInRegistrationRecord | CaptainInformationRegistrationRecord,
+  ): Promise<CaptainMatchRecord | null> {
+    return this.databaseService.client.tournamentMatch.findFirst({
+      where: this.toCaptainMatchOwnershipWhere(registration),
+      orderBy: [{ scheduledAt: 'asc' }, { round: 'asc' }, { createdAt: 'asc' }],
+      select: captainMatchSelect,
+    });
+  }
+
+  private toCaptainRegistrationCheckIn(
+    registration: CaptainCheckInRegistrationRecord,
+    nextMatch: CaptainMatchRecord | null,
+    now: Date,
+  ): CaptainRegistrationCheckInResponseDto {
+    const outstandingIssues = this.getCaptainCheckInIssues(registration, now);
+    const checkedIn =
+      registration.status === TournamentRegistrationStatus.CHECKED_IN;
+
+    return {
+      registrationId: registration.id,
+      tournament: {
+        id: registration.tournament.id,
+        name: registration.tournament.name,
+        mode: registration.tournament.mode,
+        timezone: registration.tournament.timezone,
+      },
+      registration: {
+        status: registration.status,
+        approvalStatus: registration.approvalStatus,
+        paymentStatus: registration.paymentStatus,
+        checkedInAt: registration.checkedInAt,
+      },
+      canCheckIn: outstandingIssues.length === 0 && !checkedIn,
+      checkedIn,
+      outstandingIssues,
+      instructions: {
+        checkInInstructions: registration.tournament.checkInRules,
+        arrivalTime:
+          registration.tournament.checkInOpensAt ??
+          registration.tournament.startsAt,
+        serverRegion:
+          registration.tournament.onlineConfiguration?.serverRegion ?? null,
+        onlineInstructions:
+          registration.tournament.onlineConfiguration?.connectionRules ?? null,
+        venueName: registration.tournament.venue?.name ?? null,
+        checkInLocation: registration.tournament.venue?.checkInLocation ?? null,
+        assignedRoomName: nextMatch?.gamingRoom?.name ?? null,
+        assignedStation: nextMatch?.onsiteStationLabel ?? null,
+      },
+    };
+  }
+
+  private getCaptainCheckInIssues(
+    registration: CaptainCheckInRegistrationRecord,
+    now: Date,
+  ): CaptainCheckInIssueDto[] {
+    const issues: CaptainCheckInIssueDto[] = [];
+
+    this.addCheckInIssueIf(
+      issues,
+      registration.approvalStatus !== RegistrationApprovalStatus.APPROVED,
+      'registration.approvalStatus',
+      'Organizer must approve the team before check-in.',
+    );
+    this.addCheckInIssueIf(
+      issues,
+      registration.status !== TournamentRegistrationStatus.CONFIRMED,
+      'registration.status',
+      registration.status === TournamentRegistrationStatus.CHECKED_IN
+        ? 'Team is already checked in.'
+        : 'Registration must be confirmed by the organizer before check-in.',
+    );
+    this.addCheckInIssueIf(
+      issues,
+      !this.isTournamentCheckInWindowOpen(registration, now),
+      'tournament.checkInWindow',
+      'Tournament check-in window is not open.',
+    );
+    this.addCheckInIssueIf(
+      issues,
+      !registration.captain.phoneNumber,
+      'captain.phoneNumber',
+      'Captain profile must include a phone number before check-in.',
+    );
+    this.addCheckInIssueIf(
+      issues,
+      registration.team.status !== TeamStatus.ACTIVE,
+      'team.status',
+      'Only active teams can check in.',
+    );
+    this.addCheckInRosterIssues(issues, registration);
+
+    return issues;
+  }
+
+  private addCheckInRosterIssues(
+    issues: CaptainCheckInIssueDto[],
+    registration: CaptainCheckInRegistrationRecord,
+  ): void {
+    const starters = registration.team.rosterPlayers.filter(
+      (player) => player.rosterType === RosterType.STARTER,
+    );
+    const substitutes = registration.team.rosterPlayers.filter(
+      (player) => player.rosterType === RosterType.SUBSTITUTE,
+    );
+
+    this.addCheckInIssueIf(
+      issues,
+      starters.length < registration.tournament.minimumStarters,
+      'team.rosterPlayers',
+      `At least ${registration.tournament.minimumStarters} starters are required before check-in.`,
+    );
+    this.addCheckInIssueIf(
+      issues,
+      starters.length > registration.tournament.maximumStarters,
+      'team.rosterPlayers',
+      `No more than ${registration.tournament.maximumStarters} starters are allowed before check-in.`,
+    );
+    this.addCheckInIssueIf(
+      issues,
+      substitutes.length > registration.tournament.maximumSubstitutes,
+      'team.rosterPlayers',
+      `No more than ${registration.tournament.maximumSubstitutes} substitutes are allowed before check-in.`,
+    );
+
+    registration.team.rosterPlayers.forEach((player) => {
+      this.addCheckInIssueIf(
+        issues,
+        registration.tournament.requiredGameAccountId &&
+          !player.gameAccountId.trim(),
+        `team.rosterPlayers.${player.id}.gameAccountId`,
+        `${player.gamerTag} must have a game account ID before check-in.`,
+      );
+      this.addCheckInIssueIf(
+        issues,
+        !player.phoneNumber.trim(),
+        `team.rosterPlayers.${player.id}.phoneNumber`,
+        `${player.gamerTag} must have a phone number before check-in.`,
+      );
+    });
+  }
+
+  private isTournamentCheckInWindowOpen(
+    registration: CaptainCheckInRegistrationRecord,
+    now: Date,
+  ): boolean {
+    if (registration.tournament.status === TournamentStatus.CHECK_IN_OPEN) {
+      return true;
+    }
+
+    if (
+      registration.tournament.checkInOpensAt &&
+      registration.tournament.checkInClosesAt
+    ) {
+      return (
+        now >= registration.tournament.checkInOpensAt &&
+        now <= registration.tournament.checkInClosesAt
+      );
+    }
+
+    return false;
+  }
+
+  private addCheckInIssueIf(
+    issues: CaptainCheckInIssueDto[],
+    condition: boolean,
+    field: string,
+    message: string,
+  ): void {
+    if (condition) {
+      issues.push({ field, message });
+    }
   }
 
   private ensureStandingTeam(
