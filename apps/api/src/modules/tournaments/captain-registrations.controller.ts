@@ -19,6 +19,7 @@ import {
 } from './dto/captain-registration-response.dto';
 import { CaptainRegistrationBracketResponseDto } from './dto/captain-registration-bracket-response.dto';
 import { CaptainRegistrationHubResponseDto } from './dto/captain-registration-hub-response.dto';
+import { CaptainRegistrationInformationResponseDto } from './dto/captain-registration-information-response.dto';
 import {
   CaptainMatchListResponseDto,
   CaptainMatchResponseDto,
@@ -203,6 +204,36 @@ export class CaptainRegistrationsController {
     @Param('registrationId') registrationId: string,
   ): Promise<CaptainRegistrationStandingsResponseDto> {
     return this.tournamentsService.getCaptainRegistrationStandings(
+      user.id,
+      registrationId,
+    );
+  }
+
+  @Get(':registrationId/information')
+  @ApiOperation({
+    summary: 'Get approved Captain private tournament information',
+    description:
+      'Returns private tournament communication, support, check-in, lobby, venue, room, and station information for an approved Captain registration. Lobby/server credentials are time-gated and scoped only to the Captain team.',
+  })
+  @ApiOkResponse({
+    description: 'Approved Captain private tournament information returned.',
+    type: CaptainRegistrationInformationResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'The registration is not approved, paid/free, or otherwise allowed into the private tournament hub.',
+  })
+  @ApiNotFoundResponse({
+    description: 'The registration does not exist for this Captain.',
+  })
+  async getRegistrationInformation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('registrationId') registrationId: string,
+  ): Promise<CaptainRegistrationInformationResponseDto> {
+    return this.tournamentsService.getCaptainRegistrationInformation(
       user.id,
       registrationId,
     );

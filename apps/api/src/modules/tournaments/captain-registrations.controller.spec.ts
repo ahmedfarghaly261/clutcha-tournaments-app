@@ -102,6 +102,10 @@ describe('CaptainRegistrationsController', () => {
       typeof CaptainRegistrationsController.prototype.getRegistrationStandings,
     ).toBe('function');
     expect(
+      typeof CaptainRegistrationsController.prototype
+        .getRegistrationInformation,
+    ).toBe('function');
+    expect(
       typeof CaptainRegistrationsController.prototype.listRegistrationMatches,
     ).toBe('function');
     expect(
