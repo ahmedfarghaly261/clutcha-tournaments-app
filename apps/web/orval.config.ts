@@ -20,7 +20,7 @@ export default defineConfig({
       clean: true,
       override: {
         mutator: {
-          path: './src/api/http/clutcha-axios.ts',
+          path: './src/services/http/api-client.ts',
           name: 'clutchaApiClient',
         },
       },
