@@ -13,6 +13,7 @@ export const authRoutes: RouteObject[] = [
         element: <AuthLayout />,
         children: [
           { path: '/sign-in', element: <SignInPage /> },
+          { path: '/register', element: <CaptainRegistrationPage /> },
           { path: '/register/captain', element: <CaptainRegistrationPage /> },
           { path: '/register/organizer', element: <OrganizerRegistrationPage /> },
         ],

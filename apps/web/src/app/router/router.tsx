@@ -9,5 +9,5 @@ export const router = createBrowserRouter([
   ...authRoutes,
   ...captainRoutes,
   ...organizerRoutes,
-  { path: '*', element: <Navigate to="/" replace /> },
+  { path: '*', element: <Navigate to="/register" replace /> },
 ])
