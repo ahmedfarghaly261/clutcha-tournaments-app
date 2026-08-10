@@ -137,7 +137,7 @@ export function RegistrationExperience({
         aria-labelledby={`${formId}-title`}
       >
         <aside
-          className="relative flex min-h-full flex-col justify-between overflow-hidden border-r border-[rgba(77,67,84,0.45)] bg-[radial-gradient(circle_at_65%_8%,rgba(221,183,255,0.2),transparent_18%),radial-gradient(circle_at_32%_36%,rgba(76,215,246,0.16),transparent_14%),linear-gradient(135deg,#1c1b1d_0%,#08080a_100%)] px-10 py-12 max-[900px]:hidden"
+          className="relative flex min-h-full flex-col justify-between overflow-hidden border-r border-[rgba(77,67,84,0.45)] bg-[linear-gradient(to_bottom,rgba(14,14,16,0.2),rgba(14,14,16,0.96)),radial-gradient(circle_at_65%_8%,rgba(221,183,255,0.2),transparent_18%),radial-gradient(circle_at_32%_36%,rgba(76,215,246,0.16),transparent_14%),url('/registration.png')] bg-cover bg-center px-10 py-12 max-[900px]:hidden"
           aria-label="CLUTCHA platform"
         >
           <div className="absolute inset-0 opacity-30 bg-[linear-gradient(140deg,rgba(255,255,255,0.05),transparent_26%),repeating-linear-gradient(-14deg,rgba(255,255,255,0.035)_0_2px,transparent_2px_22px)]" />
