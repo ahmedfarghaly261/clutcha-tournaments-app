@@ -4,12 +4,15 @@ import { DatabaseService } from '../../database/database.service';
 import { type OrganizerDashboardResponseDto } from './dto/organizer-dashboard-response.dto';
 import { type UpdateOrganizerProfileDto } from './dto/update-organizer-profile.dto';
 import { toOrganizerProfileResponse } from './mappers/organizer.mapper';
+import {
+  OrganizerProfileImageStorageService,
+  type OrganizerProfileImageFile,
+  type OrganizerProfileImageKind,
+} from './organizer-profile-image-storage.service';
 
 type OrganizerProfileMutableData = Pick<
   Prisma.OrganizerProfileUncheckedCreateInput,
   | 'organizationName'
-  | 'logoUrl'
-  | 'coverUrl'
   | 'description'
   | 'contactEmail'
   | 'supportPhone'
@@ -51,7 +54,10 @@ const organizerProfileSelect = {
 
 @Injectable()
 export class OrganizersService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly imageStorageService: OrganizerProfileImageStorageService,
+  ) {}
 
   async getProfile(userId: string) {
     const profile = await this.databaseService.client.organizerProfile.upsert({
@@ -72,6 +78,35 @@ export class OrganizersService {
         ...this.toUpdateData(dto),
       },
       update: this.toUpdateData(dto),
+      select: organizerProfileSelect,
+    });
+
+    return toOrganizerProfileResponse(profile);
+  }
+
+  async uploadProfileImage(
+    userId: string,
+    kind: OrganizerProfileImageKind,
+    file: OrganizerProfileImageFile | undefined,
+    publicOrigin: string,
+  ) {
+    const imageUrl = await this.imageStorageService.saveProfileImage(
+      userId,
+      kind,
+      file,
+      publicOrigin,
+    );
+    const imageField = kind === 'logo' ? 'logoUrl' : 'coverUrl';
+
+    const profile = await this.databaseService.client.organizerProfile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        [imageField]: imageUrl,
+      },
+      update: {
+        [imageField]: imageUrl,
+      },
       select: organizerProfileSelect,
     });
 
@@ -99,8 +134,6 @@ export class OrganizersService {
   ): OrganizerProfileMutableData {
     return {
       organizationName: dto.organizationName,
-      logoUrl: dto.logoUrl,
-      coverUrl: dto.coverUrl,
       description: dto.description,
       contactEmail: dto.contactEmail,
       supportPhone: dto.supportPhone,
