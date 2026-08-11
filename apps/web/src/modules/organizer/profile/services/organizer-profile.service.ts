@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   getOrganizersControllerGetProfileQueryKey,
   useOrganizersControllerGetProfile,
+  useOrganizersControllerUploadProfileCover,
+  useOrganizersControllerUploadProfileLogo,
   useOrganizersControllerUpdateProfile,
 } from '@/api/generated/organizer/organizer'
 import type {
@@ -50,8 +52,6 @@ function mapFormValuesToUpdateDto(
 ): UpdateOrganizerProfileDto {
   return {
     organizationName: values.organizationName.trim(),
-    logoUrl: values.logoUrl.trim(),
-    coverUrl: values.coverUrl.trim(),
     description: values.description.trim(),
     contactEmail: values.contactEmail.trim(),
     supportPhone: values.supportPhone.trim(),
@@ -74,6 +74,8 @@ export function useOrganizerProfileService() {
       },
     },
   })
+  const uploadProfileLogoMutation = useOrganizersControllerUploadProfileLogo()
+  const uploadProfileCoverMutation = useOrganizersControllerUploadProfileCover()
 
   const updateProfile = useCallback(
     (values: OrganizerProfileFormValues) =>
@@ -81,9 +83,35 @@ export function useOrganizerProfileService() {
     [updateProfileMutation],
   )
 
+  const applyUploadedProfile = useCallback(
+    (profile: OrganizerProfileResponseDto) => {
+      queryClient.setQueryData(getOrganizersControllerGetProfileQueryKey(), profile)
+      return profile
+    },
+    [queryClient],
+  )
+
+  const uploadProfileLogo = useCallback(
+    (file: File) =>
+      uploadProfileLogoMutation
+        .mutateAsync({ data: { file } })
+        .then(applyUploadedProfile),
+    [uploadProfileLogoMutation, applyUploadedProfile],
+  )
+
+  const uploadProfileCover = useCallback(
+    (file: File) =>
+      uploadProfileCoverMutation
+        .mutateAsync({ data: { file } })
+        .then(applyUploadedProfile),
+    [uploadProfileCoverMutation, applyUploadedProfile],
+  )
+
   return {
     profileQuery,
     updateProfile,
+    uploadProfileLogo,
+    uploadProfileCover,
     isUpdatingProfile: updateProfileMutation.isPending,
   }
 }
