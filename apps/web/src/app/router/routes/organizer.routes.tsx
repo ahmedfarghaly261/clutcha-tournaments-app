@@ -4,6 +4,7 @@ import { OrganizerLayout } from '@/layouts/OrganizerLayout'
 import { AuthGuard } from '../guards/AuthGuard'
 import { RoleGuard } from '../guards/RoleGuard'
 import { OrganizerDashboardPage } from '@/modules/organizer/dashboard'
+import { OrganizerPlaceholderPage } from '@/modules/organizer/shell'
 
 export const organizerRoutes: RouteObject[] = [
   {
@@ -15,7 +16,81 @@ export const organizerRoutes: RouteObject[] = [
           {
             path: '/organizer',
             element: <OrganizerLayout />,
-            children: [{ index: true, element: <OrganizerDashboardPage /> }],
+            children: [
+              { index: true, element: <OrganizerDashboardPage /> },
+              {
+                path: 'tournaments/new',
+                element: (
+                  <OrganizerPlaceholderPage
+                    title="New Tournament"
+                    description="Tournament creation will live here when we wire the organizer tournament builder UI."
+                  />
+                ),
+              },
+              {
+                path: 'stations',
+                element: (
+                  <OrganizerPlaceholderPage
+                    title="Stations"
+                    description="Manage gaming stations, room inventory, hardware status, and on-site setup from this workspace."
+                  />
+                ),
+              },
+              {
+                path: 'teams',
+                element: (
+                  <OrganizerPlaceholderPage
+                    title="Teams"
+                    description="Review registered teams, captain contacts, approvals, and roster readiness here."
+                  />
+                ),
+              },
+              {
+                path: 'matchmaking',
+                element: (
+                  <OrganizerPlaceholderPage
+                    title="Matchmaking"
+                    description="Create, seed, and operate match flows once the bracket UI is connected."
+                  />
+                ),
+              },
+              {
+                path: 'schedule',
+                element: (
+                  <OrganizerPlaceholderPage
+                    title="Schedule"
+                    description="Plan tournament timelines, match windows, check-in periods, and operational milestones."
+                  />
+                ),
+              },
+              {
+                path: 'reports',
+                element: (
+                  <OrganizerPlaceholderPage
+                    title="Reports"
+                    description="Track tournament performance, team activity, registrations, and operational summaries."
+                  />
+                ),
+              },
+              {
+                path: 'help',
+                element: (
+                  <OrganizerPlaceholderPage
+                    title="Help"
+                    description="Organizer help, documentation, and support shortcuts will appear here."
+                  />
+                ),
+              },
+              {
+                path: '*',
+                element: (
+                  <OrganizerPlaceholderPage
+                    title="Organizer Workspace"
+                    description="This organizer area is not built yet, but you are still inside the command center shell."
+                  />
+                ),
+              },
+            ],
           },
         ],
       },
