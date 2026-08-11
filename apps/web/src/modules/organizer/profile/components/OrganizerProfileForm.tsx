@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { isAxiosError } from 'axios'
 import {
@@ -21,8 +21,8 @@ const labelClass =
 
 function getProfileErrorMessage(error: unknown): string {
   if (isAxiosError(error)) {
-    if (error.response?.status === 400) {
-      return 'Some profile fields are invalid. Check the highlighted inputs and try again.'
+    if (error.response?.status === 400 || error.response?.status === 413) {
+      return 'Some profile fields or uploaded images are invalid. Check the form and try again.'
     }
 
     if (error.response?.status === 401 || error.response?.status === 403) {
@@ -34,12 +34,20 @@ function getProfileErrorMessage(error: unknown): string {
 }
 
 export function OrganizerProfileForm() {
-  const { profileQuery, updateProfile, isUpdatingProfile } = useOrganizerProfileService()
+  const {
+    profileQuery,
+    updateProfile,
+    uploadProfileLogo,
+    uploadProfileCover,
+    isUpdatingProfile,
+  } = useOrganizerProfileService()
   const [formError, setFormError] = useState<string | null>(null)
   const [savedMessage, setSavedMessage] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState<'logo' | 'cover' | null>(null)
   const {
     register,
     reset,
+    control,
     handleSubmit,
     formState: { errors, isDirty },
   } = useForm<OrganizerProfileFormValues>({
@@ -52,6 +60,28 @@ export function OrganizerProfileForm() {
       reset(mapOrganizerProfileToFormValues(profileQuery.data))
     }
   }, [profileQuery.data, reset])
+
+  const logoUrl = useWatch({ control, name: 'logoUrl' }) ?? ''
+  const coverUrl = useWatch({ control, name: 'coverUrl' }) ?? ''
+
+  const handleImageUpload = async (kind: 'logo' | 'cover', file: File | undefined) => {
+    if (!file) return
+
+    setFormError(null)
+    setSavedMessage(null)
+    setUploadingImage(kind)
+
+    try {
+      const profile =
+        kind === 'logo' ? await uploadProfileLogo(file) : await uploadProfileCover(file)
+      reset(mapOrganizerProfileToFormValues(profile))
+      setSavedMessage(`${kind === 'logo' ? 'Logo' : 'Cover'} image uploaded.`)
+    } catch (error) {
+      setFormError(getProfileErrorMessage(error))
+    } finally {
+      setUploadingImage(null)
+    }
+  }
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null)
@@ -84,6 +114,9 @@ export function OrganizerProfileForm() {
 
   return (
     <form className="space-y-6" onSubmit={onSubmit} noValidate>
+      <input type="hidden" {...register('logoUrl')} />
+      <input type="hidden" {...register('coverUrl')} />
+
       <section className="grid gap-4 rounded-xl border border-[#27272a] bg-[#18181b] p-5 md:grid-cols-2">
         <ProfileField
           label="Organization Name"
@@ -146,29 +179,19 @@ export function OrganizerProfileForm() {
       </section>
 
       <section className="grid gap-4 rounded-xl border border-[#27272a] bg-[#18181b] p-5 md:grid-cols-2">
-        <ProfileField
-          label="Logo URL"
-          error={errors.logoUrl?.message}
-          input={
-            <input
-              className={inputClass}
-              type="url"
-              placeholder="https://cdn.example.com/logo.png"
-              {...register('logoUrl')}
-            />
-          }
+        <ImageUploadField
+          label="Logo Image"
+          imageUrl={logoUrl}
+          isUploading={uploadingImage === 'logo'}
+          helperText="Upload a square PNG, JPEG, or WebP logo up to 5MB."
+          onFileChange={(file) => void handleImageUpload('logo', file)}
         />
-        <ProfileField
-          label="Cover URL"
-          error={errors.coverUrl?.message}
-          input={
-            <input
-              className={inputClass}
-              type="url"
-              placeholder="https://cdn.example.com/cover.png"
-              {...register('coverUrl')}
-            />
-          }
+        <ImageUploadField
+          label="Cover Image"
+          imageUrl={coverUrl}
+          isUploading={uploadingImage === 'cover'}
+          helperText="Upload a wide PNG, JPEG, or WebP cover image up to 5MB."
+          onFileChange={(file) => void handleImageUpload('cover', file)}
         />
       </section>
 
@@ -229,12 +252,55 @@ export function OrganizerProfileForm() {
         <button
           className="rounded-md bg-[#ddb7ff] px-5 py-2.5 text-sm font-bold text-[#2c0051] transition-colors hover:bg-[#f0dbff] disabled:cursor-not-allowed disabled:opacity-60"
           type="submit"
-          disabled={isUpdatingProfile || !isDirty}
+          disabled={isUpdatingProfile || uploadingImage !== null || !isDirty}
         >
           {isUpdatingProfile ? 'Saving...' : 'Save Profile'}
         </button>
       </div>
     </form>
+  )
+}
+
+function ImageUploadField({
+  label,
+  imageUrl,
+  isUploading,
+  helperText,
+  onFileChange,
+}: {
+  label: string
+  imageUrl: string
+  isUploading: boolean
+  helperText: string
+  onFileChange: (file: File | undefined) => void
+}) {
+  return (
+    <div>
+      <span className={labelClass}>{label}</span>
+      <div className="rounded-lg border border-[#27272a] bg-[#09090b] p-3">
+        <div className="mb-3 flex min-h-36 items-center justify-center overflow-hidden rounded-md border border-dashed border-[#4d4354] bg-[#131315]">
+          {imageUrl ? (
+            <img className="max-h-52 w-full object-cover" src={imageUrl} alt={`${label} preview`} />
+          ) : (
+            <span className="px-4 text-center text-sm text-[#716679]">No image uploaded yet</span>
+          )}
+        </div>
+        <label className="flex cursor-pointer items-center justify-center rounded-md bg-[#27212d] px-4 py-2.5 text-sm font-bold text-[#f0dbff] transition-colors hover:bg-[#35283f]">
+          <span>{isUploading ? 'Uploading...' : 'Upload Image'}</span>
+          <input
+            className="sr-only"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            disabled={isUploading}
+            onChange={(event) => {
+              onFileChange(event.currentTarget.files?.[0])
+              event.currentTarget.value = ''
+            }}
+          />
+        </label>
+        <p className="mt-2 text-xs leading-5 text-[#cfc2d6]">{helperText}</p>
+      </div>
+    </div>
   )
 }
 
