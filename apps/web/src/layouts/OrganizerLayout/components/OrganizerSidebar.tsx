@@ -48,7 +48,7 @@ export function OrganizerSidebar() {
   const userInitial = user?.displayName?.trim().charAt(0).toUpperCase() ?? 'C'
 
   return (
-    <aside className="flex min-h-screen w-[184px] shrink-0 flex-col border-r border-[#2b2630] bg-[#1b191c] text-[#f8f2ff]">
+    <aside className="sticky left-0 top-0 flex h-screen max-h-screen min-h-screen w-[184px] shrink-0 flex-col overflow-y-auto border-r border-[#2b2630] bg-[#1b191c] text-[#f8f2ff]">
       <div className="flex flex-1 flex-col px-3 py-4">
         <Link
           className="mb-5 flex items-center gap-2"
