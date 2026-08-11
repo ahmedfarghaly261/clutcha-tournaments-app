@@ -18,12 +18,12 @@ export interface OrganizerProfileResponseDto {
      */
   organizationName?: string | null;
   /**
-     * Public logo URL.
+     * Public stored organizer logo image URL.
      * @nullable
      */
   logoUrl?: string | null;
   /**
-     * Public cover image URL.
+     * Public stored organizer cover image URL.
      * @nullable
      */
   coverUrl?: string | null;

@@ -13,4 +13,6 @@ export * from './organizerProfileResponseDto';
 export * from './organizerProfileUserResponseDto';
 export * from './organizerProfileUserResponseDtoRole';
 export * from './organizerProfileUserResponseDtoStatus';
+export * from './organizersControllerUploadProfileCoverBody';
+export * from './organizersControllerUploadProfileLogoBody';
 export * from './updateOrganizerProfileDto';

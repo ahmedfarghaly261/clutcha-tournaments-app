@@ -20,8 +20,8 @@ import type {
   UseQueryResult
 } from '@tanstack/react-query';
 
-import { clutchaApiClient } from '../../http/clutcha-axios';
-import type { ErrorType } from '../../http/clutcha-axios';
+import { clutchaApiClient } from '../../../services/http/api-client';
+import type { ErrorType } from '../../../services/http/api-client';
 
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];

@@ -1,11 +1,5 @@
 import { Transform } from 'class-transformer';
-import {
-  IsEmail,
-  IsOptional,
-  IsString,
-  IsUrl,
-  MaxLength,
-} from 'class-validator';
+import { IsEmail, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 const trimOptionalString = ({ value }: { value: unknown }) =>
@@ -22,28 +16,6 @@ export class UpdateOrganizerProfileDto {
   @IsString()
   @MaxLength(120)
   organizationName?: string;
-
-  @ApiPropertyOptional({
-    example: 'https://cdn.example.com/logos/clutcha-arena.png',
-    description: 'Public logo URL.',
-    maxLength: 2048,
-  })
-  @Transform(trimOptionalString)
-  @IsOptional()
-  @IsUrl({ require_protocol: true })
-  @MaxLength(2048)
-  logoUrl?: string;
-
-  @ApiPropertyOptional({
-    example: 'https://cdn.example.com/covers/clutcha-arena.jpg',
-    description: 'Public cover image URL.',
-    maxLength: 2048,
-  })
-  @Transform(trimOptionalString)
-  @IsOptional()
-  @IsUrl({ require_protocol: true })
-  @MaxLength(2048)
-  coverUrl?: string;
 
   @ApiPropertyOptional({
     example: 'Competitive esports organizer focused on community tournaments.',

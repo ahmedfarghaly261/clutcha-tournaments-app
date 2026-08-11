@@ -56,15 +56,17 @@ export class OrganizerProfileResponseDto {
   organizationName!: string | null;
 
   @ApiPropertyOptional({
-    example: 'https://cdn.example.com/logos/clutcha-arena.png',
-    description: 'Public logo URL.',
+    example:
+      'http://localhost:3000/uploads/organizer-profiles/user-id/logo-image.png',
+    description: 'Public stored organizer logo image URL.',
     nullable: true,
   })
   logoUrl!: string | null;
 
   @ApiPropertyOptional({
-    example: 'https://cdn.example.com/covers/clutcha-arena.jpg',
-    description: 'Public cover image URL.',
+    example:
+      'http://localhost:3000/uploads/organizer-profiles/user-id/cover-image.jpg',
+    description: 'Public stored organizer cover image URL.',
     nullable: true,
   })
   coverUrl!: string | null;

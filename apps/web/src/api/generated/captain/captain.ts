@@ -34,10 +34,10 @@ import type {
   UpdateCaptainProfileDto,
   UpdateCaptainTeamDto,
   UpdateRosterPlayerDto
-} from './index';
+} from './..';
 
-import { clutchaApiClient } from '../../http/clutcha-axios';
-import type { ErrorType , BodyType } from '../../http/clutcha-axios';
+import { clutchaApiClient } from '../../../services/http/api-client';
+import type { ErrorType , BodyType } from '../../../services/http/api-client';
 
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];

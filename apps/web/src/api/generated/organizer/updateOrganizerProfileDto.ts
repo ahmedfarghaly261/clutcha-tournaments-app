@@ -13,16 +13,6 @@ export interface UpdateOrganizerProfileDto {
      */
   organizationName?: string;
   /**
-     * Public logo URL.
-     * @maxLength 2048
-     */
-  logoUrl?: string;
-  /**
-     * Public cover image URL.
-     * @maxLength 2048
-     */
-  coverUrl?: string;
-  /**
      * Public organizer profile description.
      * @maxLength 2000
      */

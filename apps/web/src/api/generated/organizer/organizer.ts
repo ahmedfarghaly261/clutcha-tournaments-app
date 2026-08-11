@@ -27,11 +27,13 @@ import type {
 import type {
   OrganizerDashboardResponseDto,
   OrganizerProfileResponseDto,
+  OrganizersControllerUploadProfileCoverBody,
+  OrganizersControllerUploadProfileLogoBody,
   UpdateOrganizerProfileDto
-} from './index';
+} from './..';
 
-import { clutchaApiClient } from '../../http/clutcha-axios';
-import type { ErrorType , BodyType } from '../../http/clutcha-axios';
+import { clutchaApiClient } from '../../../services/http/api-client';
+import type { ErrorType , BodyType } from '../../../services/http/api-client';
 
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
@@ -210,6 +212,140 @@ export const useOrganizersControllerUpdateProfile = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getOrganizersControllerUpdateProfileMutationOptions(options), queryClient);
+    }
+    /**
+ * Uploads a JPEG, PNG, or WebP organizer logo image to local storage and stores its public URL on the authenticated organizer profile.
+ * @summary Upload organizer profile logo
+ */
+export const organizersControllerUploadProfileLogo = (
+    organizersControllerUploadProfileLogoBody: BodyType<OrganizersControllerUploadProfileLogoBody>,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+      const formData = new FormData();
+formData.append(`file`, organizersControllerUploadProfileLogoBody.file);
+
+      return clutchaApiClient<OrganizerProfileResponseDto>(
+      {url: `/api/organizer/profile/logo`, method: 'POST',
+      headers: {'Content-Type': 'multipart/form-data', },
+       data: formData, signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizersControllerUploadProfileLogoMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizersControllerUploadProfileLogo>>, TError,{data: BodyType<OrganizersControllerUploadProfileLogoBody>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof organizersControllerUploadProfileLogo>>, TError,{data: BodyType<OrganizersControllerUploadProfileLogoBody>}, TContext> => {
+
+const mutationKey = ['organizersControllerUploadProfileLogo'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof organizersControllerUploadProfileLogo>>, {data: BodyType<OrganizersControllerUploadProfileLogoBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  organizersControllerUploadProfileLogo(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OrganizersControllerUploadProfileLogoMutationResult = NonNullable<Awaited<ReturnType<typeof organizersControllerUploadProfileLogo>>>
+    export type OrganizersControllerUploadProfileLogoMutationBody = BodyType<OrganizersControllerUploadProfileLogoBody>
+    export type OrganizersControllerUploadProfileLogoMutationError = ErrorType<void>
+
+    /**
+ * @summary Upload organizer profile logo
+ */
+export const useOrganizersControllerUploadProfileLogo = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizersControllerUploadProfileLogo>>, TError,{data: BodyType<OrganizersControllerUploadProfileLogoBody>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof organizersControllerUploadProfileLogo>>,
+        TError,
+        {data: BodyType<OrganizersControllerUploadProfileLogoBody>},
+        TContext
+      > => {
+      return useMutation(getOrganizersControllerUploadProfileLogoMutationOptions(options), queryClient);
+    }
+    /**
+ * Uploads a JPEG, PNG, or WebP organizer cover image to local storage and stores its public URL on the authenticated organizer profile.
+ * @summary Upload organizer profile cover
+ */
+export const organizersControllerUploadProfileCover = (
+    organizersControllerUploadProfileCoverBody: BodyType<OrganizersControllerUploadProfileCoverBody>,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+      const formData = new FormData();
+formData.append(`file`, organizersControllerUploadProfileCoverBody.file);
+
+      return clutchaApiClient<OrganizerProfileResponseDto>(
+      {url: `/api/organizer/profile/cover`, method: 'POST',
+      headers: {'Content-Type': 'multipart/form-data', },
+       data: formData, signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizersControllerUploadProfileCoverMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizersControllerUploadProfileCover>>, TError,{data: BodyType<OrganizersControllerUploadProfileCoverBody>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof organizersControllerUploadProfileCover>>, TError,{data: BodyType<OrganizersControllerUploadProfileCoverBody>}, TContext> => {
+
+const mutationKey = ['organizersControllerUploadProfileCover'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof organizersControllerUploadProfileCover>>, {data: BodyType<OrganizersControllerUploadProfileCoverBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  organizersControllerUploadProfileCover(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OrganizersControllerUploadProfileCoverMutationResult = NonNullable<Awaited<ReturnType<typeof organizersControllerUploadProfileCover>>>
+    export type OrganizersControllerUploadProfileCoverMutationBody = BodyType<OrganizersControllerUploadProfileCoverBody>
+    export type OrganizersControllerUploadProfileCoverMutationError = ErrorType<void>
+
+    /**
+ * @summary Upload organizer profile cover
+ */
+export const useOrganizersControllerUploadProfileCover = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizersControllerUploadProfileCover>>, TError,{data: BodyType<OrganizersControllerUploadProfileCoverBody>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof organizersControllerUploadProfileCover>>,
+        TError,
+        {data: BodyType<OrganizersControllerUploadProfileCoverBody>},
+        TContext
+      > => {
+      return useMutation(getOrganizersControllerUploadProfileCoverMutationOptions(options), queryClient);
     }
     /**
  * Returns real organizer dashboard statistics available at this stage. Tournament counts are zero until tournament storage is introduced.
