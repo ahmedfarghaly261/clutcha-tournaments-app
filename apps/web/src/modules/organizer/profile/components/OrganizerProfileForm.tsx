@@ -6,12 +6,12 @@ import { isAxiosError } from 'axios'
 import {
   mapOrganizerProfileToFormValues,
   organizerProfileDefaultValues,
-  useOrganizerProfileService,
 } from '../services/organizer-profile.service'
 import {
   organizerProfileSchema,
   type OrganizerProfileFormValues,
 } from '../schemas/organizer-profile.schema'
+import type { OrganizerProfileResponseDto } from '@/api/generated/organizer'
 
 const inputClass =
   'w-full rounded-md border border-[#27272a] bg-[#09090b] px-3 py-2.5 text-sm text-[#e5e1e4] outline-none transition-[border-color,box-shadow] placeholder:text-[#716679] focus:border-[#ddb7ff] focus:shadow-[0_0_0_2px_rgba(221,183,255,0.2)]'
@@ -33,14 +33,25 @@ function getProfileErrorMessage(error: unknown): string {
   return 'Could not save organizer profile. Please try again.'
 }
 
-export function OrganizerProfileForm() {
-  const {
-    profileQuery,
-    updateProfile,
-    uploadProfileLogo,
-    uploadProfileCover,
-    isUpdatingProfile,
-  } = useOrganizerProfileService()
+type OrganizerProfileFormProps = {
+  profile: OrganizerProfileResponseDto
+  updateProfile: (values: OrganizerProfileFormValues) => Promise<OrganizerProfileResponseDto>
+  uploadProfileLogo: (file: File) => Promise<OrganizerProfileResponseDto>
+  uploadProfileCover: (file: File) => Promise<OrganizerProfileResponseDto>
+  isUpdatingProfile: boolean
+  onCancel: () => void
+  onSaved: () => void
+}
+
+export function OrganizerProfileForm({
+  profile,
+  updateProfile,
+  uploadProfileLogo,
+  uploadProfileCover,
+  isUpdatingProfile,
+  onCancel,
+  onSaved,
+}: OrganizerProfileFormProps) {
   const [formError, setFormError] = useState<string | null>(null)
   const [savedMessage, setSavedMessage] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState<'logo' | 'cover' | null>(null)
@@ -56,10 +67,8 @@ export function OrganizerProfileForm() {
   })
 
   useEffect(() => {
-    if (profileQuery.data) {
-      reset(mapOrganizerProfileToFormValues(profileQuery.data))
-    }
-  }, [profileQuery.data, reset])
+    reset(mapOrganizerProfileToFormValues(profile))
+  }, [profile, reset])
 
   const logoUrl = useWatch({ control, name: 'logoUrl' }) ?? ''
   const coverUrl = useWatch({ control, name: 'coverUrl' }) ?? ''
@@ -90,27 +99,11 @@ export function OrganizerProfileForm() {
     try {
       const profile = await updateProfile(values)
       reset(mapOrganizerProfileToFormValues(profile))
-      setSavedMessage('Organizer profile saved.')
+      onSaved()
     } catch (error) {
       setFormError(getProfileErrorMessage(error))
     }
   })
-
-  if (profileQuery.isLoading) {
-    return (
-      <div className="rounded-xl border border-[#27272a] bg-[#18181b] p-6 text-sm text-[#cfc2d6]">
-        Loading organizer profile...
-      </div>
-    )
-  }
-
-  if (profileQuery.isError) {
-    return (
-      <div className="rounded-xl border border-[rgba(255,180,171,0.5)] bg-[rgba(147,0,10,0.22)] p-6 text-sm text-[#ffdad6]">
-        Could not load organizer profile. Please refresh and try again.
-      </div>
-    )
-  }
 
   return (
     <form className="space-y-6" onSubmit={onSubmit} noValidate>
@@ -249,6 +242,14 @@ export function OrganizerProfileForm() {
       )}
 
       <div className="flex justify-end">
+        <button
+          className="mr-3 rounded-md border border-[#4d4354] px-5 py-2.5 text-sm font-bold text-[#f0dbff] transition-colors hover:bg-[#27212d] disabled:cursor-not-allowed disabled:opacity-60"
+          type="button"
+          disabled={isUpdatingProfile || uploadingImage !== null}
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
         <button
           className="rounded-md bg-[#ddb7ff] px-5 py-2.5 text-sm font-bold text-[#2c0051] transition-colors hover:bg-[#f0dbff] disabled:cursor-not-allowed disabled:opacity-60"
           type="submit"
