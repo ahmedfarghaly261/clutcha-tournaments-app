@@ -2,6 +2,20 @@ import { useId, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { isAxiosError } from 'axios'
+import type { LucideIcon } from 'lucide-react'
+import {
+  ArrowRight,
+  Building2,
+  ChevronDown,
+  Gamepad2,
+  Globe2,
+  IdCard,
+  Lock,
+  Mail,
+  ShieldUser,
+  Trophy,
+  UsersRound,
+} from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { roleHomePath } from '@/app/config/roles'
 import {
@@ -18,10 +32,10 @@ type RegistrationExperienceProps = {
 const accountTypeOptions: Array<{
   value: RegistrationAccountType
   label: string
-  icon: string
+  icon: LucideIcon
 }> = [
-  { value: 'captain', label: 'Team Captain', icon: 'TC' },
-  { value: 'organizer', label: 'Tournament Organizer', icon: 'TO' },
+  { value: 'captain', label: 'Team Captain', icon: ShieldUser },
+  { value: 'organizer', label: 'Tournament Organizer', icon: Building2 },
 ]
 
 const regions = [
@@ -160,19 +174,19 @@ export function RegistrationExperience({
                 className="mr-[-18px] grid h-8 w-8 place-items-center rounded-full border-2 border-[#131315] bg-[#353437] text-[0.8rem]"
                 aria-hidden="true"
               >
-                GG
+                <Gamepad2 className="h-4 w-4" />
               </span>
               <span
                 className="mr-[-18px] grid h-8 w-8 place-items-center rounded-full border-2 border-[#131315] bg-[#353437] text-[0.8rem]"
                 aria-hidden="true"
               >
-                XP
+                <Trophy className="h-4 w-4" />
               </span>
               <span
                 className="grid h-8 w-8 place-items-center rounded-full border-2 border-[#131315] bg-[#353437] text-[0.8rem]"
                 aria-hidden="true"
               >
-                VS
+                <UsersRound className="h-4 w-4" />
               </span>
               <strong className="ml-6">Trusted by 10k+ Pros</strong>
             </div>
@@ -199,31 +213,33 @@ export function RegistrationExperience({
             <fieldset className="m-0 min-w-0 border-0 p-0">
               <legend className={cx(labelClass, 'uppercase')}>Account Type</legend>
               <div className="grid grid-cols-2 gap-4 max-[560px]:grid-cols-1">
-                {accountTypeOptions.map((option) => (
-                  <label
-                    className={cx(
-                      'grid min-h-[104px] cursor-pointer place-items-center gap-2.5 rounded-[10px] border bg-[#1c1b1d] text-center text-[#e5e1e4] transition-[border-color,background,color,transform] duration-150 hover:-translate-y-px hover:border-[#ddb7ff] hover:bg-[rgba(221,183,255,0.07)] hover:text-[#f0dbff]',
-                      accountType === option.value
-                        ? 'border-[#ddb7ff] bg-[rgba(221,183,255,0.07)] text-[#f0dbff]'
-                        : 'border-[rgba(77,67,84,0.78)]',
-                    )}
-                    key={option.value}
-                  >
-                    <input
-                      className="sr-only"
-                      type="radio"
-                      value={option.value}
-                      checked={accountType === option.value}
-                      onChange={() => selectAccountType(option.value)}
-                    />
-                    <span className="text-[1.45rem] font-black leading-none text-[#d6ccdc]">
-                      {option.icon}
-                    </span>
-                    <strong className="text-[0.88rem] tracking-[-0.01em]">
-                      {option.label}
-                    </strong>
-                  </label>
-                ))}
+                {accountTypeOptions.map((option) => {
+                  const Icon = option.icon
+
+                  return (
+                    <label
+                      className={cx(
+                        'grid min-h-[104px] cursor-pointer place-items-center gap-2.5 rounded-[10px] border bg-[#1c1b1d] text-center text-[#e5e1e4] transition-[border-color,background,color,transform] duration-150 hover:-translate-y-px hover:border-[#ddb7ff] hover:bg-[rgba(221,183,255,0.07)] hover:text-[#f0dbff]',
+                        accountType === option.value
+                          ? 'border-[#ddb7ff] bg-[rgba(221,183,255,0.07)] text-[#f0dbff]'
+                          : 'border-[rgba(77,67,84,0.78)]',
+                      )}
+                      key={option.value}
+                    >
+                      <input
+                        className="sr-only"
+                        type="radio"
+                        value={option.value}
+                        checked={accountType === option.value}
+                        onChange={() => selectAccountType(option.value)}
+                      />
+                      <Icon className="h-7 w-7 text-[#d6ccdc]" aria-hidden="true" />
+                      <strong className="text-[0.88rem] tracking-[-0.01em]">
+                        {option.label}
+                      </strong>
+                    </label>
+                  )
+                })}
               </div>
               <p className="mt-3.5 text-[0.83rem] italic leading-[1.55] text-[rgba(207,194,214,0.76)]">
                 Note: Individual players are managed directly by their Team
@@ -243,7 +259,7 @@ export function RegistrationExperience({
                     className="grid h-full place-items-center text-[1.1rem] font-black text-[#cfc2d6]"
                     aria-hidden="true"
                   >
-                    ID
+                    <IdCard className="h-5 w-5" />
                   </span>
                   <input
                     className={fieldControlClass}
@@ -273,7 +289,7 @@ export function RegistrationExperience({
                     className="grid h-full place-items-center text-[1.1rem] font-black text-[#cfc2d6]"
                     aria-hidden="true"
                   >
-                    @
+                    <Mail className="h-5 w-5" />
                   </span>
                   <input
                     className={fieldControlClass}
@@ -303,7 +319,7 @@ export function RegistrationExperience({
                     className="grid h-full place-items-center text-[1.1rem] font-black text-[#cfc2d6]"
                     aria-hidden="true"
                   >
-                    **
+                    <Lock className="h-5 w-5" />
                   </span>
                   <input
                     className={fieldControlClass}
@@ -333,7 +349,7 @@ export function RegistrationExperience({
                     className="grid h-full place-items-center text-[1.1rem] font-black text-[#cfc2d6]"
                     aria-hidden="true"
                   >
-                    GL
+                    <Globe2 className="h-5 w-5" />
                   </span>
                   <select
                     className={cx(fieldControlClass, 'cursor-pointer appearance-none')}
@@ -354,7 +370,7 @@ export function RegistrationExperience({
                     className="grid h-full place-items-center text-[1.1rem] font-black text-[#cfc2d6]"
                     aria-hidden="true"
                   >
-                    v
+                    <ChevronDown className="h-5 w-5" />
                   </span>
                 </div>
               </div>
@@ -407,8 +423,8 @@ export function RegistrationExperience({
               type="submit"
               disabled={isSubmitting}
             >
-              <span>{isSubmitting ? 'Creating account…' : 'Create Account'}</span>
-              <span aria-hidden="true">→</span>
+              <span>{isSubmitting ? 'Creating account...' : 'Create Account'}</span>
+              <ArrowRight className="h-5 w-5" aria-hidden="true" />
             </button>
 
             <p className="m-0 text-center text-[#d6ccdc]">

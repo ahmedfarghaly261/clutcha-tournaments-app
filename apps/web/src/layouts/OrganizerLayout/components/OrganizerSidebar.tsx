@@ -1,30 +1,32 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
+import type { LucideIcon } from 'lucide-react'
+import {
+  CalendarDays,
+  CircleHelp,
+  Gamepad2,
+  LayoutDashboard,
+  LogOut,
+  Monitor,
+  Plus,
+  UsersRound,
+  ChartColumn,
+} from 'lucide-react'
 import { useAuth } from '@/app/providers/AuthProvider'
-
-type IconName =
-  | 'dashboard'
-  | 'stations'
-  | 'teams'
-  | 'matchmaking'
-  | 'schedule'
-  | 'reports'
-  | 'help'
-  | 'logout'
 
 type OrganizerNavItem = {
   label: string
   to: string
-  icon: IconName
+  icon: LucideIcon
   end?: boolean
 }
 
 const organizerNavItems: OrganizerNavItem[] = [
-  { label: 'Dashboard', to: '/organizer', icon: 'dashboard', end: true },
-  { label: 'Stations', to: '/organizer/stations', icon: 'stations' },
-  { label: 'Teams', to: '/organizer/teams', icon: 'teams' },
-  { label: 'Matchmaking', to: '/organizer/matchmaking', icon: 'matchmaking' },
-  { label: 'Schedule', to: '/organizer/schedule', icon: 'schedule' },
-  { label: 'Reports', to: '/organizer/reports', icon: 'reports' },
+  { label: 'Dashboard', to: '/organizer', icon: LayoutDashboard, end: true },
+  { label: 'Stations', to: '/organizer/stations', icon: Monitor },
+  { label: 'Teams', to: '/organizer/teams', icon: UsersRound },
+  { label: 'Matchmaking', to: '/organizer/matchmaking', icon: Gamepad2 },
+  { label: 'Schedule', to: '/organizer/schedule', icon: CalendarDays },
+  { label: 'Reports', to: '/organizer/reports', icon: ChartColumn },
 ]
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -68,19 +70,21 @@ export function OrganizerSidebar() {
           className="mb-7 flex items-center justify-center gap-2 rounded-md bg-[#ddb7ff] px-3 py-2.5 text-[11px] font-bold text-[#2c0051] transition-colors hover:bg-[#f0dbff]"
           to="/organizer/tournaments/new"
         >
-          <span className="text-lg leading-none" aria-hidden="true">
-            +
-          </span>
+          <Plus className="h-4 w-4" aria-hidden="true" />
           <span>New Tournament</span>
         </Link>
 
         <nav className="space-y-2" aria-label="Organizer navigation">
-          {organizerNavItems.map((item) => (
-            <NavLink key={item.to} className={navLinkClass} to={item.to} end={item.end}>
-              <SidebarIcon name={item.icon} />
+          {organizerNavItems.map((item) => {
+            const Icon = item.icon
+
+            return (
+              <NavLink key={item.to} className={navLinkClass} to={item.to} end={item.end}>
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{item.label}</span>
             </NavLink>
-          ))}
+            )
+          })}
         </nav>
       </div>
 
@@ -89,7 +93,7 @@ export function OrganizerSidebar() {
           className="mb-3 flex items-center gap-3 rounded-md px-3 py-2 text-xs font-bold text-[#f5eefe] transition-colors hover:bg-[#27212d] hover:text-white"
           to="/organizer/help"
         >
-          <SidebarIcon name="help" />
+          <CircleHelp className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>Help</span>
         </Link>
 
@@ -98,7 +102,7 @@ export function OrganizerSidebar() {
           type="button"
           onClick={handleLogout}
         >
-          <SidebarIcon name="logout" />
+          <LogOut className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>Sign Out</span>
         </button>
 
@@ -121,91 +125,4 @@ export function OrganizerSidebar() {
       </div>
     </aside>
   )
-}
-
-function SidebarIcon({ name }: { name: IconName }) {
-  const commonProps = {
-    className: 'h-4 w-4 shrink-0',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    strokeWidth: 2,
-    viewBox: '0 0 24 24',
-    'aria-hidden': true,
-  } as const
-
-  switch (name) {
-    case 'dashboard':
-      return (
-        <svg {...commonProps}>
-          <path d="M4 4h6v6H4z" />
-          <path d="M14 4h6v6h-6z" />
-          <path d="M4 14h6v6H4z" />
-          <path d="M14 14h6v6h-6z" />
-        </svg>
-      )
-    case 'stations':
-      return (
-        <svg {...commonProps}>
-          <path d="M4 5h16v10H4z" />
-          <path d="M9 19h6" />
-          <path d="M12 15v4" />
-        </svg>
-      )
-    case 'teams':
-      return (
-        <svg {...commonProps}>
-          <path d="M16 19c0-2.2-1.8-4-4-4s-4 1.8-4 4" />
-          <path d="M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-          <path d="M4.5 17.5c.3-1.4 1.3-2.5 2.5-3" />
-          <path d="M19.5 17.5c-.3-1.4-1.3-2.5-2.5-3" />
-        </svg>
-      )
-    case 'matchmaking':
-      return (
-        <svg {...commonProps}>
-          <path d="M7 15h.01" />
-          <path d="M17 15h.01" />
-          <path d="M9 11h6" />
-          <path d="M8 7h8l3 4v5a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-5z" />
-        </svg>
-      )
-    case 'schedule':
-      return (
-        <svg {...commonProps}>
-          <path d="M7 3v3" />
-          <path d="M17 3v3" />
-          <path d="M4 8h16" />
-          <path d="M5 5h14v15H5z" />
-          <path d="M8 12h3" />
-          <path d="M8 16h5" />
-        </svg>
-      )
-    case 'reports':
-      return (
-        <svg {...commonProps}>
-          <path d="M5 4h14v16H5z" />
-          <path d="M9 16V9" />
-          <path d="M12 16v-4" />
-          <path d="M15 16v-6" />
-        </svg>
-      )
-    case 'help':
-      return (
-        <svg {...commonProps}>
-          <circle cx="12" cy="12" r="9" />
-          <path d="M9.8 9a2.4 2.4 0 0 1 4.4 1.4c0 1.8-2.2 2-2.2 3.6" />
-          <path d="M12 17h.01" />
-        </svg>
-      )
-    case 'logout':
-      return (
-        <svg {...commonProps}>
-          <path d="M10 17l5-5-5-5" />
-          <path d="M15 12H3" />
-          <path d="M12 3h7v18h-7" />
-        </svg>
-      )
-  }
 }

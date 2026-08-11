@@ -23,7 +23,7 @@ export function OrganizerProfileView({ profile, onEdit }: OrganizerProfileViewPr
           ) : (
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(221,183,255,0.18),transparent_28%),linear-gradient(135deg,#18181b,#09090b)]" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#18181b] via-[#18181b]/50 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-t from-[#18181b] via-[#18181b]/50 to-transparent" />
           <button
             className="absolute right-5 top-5 rounded-md bg-[#ddb7ff] px-4 py-2 text-sm font-bold text-[#2c0051] transition-colors hover:bg-[#f0dbff]"
             type="button"
@@ -90,7 +90,7 @@ export function OrganizerProfileView({ profile, onEdit }: OrganizerProfileViewPr
 function ProfileInfoCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-xl border border-[#27272a] bg-[#18181b] p-5">
-      <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.05em] text-[#ddb7ff]">
+      <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-[#ddb7ff]">
         {title}
       </h3>
       <div className="space-y-3">{children}</div>
@@ -101,7 +101,7 @@ function ProfileInfoCard({ title, children }: { title: string; children: ReactNo
 function ProfileValue({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.05em] text-[#716679]">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-[#716679]">{label}</p>
       <p className="mt-1 text-sm text-[#e5e1e4]">{value || 'Not added yet'}</p>
     </div>
   )
@@ -110,7 +110,7 @@ function ProfileValue({ label, value }: { label: string; value?: string | null }
 function ProfileLink({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.05em] text-[#716679]">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-[#716679]">{label}</p>
       {value ? (
         <a
           className="mt-1 block truncate text-sm font-semibold text-[#ddb7ff] hover:text-[#f0dbff] hover:underline"

@@ -19,7 +19,7 @@ export function OrganizerProfilePage() {
     <div className="mx-auto max-w-5xl">
       <header className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-start">
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.05em] text-[#ddb7ff]">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#ddb7ff]">
             Organizer Command Center
           </p>
           <h1 className="mb-2 text-3xl font-bold tracking-[-0.03em] text-[#e5e1e4]">
@@ -31,7 +31,7 @@ export function OrganizerProfilePage() {
               : 'View the public organizer information captains and teams will use to identify and contact you.'}
           </p>
         </div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.05em] text-[#ddb7ff]">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#ddb7ff]">
           {isEditing ? 'Edit Mode' : 'View Mode'}
         </p>
       </header>

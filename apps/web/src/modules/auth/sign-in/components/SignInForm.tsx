@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { isAxiosError } from 'axios'
+import { ArrowRight, Lock, Mail } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useSignIn } from '../hooks/useSignIn'
 import { signInSchema, type SignInFormValues } from '../schemas/sign-in.schema'
@@ -67,7 +68,7 @@ export function SignInForm() {
             className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#cfc2d6]"
             aria-hidden="true"
           >
-            @
+            <Mail className="h-5 w-5" />
           </span>
           <input
             className={inputClass}
@@ -105,7 +106,7 @@ export function SignInForm() {
             className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#cfc2d6]"
             aria-hidden="true"
           >
-            **
+            <Lock className="h-5 w-5" />
           </span>
           <input
             className={inputClass}
@@ -147,7 +148,7 @@ export function SignInForm() {
         disabled={isSubmitting}
       >
         <span>{isSubmitting ? 'Signing in...' : 'Sign In'}</span>
-        <span aria-hidden="true">-&gt;</span>
+        <ArrowRight className="h-5 w-5" aria-hidden="true" />
       </button>
 
       <p className="pt-2 text-center text-sm leading-6 text-[#cfc2d6]">
