@@ -4,6 +4,7 @@ import { OrganizerLayout } from '@/layouts/OrganizerLayout'
 import { AuthGuard } from '../guards/AuthGuard'
 import { RoleGuard } from '../guards/RoleGuard'
 import { OrganizerDashboardPage } from '@/modules/organizer/dashboard'
+import { OrganizerProfilePage } from '@/modules/organizer/profile'
 import { OrganizerPlaceholderPage } from '@/modules/organizer/shell'
 
 export const organizerRoutes: RouteObject[] = [
@@ -18,6 +19,7 @@ export const organizerRoutes: RouteObject[] = [
             element: <OrganizerLayout />,
             children: [
               { index: true, element: <OrganizerDashboardPage /> },
+              { path: 'profile', element: <OrganizerProfilePage /> },
               {
                 path: 'tournaments/new',
                 element: (
