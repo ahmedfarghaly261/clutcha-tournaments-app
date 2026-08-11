@@ -15,7 +15,7 @@ export function AuthGuard() {
   }
 
   if (status !== 'authenticated') {
-    return <Navigate to="/sign-in" replace state={{ from: location }} />
+    return <Navigate to="/login" replace state={{ from: location }} />
   }
 
   return <Outlet />

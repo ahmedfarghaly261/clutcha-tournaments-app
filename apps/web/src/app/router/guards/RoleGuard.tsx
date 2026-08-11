@@ -14,7 +14,7 @@ export function RoleGuard({ allow }: RoleGuardProps) {
   const { user } = useAuth()
 
   if (!user) {
-    return <Navigate to="/sign-in" replace />
+    return <Navigate to="/login" replace />
   }
 
   if (!allow.includes(user.role)) {
