@@ -102,7 +102,10 @@ export function OrganizerSidebar() {
           <span>Sign Out</span>
         </button>
 
-        <div className="flex items-center gap-2 px-2">
+        <Link
+          className="flex items-center gap-2 rounded-md px-2 py-2 transition-colors hover:bg-[#27212d]"
+          to="/organizer/profile"
+        >
           <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#4cd7f6]/40 bg-[#0e0e10] text-[11px] font-black text-[#4cd7f6]">
             {userInitial}
           </span>
@@ -114,7 +117,7 @@ export function OrganizerSidebar() {
               Organizer
             </span>
           </span>
-        </div>
+        </Link>
       </div>
     </aside>
   )
