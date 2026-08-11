@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   useAuthControllerLogin,
   useAuthControllerLogout,
-  useAuthControllerRefresh,
   useAuthControllerRegisterCaptain,
   useAuthControllerRegisterOrganizer,
 } from '@/api/generated/authentication/authentication'
@@ -15,7 +14,7 @@ import type {
   RegisterOrganizerDto,
 } from '@/api/generated/authentication'
 import { clearAccessToken, setAccessToken } from '@/services/http/token-storage'
-import { onSessionExpired } from '@/services/http/auth-refresh'
+import { onSessionExpired, refreshAuthSession } from '@/services/http/auth-refresh'
 
 export type AuthStatus = 'loading' | 'authenticated' | 'guest'
 
@@ -38,7 +37,6 @@ export function useAuthSession(): AuthSession {
   const [status, setStatus] = useState<AuthStatus>('loading')
   const [user, setUser] = useState<CurrentUserResponseDto | null>(null)
 
-  const refreshMutation = useAuthControllerRefresh()
   const loginMutation = useAuthControllerLogin()
   const registerCaptainMutation = useAuthControllerRegisterCaptain()
   const registerOrganizerMutation = useAuthControllerRegisterOrganizer()
@@ -62,8 +60,7 @@ export function useAuthSession(): AuthSession {
     // on app boot (the in-memory access token is gone after a page reload).
     let cancelled = false
 
-    refreshMutation
-      .mutateAsync()
+    refreshAuthSession()
       .then((response) => {
         if (!cancelled) applySession(response)
       })

@@ -1,5 +1,6 @@
 import type { AxiosRequestConfig } from 'axios'
 import { authControllerRefresh } from '@/api/generated/authentication/authentication'
+import type { AuthResponseDto } from '@/api/generated/authentication'
 import { clutchaAxios } from './api-client'
 import { clearAccessToken, setAccessToken } from './token-storage'
 
@@ -34,21 +35,25 @@ const authEndpoints = [
 const isAuthEndpoint = (url?: string): boolean =>
   !!url && authEndpoints.some((endpoint) => url.includes(endpoint))
 
-let pendingRefresh: Promise<string> | null = null
+let pendingRefreshSession: Promise<AuthResponseDto> | null = null
 
-const refreshAccessToken = (): Promise<string> => {
-  if (!pendingRefresh) {
-    pendingRefresh = authControllerRefresh()
+export const refreshAuthSession = (): Promise<AuthResponseDto> => {
+  if (!pendingRefreshSession) {
+    pendingRefreshSession = authControllerRefresh()
       .then((response) => {
         setAccessToken(response.accessToken)
-        return response.accessToken
+        return response
       })
       .finally(() => {
-        pendingRefresh = null
+        pendingRefreshSession = null
       })
   }
 
-  return pendingRefresh
+  return pendingRefreshSession
+}
+
+const refreshAccessToken = (): Promise<string> => {
+  return refreshAuthSession().then((response) => response.accessToken)
 }
 
 let interceptorRegistered = false
