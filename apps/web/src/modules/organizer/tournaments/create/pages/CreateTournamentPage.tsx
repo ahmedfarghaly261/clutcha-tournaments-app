@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { isAxiosError } from 'axios'
 import { Controller, useForm, useWatch, type FieldPath } from 'react-hook-form'
 import { Link } from 'react-router-dom'
@@ -29,6 +29,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { CheckField, SelectField, TextAreaField, TextField } from '../components/TournamentFormFields'
@@ -84,7 +85,7 @@ const inputRules = {
 }
 
 const stepFields: Record<Exclude<TournamentCreationStep, 4>, FieldPath<TournamentCreationFormValues>[]> = {
-  1: ['name', 'shortDescription', 'gameKey', 'mode', 'visibility', 'coverUrl'],
+  1: ['name', 'shortDescription', 'gameKey', 'mode', 'visibility', 'coverImage'],
   2: [
     'format',
     'seedingMethod',
@@ -132,7 +133,7 @@ const defaultValues: TournamentCreationFormValues = {
   name: '',
   shortDescription: '',
   description: '',
-  coverUrl: '',
+  coverImage: null,
   gameKey: 'valorant',
   mode: CreateTournamentDtoMode.ONLINE,
   visibility: CreateTournamentDtoVisibility.PUBLIC,
@@ -197,7 +198,6 @@ function mapFormToDto(values: TournamentCreationFormValues): CreateTournamentDto
     name: values.name.trim(),
     shortDescription: cleanOptional(values.shortDescription),
     description: cleanOptional(values.description),
-    coverUrl: cleanOptional(values.coverUrl),
     gameKey: values.gameKey,
     mode: values.mode,
     visibility: values.visibility,
@@ -297,7 +297,9 @@ export function CreateTournamentPage() {
   const [currentStep, setCurrentStep] = useState<TournamentCreationStep>(1)
   const [requestError, setRequestError] = useState<string | null>(null)
   const [createdTournament, setCreatedTournament] = useState<TournamentResponseDto | null>(null)
-  const { createDraft, isCreating } = useTournamentCreationService()
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null)
+  const [coverUploadFailed, setCoverUploadFailed] = useState(false)
+  const { createDraft, uploadCover, isCreating } = useTournamentCreationService()
   const {
     register,
     handleSubmit,
@@ -310,6 +312,13 @@ export function CreateTournamentPage() {
   } = useForm<TournamentCreationFormValues>({ defaultValues, mode: 'onBlur' })
 
   const values = useWatch({ control, defaultValue: defaultValues }) as TournamentCreationFormValues
+
+  useEffect(
+    () => () => {
+      if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl)
+    },
+    [coverPreviewUrl],
+  )
 
   const validateStep = async (step: Exclude<TournamentCreationStep, 4>) => {
     const fieldsValid = await trigger(stepFields[step])
@@ -384,10 +393,25 @@ export function CreateTournamentPage() {
     const secondStepValid = await validateStep(2)
     const thirdStepValid = await validateStep(3)
     if (!firstStepValid || !secondStepValid || !thirdStepValid) return
+    if (!formValues.coverImage) {
+      setError('coverImage', { message: 'Select a tournament cover image.' })
+      setCurrentStep(1)
+      return
+    }
 
     try {
       const tournament = await createDraft({ data: mapFormToDto(formValues) })
-      setCreatedTournament(tournament)
+
+      try {
+        const tournamentWithCover = await uploadCover({
+          tournamentId: tournament.id,
+          data: { file: formValues.coverImage },
+        })
+        setCreatedTournament(tournamentWithCover)
+      } catch {
+        setCoverUploadFailed(true)
+        setCreatedTournament(tournament)
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (error) {
       setRequestError(getRequestErrorMessage(error))
@@ -407,6 +431,14 @@ export function CreateTournamentPage() {
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-[#b9aebd]">
             Your tournament is saved as a draft. Configure its {createdTournament.mode === 'ONLINE' ? 'online lobby' : 'venue and gaming rooms'} before running publication validation.
           </p>
+          {coverUploadFailed && (
+            <Alert className="mx-auto mt-5 max-w-xl border-[#7e633e] bg-[#382c19] text-left text-[#ffe0a8]">
+              <AlertTitle>Draft created, but cover upload failed</AlertTitle>
+              <AlertDescription className="text-[#ffe0a8]">
+                The tournament is safe in your drafts. You can upload its cover again when editing the draft.
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Button
               variant="outline"
@@ -416,6 +448,8 @@ export function CreateTournamentPage() {
               onClick={() => {
                 reset(defaultValues)
                 setCreatedTournament(null)
+                setCoverUploadFailed(false)
+                setCoverPreviewUrl(null)
                 setCurrentStep(1)
               }}
             >
@@ -494,18 +528,46 @@ export function CreateTournamentPage() {
               </div>
             </SectionCard>
             <SectionCard title="Cover Image" icon={<Image className="h-5 w-5" />}>
-              <TextField
-                id="tournament-cover"
-                label="Cover image URL (optional)"
-                type="url"
-                placeholder="https://cdn.example.com/cover.jpg"
-                hint="Tournament media upload is not exposed by the API yet, so this uses its documented cover URL field."
-                registration={register('coverUrl', { pattern: { value: /^https?:\/\/.+/i, message: 'Enter a complete http or https URL.' } })}
-                error={errors.coverUrl}
+              <Controller
+                name="coverImage"
+                control={control}
+                rules={{
+                  validate: (file) => {
+                    if (!file) return 'Select a tournament cover image.'
+                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return 'Use a JPEG, PNG, or WebP image.'
+                    return file.size <= 5 * 1024 * 1024 || 'Cover image must be 5MB or smaller.'
+                  },
+                }}
+                render={({ field, fieldState }) => (
+                  <div>
+                    <Label className="mb-2 block text-[11px] font-black uppercase tracking-[0.08em] text-[#cec4d2]" htmlFor="tournament-cover">
+                      Upload cover image
+                    </Label>
+                    <Input
+                      id="tournament-cover"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="cursor-pointer py-2 file:mr-3 file:rounded file:border-0 file:bg-[#d7a5ff] file:px-3 file:py-1 file:text-xs file:font-black file:text-[#2a0b3f]"
+                      aria-invalid={Boolean(fieldState.error)}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null
+                        field.onChange(file)
+                        setCoverPreviewUrl(file ? URL.createObjectURL(file) : null)
+                      }}
+                    />
+                    {fieldState.error ? (
+                      <p className="mt-1.5 text-xs text-[#ffb4ab]" role="alert">{fieldState.error.message}</p>
+                    ) : (
+                      <p className="mt-1.5 text-xs leading-5 text-[#8f8495]">JPEG, PNG, or WebP. Maximum 5MB.</p>
+                    )}
+                  </div>
+                )}
               />
-              <div className="mt-4 h-28 overflow-hidden rounded-md border border-dashed border-[#514758] bg-[#121013]">
-                {values.coverUrl ? (
-                  <img className="h-full w-full object-cover" src={values.coverUrl} alt="Tournament cover preview" />
+              <div className="mt-4 h-32 overflow-hidden rounded-md border border-dashed border-[#514758] bg-[#121013]">
+                {coverPreviewUrl ? (
+                  <img className="h-full w-full object-cover" src={coverPreviewUrl} alt="Tournament cover preview" />
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center text-[#776c7c]">
                     <Image className="h-6 w-6" aria-hidden="true" />
@@ -665,7 +727,7 @@ export function CreateTournamentPage() {
         <div className="space-y-5">
           <div className="grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
             <SectionCard title="Identity & Branding" icon={<Sparkles className="h-5 w-5" />}>
-              {values.coverUrl && <img className="mb-5 h-40 w-full rounded-md border border-[#49404e] object-cover opacity-80" src={values.coverUrl} alt="Tournament cover" />}
+              {coverPreviewUrl && <img className="mb-5 h-40 w-full rounded-md border border-[#49404e] object-cover opacity-80" src={coverPreviewUrl} alt="Tournament cover" />}
               <div className="grid gap-5 sm:grid-cols-2">
                 <SummaryValue label="Tournament name">{values.name}</SummaryValue>
                 <SummaryValue label="Visibility">{formatLabel(values.visibility)}</SummaryValue>
