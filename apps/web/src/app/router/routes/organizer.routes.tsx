@@ -6,6 +6,7 @@ import { RoleGuard } from '../guards/RoleGuard'
 import { OrganizerDashboardPage } from '@/modules/organizer/dashboard'
 import { OrganizerProfilePage } from '@/modules/organizer/profile'
 import { OrganizerPlaceholderPage } from '@/modules/organizer/shell'
+import { CreateTournamentPage } from '@/modules/organizer/tournaments/create'
 
 export const organizerRoutes: RouteObject[] = [
   {
@@ -22,12 +23,7 @@ export const organizerRoutes: RouteObject[] = [
               { path: 'profile', element: <OrganizerProfilePage /> },
               {
                 path: 'tournaments/new',
-                element: (
-                  <OrganizerPlaceholderPage
-                    title="New Tournament"
-                    description="Tournament creation will live here when we wire the organizer tournament builder UI."
-                  />
-                ),
+                element: <CreateTournamentPage />,
               },
               {
                 path: 'stations',
