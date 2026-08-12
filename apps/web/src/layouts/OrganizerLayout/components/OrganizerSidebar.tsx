@@ -12,6 +12,7 @@ import {
   LogOut,
   Monitor,
   Plus,
+  Trophy,
   UsersRound,
 } from 'lucide-react'
 import { useAuth } from '@/app/providers/AuthProvider'
@@ -38,6 +39,7 @@ type CollapsedTooltipProps = {
 
 const organizerNavItems: OrganizerNavItem[] = [
   { label: 'Dashboard', to: '/organizer', icon: LayoutDashboard, end: true },
+  { label: 'Tournaments', to: '/organizer/tournaments', icon: Trophy },
   { label: 'Stations', to: '/organizer/stations', icon: Monitor },
   { label: 'Teams', to: '/organizer/teams', icon: UsersRound },
   { label: 'Matchmaking', to: '/organizer/matchmaking', icon: Gamepad2 },
@@ -76,6 +78,10 @@ export function OrganizerSidebar() {
   const isNavItemActive = (item: OrganizerNavItem) => {
     if (item.end) {
       return currentPath === item.to
+    }
+
+    if (item.to === '/organizer/tournaments' && currentPath === '/organizer/tournaments/new') {
+      return false
     }
 
     return currentPath === item.to || currentPath.startsWith(`${item.to}/`)
