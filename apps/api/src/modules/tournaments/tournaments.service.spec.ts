@@ -39,6 +39,10 @@ import {
   SortDirection,
 } from './dto/list-organizer-tournaments-query.dto';
 import { PublicTournamentSortBy } from './dto/list-public-tournaments-query.dto';
+import {
+  TournamentCoverImageStorageService,
+  type TournamentCoverImageFile,
+} from './tournament-cover-image-storage.service';
 import { TournamentsService } from './tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
@@ -333,6 +337,10 @@ let tournamentMatches: Record<string, unknown>[];
 
 describe('TournamentsService', () => {
   let service: TournamentsService;
+  let saveCoverImage: jest.Mock<
+    Promise<string>,
+    [string, TournamentCoverImageFile | undefined, string]
+  >;
   let create: jest.Mock<
     Promise<Record<string, unknown>>,
     [TournamentCreateArgs]
@@ -432,6 +440,14 @@ describe('TournamentsService', () => {
   >;
 
   beforeEach(async () => {
+    saveCoverImage = jest
+      .fn<
+        Promise<string>,
+        [string, TournamentCoverImageFile | undefined, string]
+      >()
+      .mockResolvedValue(
+        'http://localhost:3000/uploads/tournaments/tournament-id/cover.png',
+      );
     createdTournaments = [
       createTournamentRecord({
         id: 'tournament-1',
@@ -889,6 +905,10 @@ describe('TournamentsService', () => {
             },
           },
         },
+        {
+          provide: TournamentCoverImageStorageService,
+          useValue: { saveCoverImage },
+        },
       ],
     }).compile();
 
@@ -1000,6 +1020,40 @@ describe('TournamentsService', () => {
     });
     expect(result.organizerId).toBe('organizer-from-token');
     expect(result.status).toBe(TournamentStatus.DRAFT);
+  });
+
+  it('uploads and persists a cover image for an owned draft tournament', async () => {
+    const file = {
+      originalname: 'cover.png',
+      mimetype: 'image/png',
+      buffer: Buffer.from('cover'),
+      size: 5,
+    };
+
+    const result = await service.uploadOrganizerTournamentCover(
+      'organizer-1',
+      'tournament-1',
+      file,
+      'http://localhost:3000',
+    );
+
+    expect(saveCoverImage).toHaveBeenCalledWith(
+      'tournament-1',
+      file,
+      'http://localhost:3000',
+    );
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'tournament-1' },
+        data: {
+          coverUrl:
+            'http://localhost:3000/uploads/tournaments/tournament-id/cover.png',
+        },
+      }),
+    );
+    expect(result.coverUrl).toBe(
+      'http://localhost:3000/uploads/tournaments/tournament-id/cover.png',
+    );
   });
 
   it('lists only tournaments owned by the authenticated organizer', async () => {

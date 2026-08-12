@@ -99,6 +99,10 @@ import { toPublicTournamentDetailResponse } from './mappers/public-tournament-de
 import { toPublicTournamentSummaryResponse } from './mappers/public-tournament.mapper';
 import { toTournamentResponse } from './mappers/tournament.mapper';
 import { toVenueResponse } from './mappers/venue.mapper';
+import {
+  TournamentCoverImageStorageService,
+  type TournamentCoverImageFile,
+} from './tournament-cover-image-storage.service';
 
 type ValidationIssue = {
   field: string;
@@ -960,7 +964,10 @@ const organizerRegistrationDetailSelect = {
 
 @Injectable()
 export class TournamentsService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly coverImageStorageService: TournamentCoverImageStorageService,
+  ) {}
 
   async listPublicTournaments(
     query: ListPublicTournamentsQueryDto,
@@ -2009,6 +2016,33 @@ export class TournamentsService {
     return toTournamentResponse(updated);
   }
 
+  async uploadOrganizerTournamentCover(
+    organizerId: string,
+    tournamentId: string,
+    file: TournamentCoverImageFile | undefined,
+    publicOrigin: string,
+  ): Promise<TournamentResponseDto> {
+    const tournament = await this.findOwnedTournamentOrThrow(
+      organizerId,
+      tournamentId,
+    );
+    this.assertDraftLifecycle(tournament.status, 'updated');
+
+    const coverUrl = await this.coverImageStorageService.saveCoverImage(
+      tournament.id,
+      file,
+      publicOrigin,
+    );
+
+    const updated = await this.databaseService.client.tournament.update({
+      where: { id: tournament.id },
+      data: { coverUrl },
+      select: tournamentSelect,
+    });
+
+    return toTournamentResponse(updated);
+  }
+
   async deleteOrganizerTournamentDraft(
     organizerId: string,
     tournamentId: string,
@@ -2100,7 +2134,6 @@ export class TournamentsService {
             shortDescription: dto.shortDescription,
             description: dto.description,
             logoUrl: dto.logoUrl,
-            coverUrl: dto.coverUrl,
             gameKey: dto.gameKey,
             mode: dto.mode,
             visibility: dto.visibility ?? TournamentVisibility.PUBLIC,
@@ -4048,7 +4081,6 @@ export class TournamentsService {
         dto.shortDescription ?? tournament.shortDescription ?? undefined,
       description: dto.description ?? tournament.description ?? undefined,
       logoUrl: dto.logoUrl ?? tournament.logoUrl ?? undefined,
-      coverUrl: dto.coverUrl ?? tournament.coverUrl ?? undefined,
       gameKey: dto.gameKey ?? tournament.gameKey,
       mode: dto.mode ?? tournament.mode,
       visibility: dto.visibility ?? tournament.visibility,
@@ -4128,7 +4160,6 @@ export class TournamentsService {
       shortDescription: dto.shortDescription,
       description: dto.description,
       logoUrl: dto.logoUrl,
-      coverUrl: dto.coverUrl,
       gameKey: dto.gameKey,
       mode: dto.mode,
       visibility: dto.visibility,
