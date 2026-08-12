@@ -108,8 +108,8 @@ function TournamentCard({ tournament }: { tournament: TournamentResponseDto }) {
       <CardContent className="flex flex-1 flex-col">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#c98cff]">{formatLabel(tournament.gameKey.replaceAll('-', '_'))}</p>
-            <h2 className="mt-1 truncate text-lg font-black tracking-[-0.025em] text-[#f4eff6]">{tournament.name}</h2>
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#c98cff]">{formatLabel(tournament.gameKey.replaceAll('-', '_'))}</p>
+            <h2 className="mt-1 truncate text-lg font-black tracking-tight text-[#f4eff6]">{tournament.name}</h2>
           </div>
           <span className="shrink-0 rounded border border-[#443b49] bg-[#151317] px-2 py-1 text-[9px] font-bold uppercase text-[#a99dac]">
             {formatLabel(tournament.visibility)}
@@ -296,7 +296,16 @@ export function OrganizerTournamentsPage() {
 
       {tournaments.length > 0 && (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {tournaments.map((tournament) => <TournamentCard key={tournament.id} tournament={tournament} />)}
+          {tournaments.map((tournament) => (
+            <Link
+              className="block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#d7a5ff]/70"
+              key={tournament.id}
+              to={`/organizer/tournaments/${tournament.id}`}
+              aria-label={`View ${tournament.name}`}
+            >
+              <TournamentCard tournament={tournament} />
+            </Link>
+          ))}
         </div>
       )}
 
