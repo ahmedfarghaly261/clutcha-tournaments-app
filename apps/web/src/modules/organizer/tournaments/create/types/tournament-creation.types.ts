@@ -11,7 +11,7 @@ export interface TournamentCreationFormValues {
   name: string
   shortDescription: string
   description: string
-  coverUrl: string
+  coverImage: File | null
   gameKey: string
   mode: CreateTournamentDtoMode
   visibility: CreateTournamentDtoVisibility
