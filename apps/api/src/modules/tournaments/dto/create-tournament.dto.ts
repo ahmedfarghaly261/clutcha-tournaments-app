@@ -72,15 +72,6 @@ export class CreateTournamentDto {
   @MaxLength(2048)
   logoUrl?: string;
 
-  @ApiPropertyOptional({
-    example: 'https://cdn.clutcha.gg/tournaments/cover.png',
-  })
-  @Transform(trimString)
-  @IsOptional()
-  @IsUrl({ require_protocol: true })
-  @MaxLength(2048)
-  coverUrl?: string;
-
   @ApiProperty({ example: 'valorant', maxLength: 64 })
   @Transform(trimString)
   @IsString()
