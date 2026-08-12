@@ -46,6 +46,7 @@ export * from './organizerTournamentsControllerListOrganizerTournamentsSortBy';
 export * from './organizerTournamentsControllerListOrganizerTournamentsSortDirection';
 export * from './organizerTournamentsControllerListOrganizerTournamentsStatus';
 export * from './organizerTournamentsControllerListOrganizerTournamentsVisibility';
+export * from './organizerTournamentsControllerUploadTournamentCoverBody';
 export * from './publicationReadinessDto';
 export * from './publicationReadinessIssueDto';
 export * from './rejectOrganizerRegistrationDto';

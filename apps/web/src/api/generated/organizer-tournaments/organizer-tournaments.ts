@@ -36,6 +36,7 @@ import type {
   OrganizerTournamentDetailResponseDto,
   OrganizerTournamentListResponseDto,
   OrganizerTournamentsControllerListOrganizerTournamentsParams,
+  OrganizerTournamentsControllerUploadTournamentCoverBody,
   RejectOrganizerRegistrationDto,
   TournamentResponseDto,
   UpdateGamingRoomDto,
@@ -1735,4 +1736,72 @@ export const useOrganizerTournamentsControllerDeleteGamingRoom = <TError = Error
         TContext
       > => {
       return useMutation(getOrganizerTournamentsControllerDeleteGamingRoomMutationOptions(options), queryClient);
+    }
+    /**
+ * Uploads a JPEG, PNG, or WebP cover image to local storage and assigns its public URL to an organizer-owned draft tournament.
+ * @summary Upload tournament cover image
+ */
+export const organizerTournamentsControllerUploadTournamentCover = (
+    tournamentId: string,
+    organizerTournamentsControllerUploadTournamentCoverBody: BodyType<OrganizerTournamentsControllerUploadTournamentCoverBody>,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+      const formData = new FormData();
+formData.append(`file`, organizerTournamentsControllerUploadTournamentCoverBody.file);
+
+      return clutchaApiClient<TournamentResponseDto>(
+      {url: `/api/organizer/tournaments/${tournamentId}/cover`, method: 'POST',
+      headers: {'Content-Type': 'multipart/form-data', },
+       data: formData, signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizerTournamentsControllerUploadTournamentCoverMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerUploadTournamentCover>>, TError,{tournamentId: string;data: BodyType<OrganizerTournamentsControllerUploadTournamentCoverBody>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerUploadTournamentCover>>, TError,{tournamentId: string;data: BodyType<OrganizerTournamentsControllerUploadTournamentCoverBody>}, TContext> => {
+
+const mutationKey = ['organizerTournamentsControllerUploadTournamentCover'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof organizerTournamentsControllerUploadTournamentCover>>, {tournamentId: string;data: BodyType<OrganizerTournamentsControllerUploadTournamentCoverBody>}> = (props) => {
+          const {tournamentId,data} = props ?? {};
+
+          return  organizerTournamentsControllerUploadTournamentCover(tournamentId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OrganizerTournamentsControllerUploadTournamentCoverMutationResult = NonNullable<Awaited<ReturnType<typeof organizerTournamentsControllerUploadTournamentCover>>>
+    export type OrganizerTournamentsControllerUploadTournamentCoverMutationBody = BodyType<OrganizerTournamentsControllerUploadTournamentCoverBody>
+    export type OrganizerTournamentsControllerUploadTournamentCoverMutationError = ErrorType<void>
+
+    /**
+ * @summary Upload tournament cover image
+ */
+export const useOrganizerTournamentsControllerUploadTournamentCover = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerUploadTournamentCover>>, TError,{tournamentId: string;data: BodyType<OrganizerTournamentsControllerUploadTournamentCoverBody>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof organizerTournamentsControllerUploadTournamentCover>>,
+        TError,
+        {tournamentId: string;data: BodyType<OrganizerTournamentsControllerUploadTournamentCoverBody>},
+        TContext
+      > => {
+      return useMutation(getOrganizerTournamentsControllerUploadTournamentCoverMutationOptions(options), queryClient);
     }

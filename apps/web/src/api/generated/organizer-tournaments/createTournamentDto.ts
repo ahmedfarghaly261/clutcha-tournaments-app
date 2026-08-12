@@ -23,8 +23,6 @@ export interface CreateTournamentDto {
   description?: string;
   /** @maxLength 2048 */
   logoUrl?: string;
-  /** @maxLength 2048 */
-  coverUrl?: string;
   /**
      * @minLength 2
      * @maxLength 64
