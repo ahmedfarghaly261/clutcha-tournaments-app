@@ -30,7 +30,7 @@ export function TournamentCreationStepper({
             {index > 0 && (
               <span
                 className={cn(
-                  'absolute right-1/2 top-[17px] -z-0 h-px w-[calc(100%-42px)] translate-x-[-21px]',
+                  'absolute right-1/2 top-4.25 z-0 h-px w-[calc(100%-42px)] -translate-x-5.25',
                   step.number <= currentStep ? 'bg-[#d7a5ff]' : 'bg-[#4a424e]',
                 )}
                 aria-hidden="true"

@@ -697,7 +697,7 @@ export function CreateTournamentPage() {
               <TextField id="currency" label="Currency" maxLength={3} placeholder="EGP" registration={register('currency', { required: 'Currency is required.', pattern: { value: /^[A-Za-z]{3}$/, message: 'Use a three-letter currency code.' } })} error={errors.currency} />
               <TextField id="prize-pool" label="Total prize pool" type="number" min={0} step="0.01" registration={register('prizePool', inputRules.number('Prize pool', 0))} error={errors.prizePool} className="sm:col-span-2" />
             </div>
-            <Alert className="mt-5 border-[#45384c] bg-[#c477ff]/[0.06] text-[#bbaec1]">
+            <Alert className="mt-5 border-[#45384c] bg-[#c477ff]/6 text-[#bbaec1]">
               <AlertTitle className="text-[#e3d6e8]">Direct organizer payment</AlertTitle>
               <AlertDescription>
                 CLUTCHA does not process tournament payments. Captains contact the organizer directly, and every checked-in team still requires manual organizer approval.
@@ -778,7 +778,7 @@ export function CreateTournamentPage() {
             <p className="mt-5 whitespace-pre-wrap rounded-md border border-[#3d3741] bg-[#141215] p-4 text-sm leading-6 text-[#c8bdcc]">{values.rules}</p>
           </SectionCard>
 
-          <Alert className="border-[#5a4663] bg-[#d7a5ff]/[0.06] text-[#cbbdd0]">
+          <Alert className="border-[#5a4663] bg-[#d7a5ff]/6 text-[#cbbdd0]">
             <AlertTitle className="text-[#f0ddff]">What happens next?</AlertTitle>
             <AlertDescription>
               This creates a private organizer-owned draft. You can then add the required {values.mode === CreateTournamentDtoMode.ONLINE ? 'online configuration' : 'venue and gaming-room configuration'}, fix any publication-readiness issues, and publish it.
