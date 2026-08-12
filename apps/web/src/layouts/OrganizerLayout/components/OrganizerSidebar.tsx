@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   CalendarDays,
@@ -63,6 +63,7 @@ function CollapsedTooltip({ children, enabled, label }: CollapsedTooltipProps) {
 export function OrganizerSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { user, logout } = useAuth()
+  const location = useLocation()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -70,10 +71,19 @@ export function OrganizerSidebar() {
   }
 
   const userInitial = user?.displayName?.trim().charAt(0).toUpperCase() ?? 'C'
+  const currentPath = location.pathname.replace(/\/+$/, '') || '/'
 
-  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  const isNavItemActive = (item: OrganizerNavItem) => {
+    if (item.end) {
+      return currentPath === item.to
+    }
+
+    return currentPath === item.to || currentPath.startsWith(`${item.to}/`)
+  }
+
+  const navLinkClass = (isActive: boolean) =>
     cn(
-      'group flex min-h-10 items-center rounded-md text-xs font-bold transition-colors',
+      'group flex min-h-10 w-full items-center rounded-md text-xs font-bold transition-colors',
       isCollapsed ? 'justify-center px-0 py-2' : 'gap-3 px-3 py-2',
       isActive
         ? 'bg-[#b55cf6] text-[#17131c] shadow-[0_0_18px_rgba(181,92,246,0.24)]'
@@ -84,15 +94,35 @@ export function OrganizerSidebar() {
     <TooltipProvider delayDuration={120}>
       <aside
         className={cn(
-          'sticky left-0 top-0 flex h-screen max-h-screen min-h-screen shrink-0 flex-col overflow-y-auto border-r border-[#2b2630] bg-[#1b191c] text-[#f8f2ff] transition-[width] duration-200',
+          'sticky left-0 top-0 z-30 flex h-screen max-h-screen min-h-screen shrink-0 flex-col border-r border-[#2b2630] bg-[#1b191c] text-[#f8f2ff] transition-[width] duration-200',
           isCollapsed ? 'w-[72px]' : 'w-[184px]',
         )}
       >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="absolute -right-4 top-8 z-50 flex h-8 w-8 items-center justify-center rounded-full border border-[#3a3240] bg-[#111014] text-[#f5eefe] shadow-[0_10px_24px_rgba(0,0,0,0.34)] transition-colors hover:border-[#b55cf6] hover:bg-[#211a27] hover:text-white"
+              type="button"
+              aria-label={isCollapsed ? 'Expand organizer sidebar' : 'Collapse organizer sidebar'}
+              onClick={() => setIsCollapsed((current) => !current)}
+            >
+              {isCollapsed ? (
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right" align="center">
+            {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          </TooltipContent>
+        </Tooltip>
+
         <div className={cn('flex flex-1 flex-col py-4', isCollapsed ? 'px-3' : 'px-3')}>
           <div
             className={cn(
-              'mb-5 flex items-start gap-2',
-              isCollapsed ? 'flex-col items-center' : 'items-center',
+              'mb-5 flex items-center',
+              isCollapsed ? 'justify-center' : 'justify-start',
             )}
           >
             <CollapsedTooltip enabled={isCollapsed} label="Organizer Dashboard">
@@ -119,30 +149,12 @@ export function OrganizerSidebar() {
                 )}
               </Link>
             </CollapsedTooltip>
-
-            <CollapsedTooltip
-              enabled={isCollapsed}
-              label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              <button
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#3a3240] bg-[#111014] text-[#f5eefe] transition-colors hover:border-[#b55cf6] hover:text-white"
-                type="button"
-                aria-label={isCollapsed ? 'Expand organizer sidebar' : 'Collapse organizer sidebar'}
-                onClick={() => setIsCollapsed((current) => !current)}
-              >
-                {isCollapsed ? (
-                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                ) : (
-                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                )}
-              </button>
-            </CollapsedTooltip>
           </div>
 
           <CollapsedTooltip enabled={isCollapsed} label="New Tournament">
             <Link
               className={cn(
-                'mb-7 flex min-h-10 items-center justify-center rounded-md bg-[#ddb7ff] text-[11px] font-bold text-[#2c0051] transition-colors hover:bg-[#f0dbff]',
+                'mb-7 flex min-h-10 w-full items-center justify-center rounded-md bg-[#ddb7ff] text-[11px] font-bold text-[#2c0051] transition-colors hover:bg-[#f0dbff]',
                 isCollapsed ? 'px-0 py-2' : 'gap-2 px-3 py-2.5',
               )}
               to="/organizer/tournaments/new"
@@ -156,23 +168,20 @@ export function OrganizerSidebar() {
           <nav className="space-y-2" aria-label="Organizer navigation">
             {organizerNavItems.map((item) => {
               const Icon = item.icon
+              const isActive = isNavItemActive(item)
 
               return (
                 <CollapsedTooltip key={item.to} enabled={isCollapsed} label={item.label}>
-                  <NavLink className={navLinkClass} to={item.to} end={item.end}>
-                    {({ isActive }) => (
-                      <>
-                        <Icon
-                          className={cn(
-                            'h-4 w-4 shrink-0',
-                            isActive ? 'text-[#17131c]' : 'text-[#efe1ff] group-hover:text-white',
-                          )}
-                          aria-hidden="true"
-                        />
-                        {!isCollapsed && <span>{item.label}</span>}
-                      </>
-                    )}
-                  </NavLink>
+                  <Link className={navLinkClass(isActive)} to={item.to}>
+                    <Icon
+                      className={cn(
+                        'h-4 w-4 shrink-0',
+                        isActive ? 'text-[#17131c]' : 'text-[#efe1ff] group-hover:text-white',
+                      )}
+                      aria-hidden="true"
+                    />
+                    {!isCollapsed && <span>{item.label}</span>}
+                  </Link>
                 </CollapsedTooltip>
               )
             })}
