@@ -11,12 +11,18 @@ import {
   Post,
   Put,
   Query,
+  Req,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import { UserRole } from '@clutcha/database';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
   ApiConflictResponse,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -26,6 +32,7 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import { type Request } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
@@ -50,6 +57,27 @@ import { UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.
 import { UpsertVenueDto } from './dto/upsert-venue.dto';
 import { VenueResponseDto } from './dto/venue-response.dto';
 import { TournamentsService } from './tournaments.service';
+import { type TournamentCoverImageFile } from './tournament-cover-image-storage.service';
+
+const tournamentCoverImageUploadOptions = {
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+};
+
+const tournamentCoverImageUploadBody = {
+  schema: {
+    type: 'object',
+    required: ['file'],
+    properties: {
+      file: {
+        type: 'string',
+        format: 'binary',
+        description: 'JPEG, PNG, or WebP tournament cover image up to 5MB.',
+      },
+    },
+  },
+};
 
 @ApiTags('Organizer Tournaments')
 @ApiBearerAuth('access-token')
@@ -845,5 +873,64 @@ export class OrganizerTournamentsController {
     @Body() dto: CreateTournamentDto,
   ): Promise<TournamentResponseDto> {
     return this.tournamentsService.createOrganizerDraft(user.id, dto);
+  }
+
+  @Post(':tournamentId/cover')
+  @UseInterceptors(FileInterceptor('file', tournamentCoverImageUploadOptions))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(tournamentCoverImageUploadBody)
+  @ApiOperation({
+    summary: 'Upload tournament cover image',
+    description:
+      'Uploads a JPEG, PNG, or WebP cover image to local storage and assigns its public URL to an organizer-owned draft tournament.',
+  })
+  @ApiOkResponse({
+    description: 'Tournament cover image uploaded and draft updated.',
+    type: TournamentResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'The tournament id or uploaded cover image is missing, too large, or invalid.',
+  })
+  @ApiConflictResponse({
+    description: 'Only draft tournaments can receive a new cover image.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  async uploadTournamentCover(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @UploadedFile() file: TournamentCoverImageFile | undefined,
+    @Req() request: Request,
+  ): Promise<TournamentResponseDto> {
+    return this.tournamentsService.uploadOrganizerTournamentCover(
+      user.id,
+      tournamentId,
+      file,
+      this.getPublicOrigin(request),
+    );
+  }
+
+  private getPublicOrigin(request: Request): string {
+    const forwardedProtocol = request
+      .get('x-forwarded-proto')
+      ?.split(',')[0]
+      ?.trim();
+    const forwardedHost = request
+      .get('x-forwarded-host')
+      ?.split(',')[0]
+      ?.trim();
+    const protocol = forwardedProtocol || request.protocol;
+    const host = forwardedHost || request.get('host');
+
+    return `${protocol}://${host}`;
   }
 }

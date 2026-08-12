@@ -96,6 +96,12 @@ describe('OrganizerTournamentsController', () => {
     ).toBe('function');
   });
 
+  it('exposes a tournament cover upload handler', () => {
+    expect(
+      typeof OrganizerTournamentsController.prototype.uploadTournamentCover,
+    ).toBe('function');
+  });
+
   it('exposes online configuration handlers', () => {
     expect(
       typeof OrganizerTournamentsController.prototype.getOnlineConfiguration,
