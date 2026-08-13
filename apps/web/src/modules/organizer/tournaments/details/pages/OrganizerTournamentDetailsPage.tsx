@@ -252,6 +252,9 @@ function StatusCard({ tournament, ready, issues }: { tournament: TournamentRespo
         <Button render={<Link to={`/organizer/tournaments/${tournament.id}/manage/lifecycle`} />} variant={tournament.status === 'DRAFT' ? 'outline' : 'default'} className="mt-3 w-full">
           <Rocket className="h-4 w-4" /> Publish & lifecycle
         </Button>
+        <Button render={<Link to={`/organizer/tournaments/${tournament.id}/registrations`} />} variant="outline" className="mt-3 w-full">
+          <UsersRound className="h-4 w-4" /> Manage registrations
+        </Button>
       </CardContent>
     </Card>
   )
