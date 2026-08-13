@@ -28,16 +28,9 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useOrganizerTournamentDetailsService } from '../../details/services/organizer-tournament-details.service'
+import { TournamentManagementNav } from '../components/TournamentManagementNav'
 import { useTournamentGeneralSettingsService } from '../services/tournament-general-settings.service'
-
-type GeneralSettingsValues = {
-  name: string
-  shortDescription: string
-  description: string
-  gameKey: string
-  mode: UpdateTournamentDraftDtoMode
-  visibility: UpdateTournamentDraftDtoVisibility
-}
+import type { TournamentGeneralSettingsFormValues } from '../types/tournament-management.types'
 
 const gameOptions = [
   { value: 'valorant', label: 'Valorant' },
@@ -63,7 +56,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-function toFormValues(tournament: TournamentResponseDto): GeneralSettingsValues {
+function toFormValues(tournament: TournamentResponseDto): TournamentGeneralSettingsFormValues {
   return {
     name: tournament.name,
     shortDescription: tournament.shortDescription ?? '',
@@ -74,7 +67,7 @@ function toFormValues(tournament: TournamentResponseDto): GeneralSettingsValues 
   }
 }
 
-function toUpdateDto(values: GeneralSettingsValues): UpdateTournamentDraftDto {
+function toUpdateDto(values: TournamentGeneralSettingsFormValues): UpdateTournamentDraftDto {
   return {
     name: values.name.trim(),
     shortDescription: values.shortDescription.trim(),
@@ -113,7 +106,7 @@ export function TournamentGeneralSettingsPage() {
     handleSubmit,
     reset,
     formState: { errors, isDirty },
-  } = useForm<GeneralSettingsValues>()
+  } = useForm<TournamentGeneralSettingsFormValues>()
 
   const tournament = detailsQuery.data?.tournament
 
@@ -219,6 +212,8 @@ export function TournamentGeneralSettingsPage() {
         </div>
         <span className="rounded-full border border-[#62586a] bg-[#302a34] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#e2d7e7]">Draft</span>
       </header>
+
+      <TournamentManagementNav tournamentId={tournament.id} active="general" />
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <form onSubmit={saveGeneralSettings} className="space-y-6" noValidate>
