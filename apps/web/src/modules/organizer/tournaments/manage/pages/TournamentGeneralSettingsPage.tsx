@@ -29,7 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { useOrganizerTournamentDetailsService } from '../../details/services/organizer-tournament-details.service'
 import { TournamentManagementNav } from '../components/TournamentManagementNav'
-import { useTournamentGeneralSettingsService } from '../services/tournament-general-settings.service'
+import { useTournamentGeneralSettingsMutations } from '../mutations/tournament-general-settings.mutations'
 import type { TournamentGeneralSettingsFormValues } from '../types/tournament-management.types'
 
 const gameOptions = [
@@ -93,7 +93,7 @@ export function TournamentGeneralSettingsPage() {
     isUpdating,
     isUploadingCover,
     isDeleting,
-  } = useTournamentGeneralSettingsService(tournamentId)
+  } = useTournamentGeneralSettingsMutations(tournamentId)
   const [formMessage, setFormMessage] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [coverFile, setCoverFile] = useState<File | null>(null)

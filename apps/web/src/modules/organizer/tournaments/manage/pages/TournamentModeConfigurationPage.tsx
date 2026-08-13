@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useOrganizerTournamentDetailsService } from '../../details/services/organizer-tournament-details.service'
 import { TournamentManagementNav } from '../components/TournamentManagementNav'
+import { useTournamentModeConfigurationMutations } from '../mutations/tournament-mode-configuration.mutations'
 import { useTournamentModeConfigurationService } from '../services/tournament-mode-configuration.service'
 import type {
   TournamentOnlineConfigurationFormValues,
@@ -197,7 +198,8 @@ function ToggleField({
 }
 
 function OnlineConfigurationForm({ tournamentId }: { tournamentId: string }) {
-  const service = useTournamentModeConfigurationService(tournamentId, 'ONLINE')
+  const queries = useTournamentModeConfigurationService(tournamentId, 'ONLINE')
+  const mutations = useTournamentModeConfigurationMutations(tournamentId)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const form = useForm<TournamentOnlineConfigurationFormValues>({
@@ -205,15 +207,15 @@ function OnlineConfigurationForm({ tournamentId }: { tournamentId: string }) {
   })
 
   useEffect(() => {
-    if (service.onlineQuery.data) form.reset(onlineResponseToValues(service.onlineQuery.data))
-    if (isMissingConfiguration(service.onlineQuery.error)) form.reset(emptyOnlineValues)
-  }, [form, service.onlineQuery.data, service.onlineQuery.error])
+    if (queries.onlineQuery.data) form.reset(onlineResponseToValues(queries.onlineQuery.data))
+    if (isMissingConfiguration(queries.onlineQuery.error)) form.reset(emptyOnlineValues)
+  }, [form, queries.onlineQuery.data, queries.onlineQuery.error])
 
   const submit = form.handleSubmit(async (values) => {
     setMessage(null)
     setError(null)
     try {
-      await service.saveOnlineConfiguration({ tournamentId, data: onlineValuesToDto(values) })
+      await mutations.saveOnlineConfiguration({ tournamentId, data: onlineValuesToDto(values) })
       setMessage('Online tournament configuration saved successfully.')
       form.reset(values)
     } catch (submitError) {
@@ -221,9 +223,9 @@ function OnlineConfigurationForm({ tournamentId }: { tournamentId: string }) {
     }
   })
 
-  if (service.onlineQuery.isLoading) return <div className="h-96 animate-pulse rounded-xl bg-[#1b191c]" />
-  if (service.onlineQuery.isError && !isMissingConfiguration(service.onlineQuery.error)) {
-    return <LoadError message={getErrorMessage(service.onlineQuery.error, 'Could not load the online configuration.')} />
+  if (queries.onlineQuery.isLoading) return <div className="h-96 animate-pulse rounded-xl bg-[#1b191c]" />
+  if (queries.onlineQuery.isError && !isMissingConfiguration(queries.onlineQuery.error)) {
+    return <LoadError message={getErrorMessage(queries.onlineQuery.error, 'Could not load the online configuration.')} />
   }
 
   return (
@@ -264,13 +266,14 @@ function OnlineConfigurationForm({ tournamentId }: { tournamentId: string }) {
         </CardContent>
       </Card>
       <SaveState message={message} error={error} />
-      <div className="flex justify-end"><Button size="lg" type="submit" disabled={service.isSavingOnline || !form.formState.isDirty}><Save className="h-4 w-4" />{service.isSavingOnline ? 'Saving...' : 'Save online configuration'}</Button></div>
+      <div className="flex justify-end"><Button size="lg" type="submit" disabled={mutations.isSavingOnline || !form.formState.isDirty}><Save className="h-4 w-4" />{mutations.isSavingOnline ? 'Saving...' : 'Save online configuration'}</Button></div>
     </form>
   )
 }
 
 function VenueConfigurationForm({ tournamentId }: { tournamentId: string }) {
-  const service = useTournamentModeConfigurationService(tournamentId, 'ONSITE')
+  const queries = useTournamentModeConfigurationService(tournamentId, 'ONSITE')
+  const mutations = useTournamentModeConfigurationMutations(tournamentId)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const form = useForm<TournamentVenueConfigurationFormValues>({
@@ -278,15 +281,15 @@ function VenueConfigurationForm({ tournamentId }: { tournamentId: string }) {
   })
 
   useEffect(() => {
-    if (service.venueQuery.data) form.reset(venueResponseToValues(service.venueQuery.data))
-    if (isMissingConfiguration(service.venueQuery.error)) form.reset(emptyVenueValues)
-  }, [form, service.venueQuery.data, service.venueQuery.error])
+    if (queries.venueQuery.data) form.reset(venueResponseToValues(queries.venueQuery.data))
+    if (isMissingConfiguration(queries.venueQuery.error)) form.reset(emptyVenueValues)
+  }, [form, queries.venueQuery.data, queries.venueQuery.error])
 
   const submit = form.handleSubmit(async (values) => {
     setMessage(null)
     setError(null)
     try {
-      await service.saveVenue({ tournamentId, data: venueValuesToDto(values) })
+      await mutations.saveVenue({ tournamentId, data: venueValuesToDto(values) })
       setMessage('On-site venue configuration saved successfully.')
       form.reset(values)
     } catch (submitError) {
@@ -294,9 +297,9 @@ function VenueConfigurationForm({ tournamentId }: { tournamentId: string }) {
     }
   })
 
-  if (service.venueQuery.isLoading) return <div className="h-96 animate-pulse rounded-xl bg-[#1b191c]" />
-  if (service.venueQuery.isError && !isMissingConfiguration(service.venueQuery.error)) {
-    return <LoadError message={getErrorMessage(service.venueQuery.error, 'Could not load the venue configuration.')} />
+  if (queries.venueQuery.isLoading) return <div className="h-96 animate-pulse rounded-xl bg-[#1b191c]" />
+  if (queries.venueQuery.isError && !isMissingConfiguration(queries.venueQuery.error)) {
+    return <LoadError message={getErrorMessage(queries.venueQuery.error, 'Could not load the venue configuration.')} />
   }
 
   return (
@@ -333,7 +336,7 @@ function VenueConfigurationForm({ tournamentId }: { tournamentId: string }) {
         </CardContent>
       </Card>
       <SaveState message={message} error={error} />
-      <div className="flex justify-end"><Button size="lg" type="submit" disabled={service.isSavingVenue || !form.formState.isDirty}><Save className="h-4 w-4" />{service.isSavingVenue ? 'Saving...' : 'Save venue configuration'}</Button></div>
+      <div className="flex justify-end"><Button size="lg" type="submit" disabled={mutations.isSavingVenue || !form.formState.isDirty}><Save className="h-4 w-4" />{mutations.isSavingVenue ? 'Saving...' : 'Save venue configuration'}</Button></div>
     </form>
   )
 }
