@@ -38,6 +38,20 @@ export interface TournamentVenueConfigurationFormValues {
   spectatorPolicy: string
   venueRules: string
   emergencyContact: string
+  equipmentProvidedPc: boolean
+  equipmentProvidedMonitor: boolean
+  equipmentProvidedMouse: boolean
+  equipmentProvidedKeyboard: boolean
+  equipmentProvidedHeadset: boolean
+  equipmentProvidedController: boolean
+  playersMayBringMouse: boolean
+  playersMayBringKeyboard: boolean
+  playersMayBringHeadset: boolean
+  playersMayBringController: boolean
+  playersMayBringMousePad: boolean
+  playersMustBringNationalId: boolean
+  playersMustBringGameAccount: boolean
+  playersMustBringController: boolean
   personalPeripheralsAllowed: boolean
   controllersAllowed: boolean
   usbDevicesAllowed: boolean
@@ -69,4 +83,14 @@ export interface TournamentGamingRoomFormValues {
   equipmentNotes: string
 }
 
-export type TournamentManagementSection = 'general' | 'configuration' | 'gaming-rooms'
+export type TournamentLifecycleAction =
+  | 'publish'
+  | 'open-registration'
+  | 'close-registration'
+  | 'cancel'
+
+export type TournamentManagementSection =
+  | 'general'
+  | 'configuration'
+  | 'gaming-rooms'
+  | 'lifecycle'
