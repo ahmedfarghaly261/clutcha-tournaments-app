@@ -9,7 +9,10 @@ import { OrganizerPlaceholderPage } from '@/modules/organizer/shell'
 import { CreateTournamentPage } from '@/modules/organizer/tournaments/create'
 import { OrganizerTournamentsPage } from '@/modules/organizer/tournaments/list'
 import { OrganizerTournamentDetailsPage } from '@/modules/organizer/tournaments/details'
-import { TournamentGeneralSettingsPage } from '@/modules/organizer/tournaments/manage'
+import {
+  TournamentGeneralSettingsPage,
+  TournamentModeConfigurationPage,
+} from '@/modules/organizer/tournaments/manage'
 
 export const organizerRoutes: RouteObject[] = [
   {
@@ -32,6 +35,10 @@ export const organizerRoutes: RouteObject[] = [
               {
                 path: 'tournaments/:tournamentId/manage',
                 element: <TournamentGeneralSettingsPage />,
+              },
+              {
+                path: 'tournaments/:tournamentId/manage/configuration',
+                element: <TournamentModeConfigurationPage />,
               },
               {
                 path: 'tournaments/new',
