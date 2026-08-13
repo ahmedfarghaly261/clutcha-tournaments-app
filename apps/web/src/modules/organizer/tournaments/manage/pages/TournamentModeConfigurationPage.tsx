@@ -58,6 +58,20 @@ const emptyVenueValues: TournamentVenueConfigurationFormValues = {
   spectatorPolicy: '',
   venueRules: '',
   emergencyContact: '',
+  equipmentProvidedPc: false,
+  equipmentProvidedMonitor: false,
+  equipmentProvidedMouse: false,
+  equipmentProvidedKeyboard: false,
+  equipmentProvidedHeadset: false,
+  equipmentProvidedController: false,
+  playersMayBringMouse: false,
+  playersMayBringKeyboard: false,
+  playersMayBringHeadset: false,
+  playersMayBringController: false,
+  playersMayBringMousePad: false,
+  playersMustBringNationalId: false,
+  playersMustBringGameAccount: false,
+  playersMustBringController: false,
   personalPeripheralsAllowed: false,
   controllersAllowed: false,
   usbDevicesAllowed: false,
@@ -128,6 +142,9 @@ function onlineValuesToDto(
 function venueResponseToValues(
   response: VenueResponseDto,
 ): TournamentVenueConfigurationFormValues {
+  const equipmentProvided = response.equipmentPolicy.equipmentProvided
+  const playersMayBring = response.equipmentPolicy.playersMayBring
+  const playersMustBring = response.equipmentPolicy.playersMustBring
   return {
     name: response.location.name,
     country: response.location.country,
@@ -139,6 +156,20 @@ function venueResponseToValues(
     spectatorPolicy: response.policy.spectatorPolicy ?? '',
     venueRules: response.policy.venueRules ?? '',
     emergencyContact: response.policy.emergencyContact ?? '',
+    equipmentProvidedPc: equipmentProvided?.pc === true,
+    equipmentProvidedMonitor: equipmentProvided?.monitor === true,
+    equipmentProvidedMouse: equipmentProvided?.mouse === true,
+    equipmentProvidedKeyboard: equipmentProvided?.keyboard === true,
+    equipmentProvidedHeadset: equipmentProvided?.headset === true,
+    equipmentProvidedController: equipmentProvided?.controller === true,
+    playersMayBringMouse: playersMayBring?.mouse === true,
+    playersMayBringKeyboard: playersMayBring?.keyboard === true,
+    playersMayBringHeadset: playersMayBring?.headset === true,
+    playersMayBringController: playersMayBring?.controller === true,
+    playersMayBringMousePad: playersMayBring?.mousePad === true,
+    playersMustBringNationalId: playersMustBring?.nationalId === true,
+    playersMustBringGameAccount: playersMustBring?.gameAccount === true,
+    playersMustBringController: playersMustBring?.controller === true,
     personalPeripheralsAllowed: response.equipmentPolicy.personalPeripheralsAllowed,
     controllersAllowed: response.equipmentPolicy.controllersAllowed,
     usbDevicesAllowed: response.equipmentPolicy.usbDevicesAllowed,
@@ -158,6 +189,26 @@ function venueValuesToDto(values: TournamentVenueConfigurationFormValues): Upser
     spectatorPolicy: optional(values.spectatorPolicy),
     venueRules: optional(values.venueRules),
     emergencyContact: optional(values.emergencyContact),
+    equipmentProvided: {
+      pc: values.equipmentProvidedPc,
+      monitor: values.equipmentProvidedMonitor,
+      mouse: values.equipmentProvidedMouse,
+      keyboard: values.equipmentProvidedKeyboard,
+      headset: values.equipmentProvidedHeadset,
+      controller: values.equipmentProvidedController,
+    },
+    playersMayBring: {
+      mouse: values.playersMayBringMouse,
+      keyboard: values.playersMayBringKeyboard,
+      headset: values.playersMayBringHeadset,
+      controller: values.playersMayBringController,
+      mousePad: values.playersMayBringMousePad,
+    },
+    playersMustBring: {
+      nationalId: values.playersMustBringNationalId,
+      gameAccount: values.playersMustBringGameAccount,
+      controller: values.playersMustBringController,
+    },
     personalPeripheralsAllowed: values.personalPeripheralsAllowed,
     controllersAllowed: values.controllersAllowed,
     usbDevicesAllowed: values.usbDevicesAllowed,
@@ -191,6 +242,45 @@ function ToggleField({
             <span className="block text-sm font-bold text-[#f0eaf2]">{label}</span>
             <span className="mt-1 block text-xs font-normal leading-5 text-[#9f94a4]">{description}</span>
           </span>
+        </Label>
+      )}
+    />
+  )
+}
+
+type VenuePolicyBooleanField =
+  | 'equipmentProvidedPc'
+  | 'equipmentProvidedMonitor'
+  | 'equipmentProvidedMouse'
+  | 'equipmentProvidedKeyboard'
+  | 'equipmentProvidedHeadset'
+  | 'equipmentProvidedController'
+  | 'playersMayBringMouse'
+  | 'playersMayBringKeyboard'
+  | 'playersMayBringHeadset'
+  | 'playersMayBringController'
+  | 'playersMayBringMousePad'
+  | 'playersMustBringNationalId'
+  | 'playersMustBringGameAccount'
+  | 'playersMustBringController'
+
+function PolicyCheckbox({
+  control,
+  name,
+  label,
+}: {
+  control: ReturnType<typeof useForm<TournamentVenueConfigurationFormValues>>['control']
+  name: VenuePolicyBooleanField
+  label: string
+}) {
+  return (
+    <Controller
+      name={name}
+      control={control}
+      render={({ field }) => (
+        <Label className="flex cursor-pointer items-center gap-3 rounded-md border border-[#39343c] bg-[#151316] px-3 py-3 text-sm font-semibold text-[#e8e1ea] transition hover:border-[#62586a]">
+          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+          {label}
         </Label>
       )}
     />
@@ -288,6 +378,21 @@ function VenueConfigurationForm({ tournamentId }: { tournamentId: string }) {
   const submit = form.handleSubmit(async (values) => {
     setMessage(null)
     setError(null)
+    const providesEquipment = [
+      values.equipmentProvidedPc,
+      values.equipmentProvidedMonitor,
+      values.equipmentProvidedMouse,
+      values.equipmentProvidedKeyboard,
+      values.equipmentProvidedHeadset,
+      values.equipmentProvidedController,
+    ].some(Boolean)
+    if (!providesEquipment) {
+      form.setError('equipmentProvidedPc', {
+        type: 'validate',
+        message: 'Select at least one item supplied by the venue.',
+      })
+      return
+    }
     try {
       await mutations.saveVenue({ tournamentId, data: venueValuesToDto(values) })
       setMessage('On-site venue configuration saved successfully.')
@@ -323,6 +428,42 @@ function VenueConfigurationForm({ tournamentId }: { tournamentId: string }) {
           <div><Label htmlFor="spectator-policy" className="mb-2">Spectator policy</Label><Textarea id="spectator-policy" {...form.register('spectatorPolicy', { maxLength: { value: 1000, message: 'Use no more than 1,000 characters.' } })} /></div>
           <div><Label htmlFor="venue-rules" className="mb-2">Venue rules</Label><Textarea id="venue-rules" {...form.register('venueRules', { maxLength: { value: 2000, message: 'Use no more than 2,000 characters.' } })} /></div>
           <div><Label htmlFor="emergency-contact" className="mb-2">Emergency contact</Label><Input id="emergency-contact" {...form.register('emergencyContact', { maxLength: { value: 200, message: 'Use no more than 200 characters.' } })} /></div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><ShieldCheck className="h-5 w-5 text-[#d7a5ff]" /><CardTitle>Equipment policy</CardTitle></CardHeader>
+        <CardContent className="space-y-6">
+          <section>
+            <div className="mb-3"><h3 className="text-sm font-black text-[#f0eaf2]">Equipment supplied by the venue</h3><p className="mt-1 text-xs leading-5 text-[#9f94a4]">Select at least one item. This policy is required before an on-site tournament can be published.</p></div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <PolicyCheckbox control={form.control} name="equipmentProvidedPc" label="Gaming PC" />
+              <PolicyCheckbox control={form.control} name="equipmentProvidedMonitor" label="Monitor" />
+              <PolicyCheckbox control={form.control} name="equipmentProvidedMouse" label="Mouse" />
+              <PolicyCheckbox control={form.control} name="equipmentProvidedKeyboard" label="Keyboard" />
+              <PolicyCheckbox control={form.control} name="equipmentProvidedHeadset" label="Headset" />
+              <PolicyCheckbox control={form.control} name="equipmentProvidedController" label="Controller" />
+            </div>
+            <FieldError message={form.formState.errors.equipmentProvidedPc?.message} />
+          </section>
+          <section className="border-t border-[#39343c] pt-6">
+            <div className="mb-3"><h3 className="text-sm font-black text-[#f0eaf2]">Players may bring</h3><p className="mt-1 text-xs leading-5 text-[#9f94a4]">Personal equipment that participants are allowed to use.</p></div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <PolicyCheckbox control={form.control} name="playersMayBringMouse" label="Mouse" />
+              <PolicyCheckbox control={form.control} name="playersMayBringKeyboard" label="Keyboard" />
+              <PolicyCheckbox control={form.control} name="playersMayBringHeadset" label="Headset" />
+              <PolicyCheckbox control={form.control} name="playersMayBringController" label="Controller" />
+              <PolicyCheckbox control={form.control} name="playersMayBringMousePad" label="Mouse pad" />
+            </div>
+          </section>
+          <section className="border-t border-[#39343c] pt-6">
+            <div className="mb-3"><h3 className="text-sm font-black text-[#f0eaf2]">Players must bring</h3><p className="mt-1 text-xs leading-5 text-[#9f94a4]">Required items participants need for venue check-in or competition.</p></div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <PolicyCheckbox control={form.control} name="playersMustBringNationalId" label="National ID" />
+              <PolicyCheckbox control={form.control} name="playersMustBringGameAccount" label="Game account credentials" />
+              <PolicyCheckbox control={form.control} name="playersMustBringController" label="Controller" />
+            </div>
+          </section>
         </CardContent>
       </Card>
 

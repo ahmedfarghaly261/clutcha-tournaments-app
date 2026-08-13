@@ -13,6 +13,7 @@ import {
   ListChecks,
   MapPin,
   Medal,
+  Rocket,
   Settings2,
   ShieldCheck,
   Trophy,
@@ -248,6 +249,9 @@ function StatusCard({ tournament, ready, issues }: { tournament: TournamentRespo
             <Settings2 className="h-4 w-4" /> Manage draft
           </Button>
         )}
+        <Button render={<Link to={`/organizer/tournaments/${tournament.id}/manage/lifecycle`} />} variant={tournament.status === 'DRAFT' ? 'outline' : 'default'} className="mt-3 w-full">
+          <Rocket className="h-4 w-4" /> Publish & lifecycle
+        </Button>
       </CardContent>
     </Card>
   )
