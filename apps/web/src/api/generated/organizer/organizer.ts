@@ -348,7 +348,7 @@ export const useOrganizersControllerUploadProfileCover = <TError = ErrorType<voi
       return useMutation(getOrganizersControllerUploadProfileCoverMutationOptions(options), queryClient);
     }
     /**
- * Returns real organizer dashboard statistics available at this stage. Tournament counts are zero until tournament storage is introduced.
+ * Returns tournament statistics and recently updated tournaments owned by the authenticated organizer.
  * @summary Get organizer dashboard summary
  */
 export const organizersControllerGetDashboard = (

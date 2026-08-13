@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { TournamentMode, TournamentStatus } from '@clutcha/database';
 
 export class OrganizerDashboardSummaryDto {
   @ApiProperty({
@@ -58,11 +59,37 @@ export class OrganizerDashboardResponseDto {
   summary!: OrganizerDashboardSummaryDto;
 
   @ApiProperty({
-    type: 'array',
-    items: { type: 'object' },
-    example: [],
-    description:
-      'Recently updated organizer tournaments. Empty until tournament storage is introduced.',
+    type: () => [OrganizerDashboardRecentTournamentDto],
+    description: 'The five most recently updated organizer tournaments.',
   })
-  recentTournaments!: [];
+  recentTournaments!: OrganizerDashboardRecentTournamentDto[];
+}
+
+export class OrganizerDashboardRecentTournamentDto {
+  @ApiProperty({ example: 'tournament-id' })
+  id!: string;
+
+  @ApiProperty({ example: 'CLUTCHA Valorant Cairo Cup' })
+  name!: string;
+
+  @ApiProperty({ example: 'clutcha-valorant-cairo-cup' })
+  slug!: string;
+
+  @ApiProperty({ example: 'valorant' })
+  gameKey!: string;
+
+  @ApiProperty({ enum: TournamentMode, example: TournamentMode.ONLINE })
+  mode!: TournamentMode;
+
+  @ApiProperty({ enum: TournamentStatus, example: TournamentStatus.DRAFT })
+  status!: TournamentStatus;
+
+  @ApiProperty({ example: 'https://example.com/cover.webp', nullable: true })
+  coverUrl!: string | null;
+
+  @ApiProperty({ example: '2026-09-12T16:00:00.000Z' })
+  startsAt!: Date;
+
+  @ApiProperty({ example: '2026-08-14T10:30:00.000Z' })
+  updatedAt!: Date;
 }

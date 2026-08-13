@@ -6,8 +6,10 @@
  * OpenAPI spec version: 1.0.0
  */
 
+export * from './organizerDashboardRecentTournamentDto';
+export * from './organizerDashboardRecentTournamentDtoMode';
+export * from './organizerDashboardRecentTournamentDtoStatus';
 export * from './organizerDashboardResponseDto';
-export * from './organizerDashboardResponseDtoRecentTournamentsItem';
 export * from './organizerDashboardSummaryDto';
 export * from './organizerProfileResponseDto';
 export * from './organizerProfileUserResponseDto';

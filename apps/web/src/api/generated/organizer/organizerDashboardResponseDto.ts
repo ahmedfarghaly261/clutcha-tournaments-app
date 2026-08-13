@@ -5,12 +5,12 @@
  * API documentation for the CLUTCHA online and on-site esports tournament platform.
  * OpenAPI spec version: 1.0.0
  */
-import type { OrganizerDashboardResponseDtoRecentTournamentsItem } from './organizerDashboardResponseDtoRecentTournamentsItem';
+import type { OrganizerDashboardRecentTournamentDto } from './organizerDashboardRecentTournamentDto';
 import type { OrganizerDashboardSummaryDto } from './organizerDashboardSummaryDto';
 
 export interface OrganizerDashboardResponseDto {
   /** Organizer-owned tournament summary statistics. */
   summary: OrganizerDashboardSummaryDto;
-  /** Recently updated organizer tournaments. Empty until tournament storage is introduced. */
-  recentTournaments: OrganizerDashboardResponseDtoRecentTournamentsItem[];
+  /** The five most recently updated organizer tournaments. */
+  recentTournaments: OrganizerDashboardRecentTournamentDto[];
 }
