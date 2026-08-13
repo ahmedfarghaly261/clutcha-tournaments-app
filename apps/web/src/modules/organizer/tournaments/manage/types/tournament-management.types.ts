@@ -1,4 +1,5 @@
 import type {
+  CreateGamingRoomDtoPurpose,
   UpdateTournamentDraftDtoMode,
   UpdateTournamentDraftDtoVisibility,
 } from '@/api/generated/organizer-tournaments'
@@ -43,4 +44,29 @@ export interface TournamentVenueConfigurationFormValues {
   driverInstallationAllowed: boolean
 }
 
-export type TournamentManagementSection = 'general' | 'configuration'
+export interface TournamentGamingRoomFormValues {
+  name: string
+  description: string
+  purpose: CreateGamingRoomDtoPurpose
+  stationCount: string
+  cpu: string
+  gpu: string
+  ram: string
+  storage: string
+  operatingSystem: string
+  monitorBrand: string
+  monitorModel: string
+  monitorSizeInches: string
+  monitorResolution: string
+  monitorRefreshRateHz: string
+  monitorResponseTimeMs: string
+  mouse: string
+  keyboard: string
+  headset: string
+  mousePad: string
+  controller: string
+  internetConnection: string
+  equipmentNotes: string
+}
+
+export type TournamentManagementSection = 'general' | 'configuration' | 'gaming-rooms'
