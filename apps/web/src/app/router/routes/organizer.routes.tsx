@@ -12,6 +12,7 @@ import { OrganizerTournamentDetailsPage } from '@/modules/organizer/tournaments/
 import {
   TournamentGeneralSettingsPage,
   TournamentGamingRoomsPage,
+  TournamentLifecyclePage,
   TournamentModeConfigurationPage,
 } from '@/modules/organizer/tournaments/manage'
 
@@ -44,6 +45,10 @@ export const organizerRoutes: RouteObject[] = [
               {
                 path: 'tournaments/:tournamentId/manage/gaming-rooms',
                 element: <TournamentGamingRoomsPage />,
+              },
+              {
+                path: 'tournaments/:tournamentId/manage/lifecycle',
+                element: <TournamentLifecyclePage />,
               },
               {
                 path: 'tournaments/new',
