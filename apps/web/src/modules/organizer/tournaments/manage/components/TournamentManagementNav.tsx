@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Computer, MapPin, Settings2 } from 'lucide-react'
+import { Computer, MapPin, Rocket, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { TournamentManagementSection } from '../types/tournament-management.types'
 
@@ -37,6 +37,13 @@ export function TournamentManagementNav({
         size="sm"
       >
         <Computer className="h-4 w-4" /> Gaming rooms
+      </Button>
+      <Button
+        render={<Link to={`/organizer/tournaments/${tournamentId}/manage/lifecycle`} />}
+        variant={active === 'lifecycle' ? 'default' : 'ghost'}
+        size="sm"
+      >
+        <Rocket className="h-4 w-4" /> Publish & lifecycle
       </Button>
     </nav>
   )
