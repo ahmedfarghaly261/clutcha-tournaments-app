@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { MapPin, Settings2 } from 'lucide-react'
+import { Computer, MapPin, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { TournamentManagementSection } from '../types/tournament-management.types'
 
@@ -30,6 +30,13 @@ export function TournamentManagementNav({
         size="sm"
       >
         <MapPin className="h-4 w-4" /> Mode configuration
+      </Button>
+      <Button
+        render={<Link to={`/organizer/tournaments/${tournamentId}/manage/gaming-rooms`} />}
+        variant={active === 'gaming-rooms' ? 'default' : 'ghost'}
+        size="sm"
+      >
+        <Computer className="h-4 w-4" /> Gaming rooms
       </Button>
     </nav>
   )
