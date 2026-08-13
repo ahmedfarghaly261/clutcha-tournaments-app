@@ -180,7 +180,7 @@ export class OrganizersController {
   @ApiOperation({
     summary: 'Get organizer dashboard summary',
     description:
-      'Returns real organizer dashboard statistics available at this stage. Tournament counts are zero until tournament storage is introduced.',
+      'Returns tournament statistics and recently updated tournaments owned by the authenticated organizer.',
   })
   @ApiOkResponse({
     description: 'Organizer dashboard summary returned.',
@@ -192,8 +192,10 @@ export class OrganizersController {
   @ApiForbiddenResponse({
     description: 'The authenticated user is not an organizer.',
   })
-  getDashboard(): OrganizerDashboardResponseDto {
-    return this.organizersService.getDashboard();
+  async getDashboard(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrganizerDashboardResponseDto> {
+    return this.organizersService.getDashboard(user.id);
   }
 
   private getPublicOrigin(request: Request): string {

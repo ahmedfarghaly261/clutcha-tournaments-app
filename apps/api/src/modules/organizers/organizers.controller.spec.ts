@@ -10,6 +10,22 @@ jest.mock('@clutcha/database', () => ({
   UserStatus: {
     ACTIVE: 'ACTIVE',
   },
+  TournamentMode: {
+    ONLINE: 'ONLINE',
+    ONSITE: 'ONSITE',
+  },
+  TournamentStatus: {
+    DRAFT: 'DRAFT',
+    PUBLISHED: 'PUBLISHED',
+    REGISTRATION_OPEN: 'REGISTRATION_OPEN',
+    REGISTRATION_CLOSED: 'REGISTRATION_CLOSED',
+    CHECK_IN_OPEN: 'CHECK_IN_OPEN',
+    IN_PROGRESS: 'IN_PROGRESS',
+    COMPLETED: 'COMPLETED',
+    POSTPONED: 'POSTPONED',
+    CANCELLED: 'CANCELLED',
+    ARCHIVED: 'ARCHIVED',
+  },
 }));
 
 describe('OrganizersController', () => {

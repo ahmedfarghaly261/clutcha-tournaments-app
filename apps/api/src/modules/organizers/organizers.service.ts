@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { type Prisma } from '@clutcha/database';
+import { TournamentStatus, type Prisma } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
 import { type OrganizerDashboardResponseDto } from './dto/organizer-dashboard-response.dto';
 import { type UpdateOrganizerProfileDto } from './dto/update-organizer-profile.dto';
@@ -113,19 +113,83 @@ export class OrganizersService {
     return toOrganizerProfileResponse(profile);
   }
 
-  getDashboard(): OrganizerDashboardResponseDto {
+  async getDashboard(userId: string): Promise<OrganizerDashboardResponseDto> {
+    const tournament = this.databaseService.client.tournament;
+    const baseWhere: Prisma.TournamentWhereInput = { organizerId: userId };
+    const upcomingStatuses: TournamentStatus[] = [
+      TournamentStatus.PUBLISHED,
+      TournamentStatus.REGISTRATION_OPEN,
+      TournamentStatus.REGISTRATION_CLOSED,
+      TournamentStatus.CHECK_IN_OPEN,
+      TournamentStatus.POSTPONED,
+    ];
+    const [
+      totalTournaments,
+      draftTournaments,
+      publishedTournaments,
+      registrationOpenTournaments,
+      upcomingTournaments,
+      liveTournaments,
+      completedTournaments,
+      cancelledTournaments,
+      recentTournaments,
+    ] = await this.databaseService.client.$transaction([
+      tournament.count({ where: baseWhere }),
+      tournament.count({
+        where: { ...baseWhere, status: TournamentStatus.DRAFT },
+      }),
+      tournament.count({
+        where: { ...baseWhere, status: TournamentStatus.PUBLISHED },
+      }),
+      tournament.count({
+        where: { ...baseWhere, status: TournamentStatus.REGISTRATION_OPEN },
+      }),
+      tournament.count({
+        where: {
+          ...baseWhere,
+          status: { in: upcomingStatuses },
+          startsAt: { gt: new Date() },
+        },
+      }),
+      tournament.count({
+        where: { ...baseWhere, status: TournamentStatus.IN_PROGRESS },
+      }),
+      tournament.count({
+        where: { ...baseWhere, status: TournamentStatus.COMPLETED },
+      }),
+      tournament.count({
+        where: { ...baseWhere, status: TournamentStatus.CANCELLED },
+      }),
+      tournament.findMany({
+        where: baseWhere,
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          gameKey: true,
+          mode: true,
+          status: true,
+          coverUrl: true,
+          startsAt: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
     return {
       summary: {
-        totalTournaments: 0,
-        draftTournaments: 0,
-        publishedTournaments: 0,
-        registrationOpenTournaments: 0,
-        upcomingTournaments: 0,
-        liveTournaments: 0,
-        completedTournaments: 0,
-        cancelledTournaments: 0,
+        totalTournaments,
+        draftTournaments,
+        publishedTournaments,
+        registrationOpenTournaments,
+        upcomingTournaments,
+        liveTournaments,
+        completedTournaments,
+        cancelledTournaments,
       },
-      recentTournaments: [],
+      recentTournaments,
     };
   }
 

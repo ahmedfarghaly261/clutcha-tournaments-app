@@ -1,6 +1,12 @@
 import { Test } from '@nestjs/testing';
-import { UserRole, UserStatus } from '@clutcha/database';
+import {
+  TournamentMode,
+  TournamentStatus,
+  UserRole,
+  UserStatus,
+} from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
+import { OrganizerProfileImageStorageService } from './organizer-profile-image-storage.service';
 import { OrganizersService } from './organizers.service';
 
 jest.mock('@clutcha/database', () => ({
@@ -10,6 +16,21 @@ jest.mock('@clutcha/database', () => ({
   },
   UserStatus: {
     ACTIVE: 'ACTIVE',
+  },
+  TournamentMode: {
+    ONLINE: 'ONLINE',
+    ONSITE: 'ONSITE',
+  },
+  TournamentStatus: {
+    DRAFT: 'DRAFT',
+    PUBLISHED: 'PUBLISHED',
+    REGISTRATION_OPEN: 'REGISTRATION_OPEN',
+    REGISTRATION_CLOSED: 'REGISTRATION_CLOSED',
+    CHECK_IN_OPEN: 'CHECK_IN_OPEN',
+    IN_PROGRESS: 'IN_PROGRESS',
+    COMPLETED: 'COMPLETED',
+    POSTPONED: 'POSTPONED',
+    CANCELLED: 'CANCELLED',
   },
 }));
 
@@ -43,6 +64,8 @@ describe('OrganizersService', () => {
   let service: OrganizersService;
   let profile: ProfileRecord | null;
   let upsert: jest.Mock;
+  let tournamentCount: jest.Mock;
+  let findManyTournaments: jest.Mock;
 
   beforeEach(async () => {
     profile = null;
@@ -67,6 +90,8 @@ describe('OrganizersService', () => {
         return Promise.resolve(profile);
       },
     );
+    tournamentCount = jest.fn().mockResolvedValue(0);
+    findManyTournaments = jest.fn().mockResolvedValue([]);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -75,11 +100,22 @@ describe('OrganizersService', () => {
           provide: DatabaseService,
           useValue: {
             client: {
+              $transaction: jest.fn((operations: Array<Promise<unknown>>) =>
+                Promise.all(operations),
+              ),
               organizerProfile: {
                 upsert,
               },
+              tournament: {
+                count: tournamentCount,
+                findMany: findManyTournaments,
+              },
             },
           },
+        },
+        {
+          provide: OrganizerProfileImageStorageService,
+          useValue: { saveProfileImage: jest.fn() },
         },
       ],
     }).compile();
@@ -133,20 +169,51 @@ describe('OrganizersService', () => {
     expect(serialized).not.toContain('refreshTokenHash');
   });
 
-  it('returns only currently available dashboard statistics', () => {
-    expect(service.getDashboard()).toEqual({
+  it('returns organizer-owned tournament dashboard statistics', async () => {
+    tournamentCount
+      .mockResolvedValueOnce(8)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1);
+    const recentTournament = {
+      id: 'tournament-1',
+      name: 'Cairo Cup',
+      slug: 'cairo-cup',
+      gameKey: 'valorant',
+      mode: TournamentMode.ONLINE,
+      status: TournamentStatus.REGISTRATION_OPEN,
+      coverUrl: null,
+      startsAt: new Date('2026-09-12T16:00:00.000Z'),
+      updatedAt: new Date('2026-08-14T10:00:00.000Z'),
+    };
+    findManyTournaments.mockResolvedValue([recentTournament]);
+
+    await expect(service.getDashboard('organizer-user-1')).resolves.toEqual({
       summary: {
-        totalTournaments: 0,
-        draftTournaments: 0,
-        publishedTournaments: 0,
-        registrationOpenTournaments: 0,
-        upcomingTournaments: 0,
-        liveTournaments: 0,
-        completedTournaments: 0,
-        cancelledTournaments: 0,
+        totalTournaments: 8,
+        draftTournaments: 2,
+        publishedTournaments: 1,
+        registrationOpenTournaments: 2,
+        upcomingTournaments: 3,
+        liveTournaments: 1,
+        completedTournaments: 1,
+        cancelledTournaments: 1,
       },
-      recentTournaments: [],
+      recentTournaments: [recentTournament],
     });
+    expect(tournamentCount).toHaveBeenCalledWith({
+      where: { organizerId: 'organizer-user-1' },
+    });
+    expect(findManyTournaments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizerId: 'organizer-user-1' },
+        take: 5,
+      }),
+    );
   });
 });
 
