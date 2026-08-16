@@ -43,17 +43,33 @@ jest.mock('@clutcha/database', () => ({
   TournamentFormat: {
     SINGLE_ELIMINATION: 'SINGLE_ELIMINATION',
   },
+  TournamentMatchOfficialResultStatus: {
+    PENDING: 'PENDING',
+    CONFIRMED: 'CONFIRMED',
+    OVERTURNED: 'OVERTURNED',
+  },
+  TournamentMatchStatus: {
+    SCHEDULED: 'SCHEDULED',
+    LIVE: 'LIVE',
+    COMPLETED: 'COMPLETED',
+    POSTPONED: 'POSTPONED',
+    CANCELLED: 'CANCELLED',
+    FORFEIT: 'FORFEIT',
+  },
   TournamentMode: {
     ONLINE: 'ONLINE',
   },
   TournamentSeedingMethod: {
     MANUAL: 'MANUAL',
+    RANDOM: 'RANDOM',
+    RANKED: 'RANKED',
   },
   TournamentStatus: {
     DRAFT: 'DRAFT',
     PUBLISHED: 'PUBLISHED',
     REGISTRATION_OPEN: 'REGISTRATION_OPEN',
     REGISTRATION_CLOSED: 'REGISTRATION_CLOSED',
+    CHECK_IN_OPEN: 'CHECK_IN_OPEN',
     CANCELLED: 'CANCELLED',
   },
   TournamentVisibility: {
@@ -168,6 +184,15 @@ describe('OrganizerTournamentsController', () => {
     expect(
       typeof OrganizerTournamentsController.prototype
         .rejectTournamentRegistration,
+    ).toBe('function');
+  });
+
+  it('exposes organizer bracket handlers', () => {
+    expect(
+      typeof OrganizerTournamentsController.prototype.getTournamentBracket,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype.generateTournamentBracket,
     ).toBe('function');
   });
 });

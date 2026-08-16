@@ -39,12 +39,14 @@ import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
 import { CancelTournamentDto } from './dto/cancel-tournament.dto';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { CreateGamingRoomDto } from './dto/create-gaming-room.dto';
+import { GenerateOrganizerBracketDto } from './dto/generate-organizer-bracket.dto';
 import { GamingRoomListResponseDto } from './dto/gaming-room-list-response.dto';
 import { GamingRoomResponseDto } from './dto/gaming-room-response.dto';
 import { ListOrganizerTournamentsQueryDto } from './dto/list-organizer-tournaments-query.dto';
 import { OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
 import { OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
 import { OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
+import { OrganizerBracketResponseDto } from './dto/organizer-bracket-response.dto';
 import {
   OrganizerRegistrationDetailResponseDto,
   OrganizerRegistrationListResponseDto,
@@ -142,6 +144,78 @@ export class OrganizerTournamentsController {
     return this.tournamentsService.getOrganizerTournamentDetails(
       user.id,
       tournamentId,
+    );
+  }
+
+  @Get(':tournamentId/bracket')
+  @ApiOperation({
+    summary: 'Get organizer tournament bracket',
+    description:
+      'Returns approved teams and the generated single-elimination bracket for an organizer-owned tournament.',
+  })
+  @ApiOkResponse({
+    description: 'Organizer tournament bracket returned.',
+    type: OrganizerBracketResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id is not a valid UUID.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  async getTournamentBracket(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+  ): Promise<OrganizerBracketResponseDto> {
+    return this.tournamentsService.getOrganizerTournamentBracket(
+      user.id,
+      tournamentId,
+    );
+  }
+
+  @Post(':tournamentId/bracket/generate')
+  @ApiOperation({
+    summary: 'Generate organizer tournament bracket',
+    description:
+      'Generates a single-elimination bracket once from all approved teams. The supplied team ids define seed order unless the tournament uses random seeding.',
+  })
+  @ApiCreatedResponse({
+    description: 'Single-elimination bracket generated.',
+    type: OrganizerBracketResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id or seed-order payload is invalid.',
+  })
+  @ApiConflictResponse({
+    description:
+      'Registration is not closed, fewer than two teams are approved, the format is unsupported, the seed list is invalid, or a bracket already exists.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  async generateTournamentBracket(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Body() dto: GenerateOrganizerBracketDto,
+  ): Promise<OrganizerBracketResponseDto> {
+    return this.tournamentsService.generateOrganizerTournamentBracket(
+      user.id,
+      tournamentId,
+      dto,
     );
   }
 
