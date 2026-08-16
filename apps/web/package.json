@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "typecheck": "tsc -b --pretty false",
-    "api:generate": "orval --config ./orval.config.ts && node ./scripts/fix-orval-local-model-imports.mjs",
+    "api:generate": "orval --config ./orval.config.ts",
     "api:watch": "orval --config ./orval.config.ts --watch",
     "preview": "vite preview",
     "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\""
