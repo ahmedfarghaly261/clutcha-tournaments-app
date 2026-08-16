@@ -6,6 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { OrganizerBracketMatchDtoOfficialResultStatus } from './organizerBracketMatchDtoOfficialResultStatus';
+import type { OrganizerBracketMatchDtoOnlineServerInfo } from './organizerBracketMatchDtoOnlineServerInfo';
 import type { OrganizerBracketMatchDtoStatus } from './organizerBracketMatchDtoStatus';
 import type { OrganizerBracketTeamDto } from './organizerBracketTeamDto';
 
@@ -29,4 +30,12 @@ export interface OrganizerBracketMatchDto {
   /** @nullable */
   winnerTeamId?: string | null;
   officialResultStatus: OrganizerBracketMatchDtoOfficialResultStatus;
+  /** @nullable */
+  onlineServerInfo?: OrganizerBracketMatchDtoOnlineServerInfo;
+  /** @nullable */
+  gamingRoomId?: string | null;
+  /** @nullable */
+  gamingRoomName?: string | null;
+  /** @nullable */
+  onsiteStationLabel?: string | null;
 }

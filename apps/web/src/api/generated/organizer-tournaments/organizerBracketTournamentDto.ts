@@ -6,6 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { OrganizerBracketTournamentDtoFormat } from './organizerBracketTournamentDtoFormat';
+import type { OrganizerBracketTournamentDtoMode } from './organizerBracketTournamentDtoMode';
 import type { OrganizerBracketTournamentDtoSeedingMethod } from './organizerBracketTournamentDtoSeedingMethod';
 import type { OrganizerBracketTournamentDtoStatus } from './organizerBracketTournamentDtoStatus';
 
@@ -15,4 +16,6 @@ export interface OrganizerBracketTournamentDto {
   status: OrganizerBracketTournamentDtoStatus;
   format: OrganizerBracketTournamentDtoFormat;
   seedingMethod: OrganizerBracketTournamentDtoSeedingMethod;
+  mode: OrganizerBracketTournamentDtoMode;
+  timezone: string;
 }

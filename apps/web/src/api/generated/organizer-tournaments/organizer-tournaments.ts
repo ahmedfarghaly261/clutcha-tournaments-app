@@ -32,6 +32,7 @@ import type {
   GamingRoomResponseDto,
   GenerateOrganizerBracketDto,
   OnlineConfigurationResponseDto,
+  OrganizerBracketMatchDto,
   OrganizerBracketResponseDto,
   OrganizerRegistrationDetailResponseDto,
   OrganizerRegistrationListResponseDto,
@@ -40,6 +41,7 @@ import type {
   OrganizerTournamentsControllerListOrganizerTournamentsParams,
   OrganizerTournamentsControllerUploadTournamentCoverBody,
   RejectOrganizerRegistrationDto,
+  ScheduleOrganizerMatchDto,
   TournamentResponseDto,
   UpdateGamingRoomDto,
   UpdateTournamentDraftDto,
@@ -610,6 +612,73 @@ export const useOrganizerTournamentsControllerGenerateTournamentBracket = <TErro
         TContext
       > => {
       return useMutation(getOrganizerTournamentsControllerGenerateTournamentBracketMutationOptions(options), queryClient);
+    }
+    /**
+ * Schedules or reschedules a generated match. Online tournaments require private lobby information; on-site tournaments require a tournament-owned gaming room and station label.
+ * @summary Schedule organizer tournament match
+ */
+export const organizerTournamentsControllerScheduleTournamentMatch = (
+    tournamentId: string,
+    matchId: string,
+    scheduleOrganizerMatchDto: BodyType<ScheduleOrganizerMatchDto>,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<OrganizerBracketMatchDto>(
+      {url: `/api/organizer/tournaments/${tournamentId}/matches/${matchId}/schedule`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: scheduleOrganizerMatchDto, signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizerTournamentsControllerScheduleTournamentMatchMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerScheduleTournamentMatch>>, TError,{tournamentId: string;matchId: string;data: BodyType<ScheduleOrganizerMatchDto>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerScheduleTournamentMatch>>, TError,{tournamentId: string;matchId: string;data: BodyType<ScheduleOrganizerMatchDto>}, TContext> => {
+
+const mutationKey = ['organizerTournamentsControllerScheduleTournamentMatch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof organizerTournamentsControllerScheduleTournamentMatch>>, {tournamentId: string;matchId: string;data: BodyType<ScheduleOrganizerMatchDto>}> = (props) => {
+          const {tournamentId,matchId,data} = props ?? {};
+
+          return  organizerTournamentsControllerScheduleTournamentMatch(tournamentId,matchId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OrganizerTournamentsControllerScheduleTournamentMatchMutationResult = NonNullable<Awaited<ReturnType<typeof organizerTournamentsControllerScheduleTournamentMatch>>>
+    export type OrganizerTournamentsControllerScheduleTournamentMatchMutationBody = BodyType<ScheduleOrganizerMatchDto>
+    export type OrganizerTournamentsControllerScheduleTournamentMatchMutationError = ErrorType<void>
+
+    /**
+ * @summary Schedule organizer tournament match
+ */
+export const useOrganizerTournamentsControllerScheduleTournamentMatch = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerScheduleTournamentMatch>>, TError,{tournamentId: string;matchId: string;data: BodyType<ScheduleOrganizerMatchDto>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof organizerTournamentsControllerScheduleTournamentMatch>>,
+        TError,
+        {tournamentId: string;matchId: string;data: BodyType<ScheduleOrganizerMatchDto>},
+        TContext
+      > => {
+      return useMutation(getOrganizerTournamentsControllerScheduleTournamentMatchMutationOptions(options), queryClient);
     }
     /**
  * Returns registrations submitted to an organizer-owned tournament. Captain and roster contact snapshots are visible only because the team submitted to this organizer tournament.
