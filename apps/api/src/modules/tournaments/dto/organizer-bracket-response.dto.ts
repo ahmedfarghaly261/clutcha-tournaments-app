@@ -3,6 +3,7 @@ import {
   TournamentFormat,
   TournamentMatchOfficialResultStatus,
   TournamentMatchStatus,
+  TournamentMode,
   TournamentSeedingMethod,
   TournamentStatus,
 } from '@clutcha/database';
@@ -22,6 +23,12 @@ export class OrganizerBracketTournamentDto {
 
   @ApiProperty({ enum: TournamentSeedingMethod })
   seedingMethod!: TournamentSeedingMethod;
+
+  @ApiProperty({ enum: TournamentMode })
+  mode!: TournamentMode;
+
+  @ApiProperty({ example: 'Africa/Cairo' })
+  timezone!: string;
 }
 
 export class OrganizerBracketTeamDto {
@@ -76,6 +83,22 @@ export class OrganizerBracketMatchDto {
 
   @ApiProperty({ enum: TournamentMatchOfficialResultStatus })
   officialResultStatus!: TournamentMatchOfficialResultStatus;
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: true,
+    nullable: true,
+  })
+  onlineServerInfo!: unknown;
+
+  @ApiPropertyOptional({ example: '2df149ea-a859-4553-a87a-c6cf5bbdb5b8' })
+  gamingRoomId!: string | null;
+
+  @ApiPropertyOptional({ example: 'Main Stage Room' })
+  gamingRoomName!: string | null;
+
+  @ApiPropertyOptional({ example: 'Station A-04' })
+  onsiteStationLabel!: string | null;
 }
 
 export class OrganizerBracketRoundDto {
