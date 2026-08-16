@@ -11,6 +11,10 @@ import { OrganizerTournamentsPage } from '@/modules/organizer/tournaments/list'
 import { OrganizerTournamentDetailsPage } from '@/modules/organizer/tournaments/details'
 import { TournamentRegistrationsPage } from '@/modules/organizer/tournaments/registrations'
 import {
+  OrganizerMatchmakingPage,
+  TournamentBracketPage,
+} from '@/modules/organizer/tournaments/bracket'
+import {
   TournamentGeneralSettingsPage,
   TournamentGamingRoomsPage,
   TournamentLifecyclePage,
@@ -52,6 +56,10 @@ export const organizerRoutes: RouteObject[] = [
                 element: <TournamentGamingRoomsPage />,
               },
               {
+                path: 'tournaments/:tournamentId/manage/bracket',
+                element: <TournamentBracketPage />,
+              },
+              {
                 path: 'tournaments/:tournamentId/manage/lifecycle',
                 element: <TournamentLifecyclePage />,
               },
@@ -79,12 +87,7 @@ export const organizerRoutes: RouteObject[] = [
               },
               {
                 path: 'matchmaking',
-                element: (
-                  <OrganizerPlaceholderPage
-                    title="Matchmaking"
-                    description="Create, seed, and operate match flows once the bracket UI is connected."
-                  />
-                ),
+                element: <OrganizerMatchmakingPage />,
               },
               {
                 path: 'schedule',
