@@ -194,5 +194,8 @@ describe('OrganizerTournamentsController', () => {
     expect(
       typeof OrganizerTournamentsController.prototype.generateTournamentBracket,
     ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype.scheduleTournamentMatch,
+    ).toBe('function');
   });
 });

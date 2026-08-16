@@ -46,13 +46,17 @@ import { ListOrganizerTournamentsQueryDto } from './dto/list-organizer-tournamen
 import { OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
 import { OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
 import { OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
-import { OrganizerBracketResponseDto } from './dto/organizer-bracket-response.dto';
+import {
+  OrganizerBracketMatchDto,
+  OrganizerBracketResponseDto,
+} from './dto/organizer-bracket-response.dto';
 import {
   OrganizerRegistrationDetailResponseDto,
   OrganizerRegistrationListResponseDto,
 } from './dto/organizer-registration-response.dto';
 import { TournamentResponseDto } from './dto/tournament-response.dto';
 import { RejectOrganizerRegistrationDto } from './dto/reject-organizer-registration.dto';
+import { ScheduleOrganizerMatchDto } from './dto/schedule-organizer-match.dto';
 import { UpdateGamingRoomDto } from './dto/update-gaming-room.dto';
 import { UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
 import { UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.dto';
@@ -215,6 +219,51 @@ export class OrganizerTournamentsController {
     return this.tournamentsService.generateOrganizerTournamentBracket(
       user.id,
       tournamentId,
+      dto,
+    );
+  }
+
+  @Patch(':tournamentId/matches/:matchId/schedule')
+  @ApiOperation({
+    summary: 'Schedule organizer tournament match',
+    description:
+      'Schedules or reschedules a generated match. Online tournaments require private lobby information; on-site tournaments require a tournament-owned gaming room and station label.',
+  })
+  @ApiOkResponse({
+    description: 'Tournament match schedule and assignment updated.',
+    type: OrganizerBracketMatchDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id, match id, or schedule payload is invalid.',
+  })
+  @ApiConflictResponse({
+    description:
+      'The tournament lifecycle or current match status does not allow scheduling.',
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'The schedule is outside the tournament window or its assignment does not match the tournament mode.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament, match, or assigned gaming room does not exist in the organizer-owned tournament.',
+  })
+  async scheduleTournamentMatch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Param('matchId', new ParseUUIDPipe()) matchId: string,
+    @Body() dto: ScheduleOrganizerMatchDto,
+  ): Promise<OrganizerBracketMatchDto> {
+    return this.tournamentsService.scheduleOrganizerTournamentMatch(
+      user.id,
+      tournamentId,
+      matchId,
       dto,
     );
   }
