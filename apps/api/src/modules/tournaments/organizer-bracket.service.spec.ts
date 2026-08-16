@@ -4,6 +4,7 @@ import {
   TournamentFormat,
   TournamentMatchOfficialResultStatus,
   TournamentMatchStatus,
+  TournamentMode,
   TournamentRegistrationStatus,
   TournamentSeedingMethod,
   TournamentStatus,
@@ -137,10 +138,40 @@ type CreatedMatch = {
   teamBId: string | null;
 };
 
+type BracketTeamMock = {
+  id: string;
+  name: string;
+  logoUrl: null;
+};
+
+type ScheduledMatchRecord = CreatedMatch & {
+  id: string;
+  scheduledAt: Date | null;
+  status: TournamentMatchStatus;
+  teamAScore: number | null;
+  teamBScore: number | null;
+  winnerTeamId: string | null;
+  officialResultStatus: TournamentMatchOfficialResultStatus;
+  onlineServerInfo: unknown;
+  gamingRoomId: string | null;
+  onsiteStationLabel: string | null;
+  teamA: BracketTeamMock | null;
+  teamB: BracketTeamMock | null;
+  gamingRoom: { id: string; name: string } | null;
+};
+
+type ScheduleUpdateData = {
+  scheduledAt: Date;
+  status: TournamentMatchStatus;
+  onlineServerInfo: unknown;
+  gamingRoomId: string | null;
+  onsiteStationLabel: string | null;
+};
+
 describe('TournamentsService organizer bracket', () => {
   const tournamentId = 'b33be298-f30b-45f3-ae27-83bc249d3a7c';
   const organizerId = '006b3a14-f251-458d-a37d-1366b7364725';
-  const teams = [
+  const teams: BracketTeamMock[] = [
     {
       id: '153427cc-52d6-48f8-bc84-548047b079ce',
       name: 'Seed One',
@@ -159,15 +190,57 @@ describe('TournamentsService organizer bracket', () => {
   ];
 
   let createdMatches: CreatedMatch[];
+  let scheduledMatch: ScheduledMatchRecord;
+  let tournamentMode: TournamentMode;
   let createMany: jest.Mock;
+  let updateMatch: jest.Mock;
   let service: TournamentsService;
 
   beforeEach(() => {
     createdMatches = [];
+    tournamentMode = TournamentMode.ONLINE;
+    scheduledMatch = {
+      id: 'f9e59dda-69b3-4d75-80ac-00cc0f8a835e',
+      tournamentId,
+      stage: 'MAIN_BRACKET',
+      round: 1,
+      bracketPosition: 'R1-M1',
+      bestOf: 1,
+      teamAId: teams[0].id,
+      teamBId: teams[1].id,
+      scheduledAt: null,
+      status: TournamentMatchStatus.SCHEDULED,
+      teamAScore: null,
+      teamBScore: null,
+      winnerTeamId: null,
+      officialResultStatus: TournamentMatchOfficialResultStatus.PENDING,
+      onlineServerInfo: null,
+      gamingRoomId: null,
+      onsiteStationLabel: null,
+      teamA: teams[0],
+      teamB: teams[1],
+      gamingRoom: null,
+    };
     createMany = jest.fn(
       ({ data }: { data: CreatedMatch[] }): Promise<{ count: number }> => {
         createdMatches = data;
         return Promise.resolve({ count: data.length });
+      },
+    );
+    updateMatch = jest.fn(
+      ({
+        data,
+      }: {
+        data: ScheduleUpdateData;
+      }): Promise<ScheduledMatchRecord> => {
+        scheduledMatch = {
+          ...scheduledMatch,
+          ...data,
+          gamingRoom: data.gamingRoomId
+            ? { id: data.gamingRoomId, name: 'Main Stage' }
+            : null,
+        };
+        return Promise.resolve(scheduledMatch);
       },
     );
 
@@ -181,10 +254,16 @@ describe('TournamentsService organizer bracket', () => {
       defaultBestOf: 1,
       finalBestOf: 3,
       thirdPlaceMatch: false,
+      mode: TournamentMode.ONLINE,
+      timezone: 'Africa/Cairo',
+      startsAt: new Date('2026-09-12T16:00:00.000Z'),
+      endsAt: new Date('2026-09-13T22:00:00.000Z'),
     };
     const transactionClient = {
       tournament: {
-        findFirst: jest.fn(() => Promise.resolve(tournament)),
+        findFirst: jest.fn(() =>
+          Promise.resolve({ ...tournament, mode: tournamentMode }),
+        ),
       },
       tournamentRegistration: {
         findMany: jest.fn(() =>
@@ -213,8 +292,21 @@ describe('TournamentsService organizer bracket', () => {
               officialResultStatus: TournamentMatchOfficialResultStatus.PENDING,
               teamA: teams.find((team) => team.id === match.teamAId) ?? null,
               teamB: teams.find((team) => team.id === match.teamBId) ?? null,
+              onlineServerInfo: null,
+              gamingRoomId: null,
+              onsiteStationLabel: null,
+              gamingRoom: null,
             })),
           ),
+        ),
+        findFirst: jest.fn(() => Promise.resolve(scheduledMatch)),
+        update: updateMatch,
+      },
+      tournamentGamingRoom: {
+        findFirst: jest.fn(() =>
+          Promise.resolve({
+            id: 'a1960cc1-c43d-4fba-989c-264312376366',
+          }),
         ),
       },
     };
@@ -257,5 +349,49 @@ describe('TournamentsService organizer bracket', () => {
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it('schedules an online match with private lobby information', async () => {
+    const result = await service.scheduleOrganizerTournamentMatch(
+      organizerId,
+      tournamentId,
+      scheduledMatch.id,
+      {
+        scheduledAt: '2026-09-12T18:00:00.000Z',
+        onlineServerInfo: {
+          serverRegion: 'MENA',
+          lobbyName: 'CLUTCHA-R1-M1',
+          lobbyPassword: 'private-password',
+        },
+      },
+    );
+
+    expect(updateMatch).toHaveBeenCalledTimes(1);
+    expect(result.scheduledAt).toEqual(new Date('2026-09-12T18:00:00.000Z'));
+    expect(result.onlineServerInfo).toEqual({
+      serverRegion: 'MENA',
+      lobbyName: 'CLUTCHA-R1-M1',
+      lobbyPassword: 'private-password',
+    });
+  });
+
+  it('assigns a tournament gaming room when scheduling an on-site match', async () => {
+    tournamentMode = TournamentMode.ONSITE;
+    const gamingRoomId = 'a1960cc1-c43d-4fba-989c-264312376366';
+
+    const result = await service.scheduleOrganizerTournamentMatch(
+      organizerId,
+      tournamentId,
+      scheduledMatch.id,
+      {
+        scheduledAt: '2026-09-12T20:00:00.000Z',
+        gamingRoomId,
+        onsiteStationLabel: 'Station A-04',
+      },
+    );
+
+    expect(result.gamingRoomId).toBe(gamingRoomId);
+    expect(result.gamingRoomName).toBe('Main Stage');
+    expect(result.onsiteStationLabel).toBe('Station A-04');
   });
 });
