@@ -30,7 +30,9 @@ import type {
   CreateTournamentDto,
   GamingRoomListResponseDto,
   GamingRoomResponseDto,
+  GenerateOrganizerBracketDto,
   OnlineConfigurationResponseDto,
+  OrganizerBracketResponseDto,
   OrganizerRegistrationDetailResponseDto,
   OrganizerRegistrationListResponseDto,
   OrganizerTournamentDetailResponseDto,
@@ -449,6 +451,165 @@ export const useOrganizerTournamentsControllerDeleteTournamentDraft = <TError = 
         TContext
       > => {
       return useMutation(getOrganizerTournamentsControllerDeleteTournamentDraftMutationOptions(options), queryClient);
+    }
+    /**
+ * Returns approved teams and the generated single-elimination bracket for an organizer-owned tournament.
+ * @summary Get organizer tournament bracket
+ */
+export const organizerTournamentsControllerGetTournamentBracket = (
+    tournamentId: string,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<OrganizerBracketResponseDto>(
+      {url: `/api/organizer/tournaments/${tournamentId}/bracket`, method: 'GET', signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizerTournamentsControllerGetTournamentBracketQueryKey = (tournamentId: string,) => {
+    return [
+    `/api/organizer/tournaments/${tournamentId}/bracket`
+    ] as const;
+    }
+
+
+export const getOrganizerTournamentsControllerGetTournamentBracketQueryOptions = <TData = Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>, TError = ErrorType<void>>(tournamentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>, TError, TData>>, request?: SecondParameter<typeof clutchaApiClient>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getOrganizerTournamentsControllerGetTournamentBracketQueryKey(tournamentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>> = ({ signal }) => organizerTournamentsControllerGetTournamentBracket(tournamentId, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: tournamentId !== null && tournamentId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type OrganizerTournamentsControllerGetTournamentBracketQueryResult = NonNullable<Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>>
+export type OrganizerTournamentsControllerGetTournamentBracketQueryError = ErrorType<void>
+
+
+export function useOrganizerTournamentsControllerGetTournamentBracket<TData = Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>, TError = ErrorType<void>>(
+ tournamentId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>,
+          TError,
+          Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useOrganizerTournamentsControllerGetTournamentBracket<TData = Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>, TError = ErrorType<void>>(
+ tournamentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>,
+          TError,
+          Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useOrganizerTournamentsControllerGetTournamentBracket<TData = Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>, TError = ErrorType<void>>(
+ tournamentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>, TError, TData>>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get organizer tournament bracket
+ */
+
+export function useOrganizerTournamentsControllerGetTournamentBracket<TData = Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>, TError = ErrorType<void>>(
+ tournamentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof organizerTournamentsControllerGetTournamentBracket>>, TError, TData>>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getOrganizerTournamentsControllerGetTournamentBracketQueryOptions(tournamentId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+/**
+ * Generates a single-elimination bracket once from all approved teams. The supplied team ids define seed order unless the tournament uses random seeding.
+ * @summary Generate organizer tournament bracket
+ */
+export const organizerTournamentsControllerGenerateTournamentBracket = (
+    tournamentId: string,
+    generateOrganizerBracketDto: BodyType<GenerateOrganizerBracketDto>,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<OrganizerBracketResponseDto>(
+      {url: `/api/organizer/tournaments/${tournamentId}/bracket/generate`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: generateOrganizerBracketDto, signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizerTournamentsControllerGenerateTournamentBracketMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerGenerateTournamentBracket>>, TError,{tournamentId: string;data: BodyType<GenerateOrganizerBracketDto>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerGenerateTournamentBracket>>, TError,{tournamentId: string;data: BodyType<GenerateOrganizerBracketDto>}, TContext> => {
+
+const mutationKey = ['organizerTournamentsControllerGenerateTournamentBracket'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof organizerTournamentsControllerGenerateTournamentBracket>>, {tournamentId: string;data: BodyType<GenerateOrganizerBracketDto>}> = (props) => {
+          const {tournamentId,data} = props ?? {};
+
+          return  organizerTournamentsControllerGenerateTournamentBracket(tournamentId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OrganizerTournamentsControllerGenerateTournamentBracketMutationResult = NonNullable<Awaited<ReturnType<typeof organizerTournamentsControllerGenerateTournamentBracket>>>
+    export type OrganizerTournamentsControllerGenerateTournamentBracketMutationBody = BodyType<GenerateOrganizerBracketDto>
+    export type OrganizerTournamentsControllerGenerateTournamentBracketMutationError = ErrorType<void>
+
+    /**
+ * @summary Generate organizer tournament bracket
+ */
+export const useOrganizerTournamentsControllerGenerateTournamentBracket = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerGenerateTournamentBracket>>, TError,{tournamentId: string;data: BodyType<GenerateOrganizerBracketDto>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof organizerTournamentsControllerGenerateTournamentBracket>>,
+        TError,
+        {tournamentId: string;data: BodyType<GenerateOrganizerBracketDto>},
+        TContext
+      > => {
+      return useMutation(getOrganizerTournamentsControllerGenerateTournamentBracketMutationOptions(options), queryClient);
     }
     /**
  * Returns registrations submitted to an organizer-owned tournament. Captain and roster contact snapshots are visible only because the team submitted to this organizer tournament.
