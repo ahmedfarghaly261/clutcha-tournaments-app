@@ -4,6 +4,7 @@ import {
 } from '@/api/generated/organizer-tournaments'
 import {
   useOrganizerTournamentsControllerGetTournamentBracket,
+  useOrganizerTournamentsControllerListGamingRooms,
   useOrganizerTournamentsControllerListOrganizerTournaments,
 } from '@/api/generated/organizer-tournaments/organizer-tournaments'
 
@@ -31,4 +32,16 @@ export function useBracketTournamentListService() {
       },
     },
   )
+}
+
+export function useTournamentMatchGamingRoomsService(
+  tournamentId: string,
+  enabled: boolean,
+) {
+  return useOrganizerTournamentsControllerListGamingRooms(tournamentId, {
+    query: {
+      enabled: Boolean(tournamentId) && enabled,
+      staleTime: 30_000,
+    },
+  })
 }
