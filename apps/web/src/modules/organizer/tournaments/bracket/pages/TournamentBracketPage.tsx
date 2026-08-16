@@ -5,8 +5,12 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  CalendarClock,
   CircleCheckBig,
   GitBranch,
+  MapPin,
+  Pencil,
+  Server,
   Shuffle,
   Swords,
   TriangleAlert,
@@ -17,13 +21,18 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { TournamentManagementNav } from '../../manage/components/TournamentManagementNav'
+import { MatchScheduleEditor } from '../components/MatchScheduleEditor'
 import { useTournamentBracketMutations } from '../mutations/tournament-bracket.mutations'
-import { useTournamentBracketService } from '../services/tournament-bracket.service'
+import {
+  useTournamentBracketService,
+  useTournamentMatchGamingRoomsService,
+} from '../services/tournament-bracket.service'
 import { bracketGenerationStatuses } from '../types/tournament-bracket.types'
 import type { TournamentBracketMatch } from '../types/tournament-bracket.types'
+import type { TournamentMatchScheduleFormValues } from '../types/tournament-bracket.types'
 
 function getErrorMessage(error: unknown) {
-  if (!isAxiosError(error)) return 'The bracket could not be generated.'
+  if (!isAxiosError(error)) return 'The action could not be completed.'
   const data: unknown = error.response?.data
   if (typeof data === 'object' && data !== null && 'message' in data) {
     const message = (data as { message?: unknown }).message
@@ -32,7 +41,7 @@ function getErrorMessage(error: unknown) {
       return message.join(' ')
     }
   }
-  return 'The bracket could not be generated.'
+  return 'The action could not be completed.'
 }
 
 function TeamSlot({
@@ -68,7 +77,17 @@ function TeamSlot({
   )
 }
 
-function BracketMatch({ match }: { match: TournamentBracketMatch }) {
+function BracketMatch({
+  match,
+  timezone,
+  onSchedule,
+}: {
+  match: TournamentBracketMatch
+  timezone: string
+  onSchedule: () => void
+}) {
+  const canSchedule = match.status === 'SCHEDULED' || match.status === 'POSTPONED'
+
   return (
     <div className="overflow-hidden rounded-lg border border-[#433c47] bg-[#1a181b] shadow-[0_10px_25px_rgba(0,0,0,0.18)]">
       <div className="flex items-center justify-between border-b border-[#39343c] bg-[#242126] px-3 py-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#a99ead]">
@@ -85,6 +104,31 @@ function BracketMatch({ match }: { match: TournamentBracketMatch }) {
         score={match.teamBScore}
         winner={Boolean(match.teamB && match.winnerTeamId === match.teamB.id)}
       />
+      <div className="space-y-2 border-t border-[#39343c] bg-[#131215] px-3 py-3">
+        <div className="flex items-center gap-2 text-[10px] text-[#9f94a4]">
+          <CalendarClock className="h-3.5 w-3.5 text-[#d7a5ff]" />
+          {match.scheduledAt
+            ? new Intl.DateTimeFormat('en', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+                timeZone: timezone,
+              }).format(new Date(match.scheduledAt))
+            : 'Not scheduled'}
+        </div>
+        {match.onlineServerInfo && (
+          <div className="flex items-center gap-2 text-[10px] text-[#9fddeb]">
+            <Server className="h-3.5 w-3.5" /> Online lobby assigned
+          </div>
+        )}
+        {match.gamingRoomName && (
+          <div className="flex items-center gap-2 text-[10px] text-[#9be8d2]">
+            <MapPin className="h-3.5 w-3.5" /> {match.gamingRoomName} · {match.onsiteStationLabel}
+          </div>
+        )}
+        <Button type="button" variant="outline" size="sm" className="mt-1 w-full" disabled={!canSchedule} onClick={onSchedule}>
+          <Pencil className="h-3.5 w-3.5" /> {match.scheduledAt ? 'Edit schedule' : 'Schedule match'}
+        </Button>
+      </div>
     </div>
   )
 }
@@ -96,11 +140,17 @@ export function TournamentBracketPage() {
   const [orderedTeamIds, setOrderedTeamIds] = useState<string[]>([])
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
   const approvedTeamIds = useMemo(
     () => bracketQuery.data?.approvedTeams.map((team) => team.id) ?? [],
     [bracketQuery.data?.approvedTeams],
   )
   const displayedTeamIds = orderedTeamIds.length > 0 ? orderedTeamIds : approvedTeamIds
+  const tournamentMode = bracketQuery.data?.tournament.mode
+  const gamingRoomsQuery = useTournamentMatchGamingRoomsService(
+    tournamentId,
+    tournamentMode === 'ONSITE' && selectedMatchId !== null,
+  )
 
   const teamsById = useMemo(
     () => new Map(bracketQuery.data?.approvedTeams.map((team) => [team.id, team]) ?? []),
@@ -129,6 +179,44 @@ export function TournamentBracketPage() {
       setMessage('The single-elimination bracket was generated successfully.')
     } catch (generationError) {
       setError(getErrorMessage(generationError))
+    }
+  }
+
+  const scheduleMatch = async (values: TournamentMatchScheduleFormValues) => {
+    if (!selectedMatchId || !tournamentMode) return false
+    setMessage(null)
+    setError(null)
+
+    try {
+      await mutations.scheduleMatch({
+        tournamentId,
+        matchId: selectedMatchId,
+        data:
+          tournamentMode === 'ONLINE'
+            ? {
+                scheduledAt: new Date(values.scheduledAt).toISOString(),
+                onlineServerInfo: {
+                  serverRegion: values.serverRegion.trim(),
+                  lobbyName: values.lobbyName.trim(),
+                  ...(values.lobbyCode.trim() ? { lobbyCode: values.lobbyCode.trim() } : {}),
+                  ...(values.lobbyPassword.trim()
+                    ? { lobbyPassword: values.lobbyPassword.trim() }
+                    : {}),
+                  ...(values.notes.trim() ? { notes: values.notes.trim() } : {}),
+                },
+              }
+            : {
+                scheduledAt: new Date(values.scheduledAt).toISOString(),
+                gamingRoomId: values.gamingRoomId,
+                onsiteStationLabel: values.onsiteStationLabel.trim(),
+              },
+      })
+      setSelectedMatchId(null)
+      setMessage('The match schedule and assignment were saved successfully.')
+      return true
+    } catch (schedulingError) {
+      setError(getErrorMessage(schedulingError))
+      return false
     }
   }
 
@@ -182,14 +270,14 @@ export function TournamentBracketPage() {
       {message && (
         <Alert className="mb-6 border-[#276f5c] bg-[#15382f] text-[#8ff5d8]">
           <CircleCheckBig className="h-5 w-5" />
-          <AlertTitle>Bracket generated</AlertTitle>
+          <AlertTitle>Action completed</AlertTitle>
           <AlertDescription className="text-[#a7ead7]">{message}</AlertDescription>
         </Alert>
       )}
       {error && (
         <Alert className="mb-6 border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]">
           <TriangleAlert className="h-5 w-5" />
-          <AlertTitle>Generation failed</AlertTitle>
+          <AlertTitle>Action failed</AlertTitle>
           <AlertDescription className="text-[#ffcbc7]">{error}</AlertDescription>
         </Alert>
       )}
@@ -298,7 +386,26 @@ export function TournamentBracketPage() {
           </Card>
         </div>
       ) : (
-        <Card>
+        <div className="space-y-6">
+          {selectedMatchId && (() => {
+            const selectedMatch = bracket.rounds
+              .flatMap((round) => round.matches)
+              .find((match) => match.id === selectedMatchId)
+            return selectedMatch ? (
+              <MatchScheduleEditor
+                key={selectedMatch.id}
+                match={selectedMatch}
+                mode={bracket.tournament.mode}
+                timezone={bracket.tournament.timezone}
+                gamingRooms={gamingRoomsQuery.data?.items ?? []}
+                gamingRoomsLoading={gamingRoomsQuery.isLoading}
+                pending={mutations.isScheduling}
+                onCancel={() => setSelectedMatchId(null)}
+                onSubmit={scheduleMatch}
+              />
+            ) : null
+          })()}
+          <Card>
           <CardHeader>
             <GitBranch className="h-5 w-5 text-[#d7a5ff]" />
             <CardTitle>Single-elimination bracket</CardTitle>
@@ -315,14 +422,24 @@ export function TournamentBracketPage() {
                   </div>
                   <div className="flex flex-1 flex-col justify-around gap-5">
                     {round.matches.map((match) => (
-                      <BracketMatch key={match.id} match={match} />
+                      <BracketMatch
+                        key={match.id}
+                        match={match}
+                        timezone={bracket.tournament.timezone}
+                        onSchedule={() => {
+                          setSelectedMatchId(match.id)
+                          setMessage(null)
+                          setError(null)
+                        }}
+                      />
                     ))}
                   </div>
                 </section>
               ))}
             </div>
           </CardContent>
-        </Card>
+          </Card>
+        </div>
       )}
     </div>
   )
