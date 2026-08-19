@@ -6,6 +6,7 @@ import { RoleGuard } from '../guards/RoleGuard'
 import { CaptainDashboardPage } from '@/modules/captain/dashboard'
 import { CaptainProfilePage } from '@/modules/captain/profile'
 import { CaptainTeamPage } from '@/modules/captain/team'
+import { CaptainRosterPage } from '@/modules/captain/roster'
 import { CaptainPlaceholderPage } from '@/modules/captain/shell'
 
 export const captainRoutes: RouteObject[] = [
@@ -22,10 +23,7 @@ export const captainRoutes: RouteObject[] = [
               { index: true, element: <CaptainDashboardPage /> },
               { path: 'profile', element: <CaptainProfilePage /> },
               { path: 'team', element: <CaptainTeamPage /> },
-              {
-                path: 'roster',
-                element: <CaptainPlaceholderPage title="Team Roster" description="Add starters and substitutes, then track their eligibility and verification." />,
-              },
+              { path: 'roster', element: <CaptainRosterPage /> },
               {
                 path: 'tournaments',
                 element: <CaptainPlaceholderPage title="Find Tournaments" description="Discover tournaments and check whether your team is eligible to register." />,
