@@ -5,6 +5,7 @@ import { AuthGuard } from '../guards/AuthGuard'
 import { RoleGuard } from '../guards/RoleGuard'
 import { CaptainDashboardPage } from '@/modules/captain/dashboard'
 import { CaptainProfilePage } from '@/modules/captain/profile'
+import { CaptainTeamPage } from '@/modules/captain/team'
 import { CaptainPlaceholderPage } from '@/modules/captain/shell'
 
 export const captainRoutes: RouteObject[] = [
@@ -20,10 +21,7 @@ export const captainRoutes: RouteObject[] = [
             children: [
               { index: true, element: <CaptainDashboardPage /> },
               { path: 'profile', element: <CaptainProfilePage /> },
-              {
-                path: 'team',
-                element: <CaptainPlaceholderPage title="My Team" description="Create and manage your competitive team workspace here." />,
-              },
+              { path: 'team', element: <CaptainTeamPage /> },
               {
                 path: 'roster',
                 element: <CaptainPlaceholderPage title="Team Roster" description="Add starters and substitutes, then track their eligibility and verification." />,
