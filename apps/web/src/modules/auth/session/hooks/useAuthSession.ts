@@ -24,6 +24,7 @@ export interface AuthSession {
   login: (input: LoginDto) => Promise<CurrentUserResponseDto>
   registerCaptain: (input: RegisterCaptainDto) => Promise<CurrentUserResponseDto>
   registerOrganizer: (input: RegisterOrganizerDto) => Promise<CurrentUserResponseDto>
+  updateDisplayName: (displayName: string) => void
   logout: () => Promise<void>
 }
 
@@ -53,6 +54,12 @@ export function useAuthSession(): AuthSession {
     clearAccessToken()
     setUser(null)
     setStatus('guest')
+  }, [])
+
+  const updateDisplayName = useCallback((displayName: string) => {
+    setUser((currentUser) =>
+      currentUser ? { ...currentUser, displayName } : currentUser,
+    )
   }, [])
 
   useEffect(() => {
@@ -102,5 +109,13 @@ export function useAuthSession(): AuthSession {
     }
   }, [logoutMutation, clearSession, queryClient])
 
-  return { status, user, login, registerCaptain, registerOrganizer, logout }
+  return {
+    status,
+    user,
+    login,
+    registerCaptain,
+    registerOrganizer,
+    updateDisplayName,
+    logout,
+  }
 }

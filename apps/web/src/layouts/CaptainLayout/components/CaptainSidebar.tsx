@@ -12,7 +12,6 @@ import {
   Search,
   Shield,
   Swords,
-  UserRound,
   UsersRound,
 } from 'lucide-react'
 import { useAuth } from '@/app/providers/AuthProvider'
@@ -33,7 +32,6 @@ type CaptainNavItem = {
 
 const captainNavItems: CaptainNavItem[] = [
   { label: 'Dashboard', to: '/captain', icon: LayoutDashboard, end: true },
-  { label: 'Captain Profile', to: '/captain/profile', icon: UserRound },
   { label: 'My Team', to: '/captain/team', icon: Shield },
   { label: 'Roster', to: '/captain/roster', icon: UsersRound },
   { label: 'Tournaments', to: '/captain/tournaments', icon: Gamepad2 },
