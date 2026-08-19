@@ -39,7 +39,7 @@ export function CaptainProfileView({ profile, onEdit }: CaptainProfileViewProps)
 
       <Card className="overflow-hidden border-[#2c3d46] bg-[#151a20] shadow-[0_0_70px_rgba(82,205,244,0.08)]">
         <div className="relative h-36 bg-[radial-gradient(circle_at_18%_12%,rgba(113,220,255,0.22),transparent_32%),linear-gradient(120deg,#182932,#101319_58%,#171527)]">
-          <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(113,220,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(113,220,255,0.12)_1px,transparent_1px)] [background-size:32px_32px]" />
+          <div className="absolute inset-0 opacity-20 bg-[linear-gradient(rgba(113,220,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(113,220,255,0.12)_1px,transparent_1px)] bg-size-[32px_32px]" />
           <Button className="absolute right-5 top-5" onClick={onEdit}>
             <Pencil /> Edit profile
           </Button>
