@@ -7,6 +7,8 @@ import { CaptainDashboardPage } from '@/modules/captain/dashboard'
 import { CaptainProfilePage } from '@/modules/captain/profile'
 import { CaptainTeamPage } from '@/modules/captain/team'
 import { CaptainRosterPage } from '@/modules/captain/roster'
+import { CaptainTournamentDiscoveryPage } from '@/modules/captain/tournaments/discovery'
+import { CaptainTournamentDetailsPage } from '@/modules/captain/tournaments/details'
 import { CaptainPlaceholderPage } from '@/modules/captain/shell'
 
 export const captainRoutes: RouteObject[] = [
@@ -24,10 +26,8 @@ export const captainRoutes: RouteObject[] = [
               { path: 'profile', element: <CaptainProfilePage /> },
               { path: 'team', element: <CaptainTeamPage /> },
               { path: 'roster', element: <CaptainRosterPage /> },
-              {
-                path: 'tournaments',
-                element: <CaptainPlaceholderPage title="Find Tournaments" description="Discover tournaments and check whether your team is eligible to register." />,
-              },
+              { path: 'tournaments', element: <CaptainTournamentDiscoveryPage /> },
+              { path: 'tournaments/:slug', element: <CaptainTournamentDetailsPage /> },
               {
                 path: 'registrations',
                 element: <CaptainPlaceholderPage title="Registrations" description="Track submitted tournament registrations, approval, payment, and check-in status." />,
