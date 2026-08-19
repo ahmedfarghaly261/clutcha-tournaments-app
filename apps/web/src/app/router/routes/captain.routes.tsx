@@ -4,6 +4,7 @@ import { CaptainLayout } from '@/layouts/CaptainLayout'
 import { AuthGuard } from '../guards/AuthGuard'
 import { RoleGuard } from '../guards/RoleGuard'
 import { CaptainDashboardPage } from '@/modules/captain/dashboard'
+import { CaptainProfilePage } from '@/modules/captain/profile'
 import { CaptainPlaceholderPage } from '@/modules/captain/shell'
 
 export const captainRoutes: RouteObject[] = [
@@ -18,10 +19,7 @@ export const captainRoutes: RouteObject[] = [
             element: <CaptainLayout />,
             children: [
               { index: true, element: <CaptainDashboardPage /> },
-              {
-                path: 'profile',
-                element: <CaptainPlaceholderPage title="Captain Profile" description="Manage your captain contact information and account readiness here." />,
-              },
+              { path: 'profile', element: <CaptainProfilePage /> },
               {
                 path: 'team',
                 element: <CaptainPlaceholderPage title="My Team" description="Create and manage your competitive team workspace here." />,
