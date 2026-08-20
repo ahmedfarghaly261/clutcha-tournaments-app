@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { CircleAlert, LoaderCircle, RotateCw, ShieldPlus } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -10,14 +11,18 @@ import {
   useUpdateCaptainTeamMutation,
 } from '../mutations/captain-team.mutations'
 import {
-  mapFormValuesToCreateCaptainTeam,
-  mapFormValuesToUpdateCaptainTeam,
   useCaptainTeamService,
 } from '../services/captain-team.service'
+import { useCaptainProfileService } from '../../profile/services/captain-profile.service'
+import {
+  transformFormValuesToCreateCaptainTeam,
+  transformFormValuesToUpdateCaptainTeam,
+} from '../transformers/captain-team.transformer'
 
 export function CaptainTeamPage() {
   const [isEditing, setIsEditing] = useState(false)
   const teamQuery = useCaptainTeamService()
+  const profileQuery = useCaptainProfileService()
   const createTeamMutation = useCreateCaptainTeamMutation()
   const updateTeamMutation = useUpdateCaptainTeamMutation()
   const teamNotFound = teamQuery.isError && isAxiosError(teamQuery.error) && teamQuery.error.response?.status === 404
@@ -69,12 +74,39 @@ export function CaptainTeamPage() {
             <h2 className="mt-3 text-xl font-black text-[#eff6fb]">No team registered yet</h2>
             <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#95a4b4]">Complete the form below once. CLUTCHA derives ownership from your Captain session.</p>
           </div>
-          <CaptainTeamForm
-            mode="create"
-            isSaving={createTeamMutation.isPending}
-            onSubmit={(values) => createTeamMutation.mutateAsync({ data: mapFormValuesToCreateCaptainTeam(values) })}
-            onSaved={() => setIsEditing(false)}
-          />
+          {profileQuery.isLoading && (
+            <div className="flex min-h-36 items-center justify-center rounded-xl border border-[#2c343e] bg-[#15191f] text-sm text-[#9da9b8]">
+              <LoaderCircle className="mr-2 h-5 w-5 animate-spin text-[#71dcff]" /> Loading Captain profile...
+            </div>
+          )}
+          {profileQuery.isError && (
+            <Alert className="border-[#78444a] bg-[#351d21] text-[#ffd1d4]">
+              <CircleAlert className="h-5 w-5" />
+              <AlertTitle>Captain profile could not be loaded</AlertTitle>
+              <AlertDescription className="text-[#e6b8bc]">Your profile is required to create your roster identity.</AlertDescription>
+            </Alert>
+          )}
+          {profileQuery.data && !profileQuery.data.phoneNumber && (
+            <Alert className="border-[#735f2c] bg-[#332916] text-[#f1d384]">
+              <CircleAlert className="h-5 w-5" />
+              <AlertTitle>Add your phone number first</AlertTitle>
+              <AlertDescription className="text-[#d9c387]">
+                A private phone number is required for every roster member, including the Captain.
+              </AlertDescription>
+              <Button render={<Link to="/captain/profile" />} className="mt-3" variant="outline" size="sm">
+                Complete Captain profile
+              </Button>
+            </Alert>
+          )}
+          {profileQuery.data?.phoneNumber && (
+            <CaptainTeamForm
+              mode="create"
+              profile={profileQuery.data}
+              isSaving={createTeamMutation.isPending}
+              onSubmit={(values) => createTeamMutation.mutateAsync({ data: transformFormValuesToCreateCaptainTeam(values) })}
+              onSaved={() => setIsEditing(false)}
+            />
+          )}
         </div>
       )}
 
@@ -85,7 +117,7 @@ export function CaptainTeamPage() {
             team={team}
             isSaving={updateTeamMutation.isPending}
             onCancel={() => setIsEditing(false)}
-            onSubmit={(values) => updateTeamMutation.mutateAsync({ data: mapFormValuesToUpdateCaptainTeam(values) })}
+            onSubmit={(values) => updateTeamMutation.mutateAsync({ data: transformFormValuesToUpdateCaptainTeam(values) })}
             onSaved={() => setIsEditing(false)}
           />
         ) : (

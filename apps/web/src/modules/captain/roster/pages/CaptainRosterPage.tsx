@@ -6,11 +6,14 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { CaptainRosterMemberForm } from '../components/CaptainRosterMemberForm'
 import { RosterPlayerCard } from '../components/RosterPlayerCard'
 import { RosterPlayerForm } from '../components/RosterPlayerForm'
+import { useCaptainProfileService } from '../../profile/services/captain-profile.service'
 import { useCaptainRosterMutations } from '../mutations/captain-roster.mutations'
 import { useCaptainRosterService } from '../services/captain-roster.service'
 import {
+  transformFormValuesToCreateCaptainRosterPlayer,
   transformFormValuesToCreateRosterPlayer,
   transformFormValuesToUpdateRosterPlayer,
 } from '../transformers/captain-roster.transformer'
@@ -24,9 +27,11 @@ export function CaptainRosterPage() {
   const [search, setSearch] = useState('')
   const [requestError, setRequestError] = useState<string | null>(null)
   const rosterQuery = useCaptainRosterService()
+  const profileQuery = useCaptainProfileService()
   const mutations = useCaptainRosterMutations()
   const noTeam = rosterQuery.isError && isAxiosError(rosterQuery.error) && rosterQuery.error.response?.status === 404
   const players = rosterQuery.data ?? emptyRoster
+  const hasCaptainMember = players.some((player) => player.isCaptain)
   const normalizedSearch = search.trim().toLowerCase()
   const visiblePlayers = useMemo(() => players.filter((player) =>
     !normalizedSearch || [player.gamerTag, player.realName, player.gameAccountId, player.rank, player.country]
@@ -53,7 +58,7 @@ export function CaptainRosterPage() {
           <h1 className="text-3xl font-black tracking-[-0.04em] text-[#f2f6fb]">Team Roster</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#9da9b8]">Manage starters and substitutes, private contact details, verification, and eligibility state.</p>
         </div>
-        {!noTeam && !editor && <Button onClick={() => setEditor({ mode: 'create' })}><UserPlus /> Add player</Button>}
+        {!noTeam && !editor && hasCaptainMember && <Button onClick={() => setEditor({ mode: 'create' })}><UserPlus /> Add player</Button>}
       </header>
 
       {rosterQuery.isLoading && <div className="flex min-h-64 items-center justify-center rounded-xl border border-[#2c343e] bg-[#15191f] text-sm text-[#9da9b8]"><LoaderCircle className="mr-2 h-5 w-5 animate-spin text-[#71dcff]" /> Loading roster...</div>}
@@ -79,6 +84,39 @@ export function CaptainRosterPage() {
 
       {rosterQuery.isSuccess && !editor && (
         <>
+          {!hasCaptainMember && profileQuery.isLoading && (
+            <div className="flex min-h-36 items-center justify-center rounded-xl border border-[#2c343e] bg-[#15191f] text-sm text-[#9da9b8]">
+              <LoaderCircle className="mr-2 h-5 w-5 animate-spin text-[#71dcff]" /> Loading Captain profile...
+            </div>
+          )}
+
+          {!hasCaptainMember && profileQuery.isError && (
+            <Alert className="border-[#78444a] bg-[#351d21] text-[#ffd1d4]">
+              <CircleAlert className="h-5 w-5" />
+              <AlertTitle>Captain profile could not be loaded</AlertTitle>
+              <AlertDescription className="text-[#e6b8bc]">Your profile is required to create your Captain roster member.</AlertDescription>
+            </Alert>
+          )}
+
+          {!hasCaptainMember && profileQuery.data && !profileQuery.data.phoneNumber && (
+            <Alert className="border-[#735f2c] bg-[#332916] text-[#f1d384]">
+              <CircleAlert className="h-5 w-5" />
+              <AlertTitle>Add your phone number first</AlertTitle>
+              <AlertDescription className="text-[#d9c387]">A private phone number is required for your Captain roster record.</AlertDescription>
+              <Button render={<Link to="/captain/profile" />} className="mt-3" variant="outline" size="sm">Complete Captain profile</Button>
+            </Alert>
+          )}
+
+          {!hasCaptainMember && profileQuery.data?.phoneNumber && (
+            <CaptainRosterMemberForm
+              profile={profileQuery.data}
+              isSaving={mutations.isCreatingCaptain}
+              onSubmit={(values) => mutations.createCaptainPlayer({
+                data: transformFormValuesToCreateCaptainRosterPlayer(values),
+              })}
+            />
+          )}
+
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Metric label="Total players" value={players.length} />
             <Metric label="Starters" value={starters} />
@@ -90,13 +128,13 @@ export function CaptainRosterPage() {
 
           {players.length > 0 && <div className="relative max-w-md"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#82909f]" /><Input className="pl-10" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search roster players..." /></div>}
 
-          {players.length === 0 ? (
+          {players.length === 0 && hasCaptainMember ? (
             <Card className="border-dashed border-[#385361] bg-[#121a20]"><CardContent className="py-12 text-center"><UsersRound className="mx-auto h-11 w-11 text-[#71dcff]" /><h2 className="mt-4 text-xl font-black text-[#eef5fa]">Your roster is empty</h2><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#96a4b4]">Add starters and substitutes as managed player records. They will not receive login accounts.</p><Button className="mt-5" onClick={() => setEditor({ mode: 'create' })}><UserPlus /> Add first player</Button></CardContent></Card>
           ) : visiblePlayers.length > 0 ? (
             <section className="grid gap-5 xl:grid-cols-2">{visiblePlayers.map((player) => <RosterPlayerCard key={player.id} player={player} isDeleting={mutations.isDeleting} onEdit={() => setEditor({ mode: 'edit', player })} onDelete={() => removePlayer(player)} />)}</section>
-          ) : (
+          ) : players.length > 0 ? (
             <Card><CardContent className="py-10 text-center text-sm text-[#9aa7b6]">No roster players match “{search}”.</CardContent></Card>
-          )}
+          ) : null}
         </>
       )}
     </div>
