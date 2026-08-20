@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CreateCaptainRosterPlayerDtoRosterType } from '@/api/generated/captain'
 import type { CaptainTeamFormValues } from '../types/captain-team.types'
 
 const optionalHttpsUrl = z
@@ -18,7 +19,7 @@ const optionalHttpsUrl = z
     'Enter a valid HTTPS URL',
   )
 
-export const captainTeamSchema = z.object({
+const captainTeamFields = {
   name: z
     .string()
     .trim()
@@ -38,4 +39,20 @@ export const captainTeamSchema = z.object({
     .trim()
     .max(80, 'Region must be 80 characters or less'),
   discordServerUrl: optionalHttpsUrl,
+  captainGamerTag: z.string().trim().max(80, 'Gamer tag must be 80 characters or less'),
+  captainGameAccountId: z.string().trim().max(120, 'Game account ID must be 120 characters or less'),
+  captainRank: z.string().trim().max(80, 'Rank must be 80 characters or less'),
+  captainCountry: z.string().trim().max(80, 'Country must be 80 characters or less'),
+  captainRosterType: z.enum([
+    CreateCaptainRosterPlayerDtoRosterType.STARTER,
+    CreateCaptainRosterPlayerDtoRosterType.SUBSTITUTE,
+  ]),
+}
+
+export const captainTeamCreateSchema = z.object({
+  ...captainTeamFields,
+  captainGamerTag: captainTeamFields.captainGamerTag.min(2, 'Gamer tag must be at least 2 characters'),
+  captainGameAccountId: captainTeamFields.captainGameAccountId.min(2, 'Game account ID must be at least 2 characters'),
 }) satisfies z.ZodType<CaptainTeamFormValues>
+
+export const captainTeamUpdateSchema = z.object(captainTeamFields) satisfies z.ZodType<CaptainTeamFormValues>

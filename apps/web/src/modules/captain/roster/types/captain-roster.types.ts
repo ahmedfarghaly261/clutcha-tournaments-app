@@ -1,4 +1,5 @@
 import type {
+  CreateCaptainRosterPlayerDto,
   CreateRosterPlayerDto,
   CreateRosterPlayerDtoRosterType,
   RosterPlayerResponseDto,
@@ -9,6 +10,7 @@ export type RosterPlayer = RosterPlayerResponseDto
 export type CreateRosterPlayer = CreateRosterPlayerDto
 export type UpdateRosterPlayer = UpdateRosterPlayerDto
 export type RosterPlayerType = CreateRosterPlayerDtoRosterType
+export type CreateCaptainRosterPlayer = CreateCaptainRosterPlayerDto
 
 export type RosterPlayerFormValues = {
   gamerTag: string
@@ -23,3 +25,11 @@ export type RosterPlayerFormValues = {
 }
 
 export type RosterEditorMode = 'create' | 'edit'
+
+export type CaptainRosterMemberFormValues = {
+  gamerTag: string
+  gameAccountId: string
+  rank: string
+  country: string
+  rosterType: RosterPlayerType
+}
