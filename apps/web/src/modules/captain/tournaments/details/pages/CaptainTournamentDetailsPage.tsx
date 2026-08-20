@@ -72,7 +72,13 @@ export function CaptainTournamentDetailsPage() {
 
         <aside className="space-y-5 xl:sticky xl:top-6">
           <Card className="border-[#3b4652] bg-[#171b20]"><CardHeader><ShieldCheck className="h-5 w-5 text-[#71dcff]" /><div><p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#8d9aa8]">Registration</p><CardTitle>{tournament.statusLabel}</CardTitle></div></CardHeader><CardContent className="space-y-4"><InfoRow label="Entry fee" value={tournament.registrationFeeLabel} /><InfoRow label="Team capacity" value={tournament.teamCapacityLabel} /><InfoRow label="Roster" value={tournament.rosterSizeLabel} /><InfoRow label="Window" value={tournament.registrationWindowLabel} /></CardContent></Card>
-          <CaptainTournamentEligibilityPanel tournamentId={tournament.id} />
+          <CaptainTournamentEligibilityPanel
+            tournamentId={tournament.id}
+            tournamentName={tournament.name}
+            rules={tournament.rules}
+            rulesVersion={tournament.rulesVersion}
+            registrationFeeLabel={tournament.registrationFeeLabel}
+          />
           <Card className="border-[#2d3540] bg-[#15191f]"><CardContent className="space-y-3"><InfoRow label="Starts" value={tournament.startDateLabel} /><InfoRow label="Ends" value={tournament.endDateLabel} /><InfoRow label="Timezone" value={tournament.timezone} /><InfoRow label="Waitlist" value={tournament.waitlistEnabled ? tournament.maximumWaitlistSize ? `Enabled · ${tournament.maximumWaitlistSize} teams` : 'Enabled' : 'Disabled'} /></CardContent></Card>
           {(tournament.refundPolicy || tournament.cancellationPolicy) && <Card className="border-[#2d3540] bg-[#15191f]"><CardHeader><CircleDollarSign className="h-5 w-5 text-[#cabdff]" /><CardTitle>Policies</CardTitle></CardHeader><CardContent className="space-y-4">{tournament.refundPolicy && <RuleText label="Refunds" value={tournament.refundPolicy} />}{tournament.cancellationPolicy && <RuleText label="Cancellation" value={tournament.cancellationPolicy} />}</CardContent></Card>}
         </aside>
