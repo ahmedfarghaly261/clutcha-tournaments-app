@@ -3,6 +3,7 @@ import {
   getCaptainsControllerGetDashboardQueryKey,
   getCaptainsControllerGetRosterPlayerQueryKey,
   getCaptainsControllerListRosterPlayersQueryKey,
+  useCaptainsControllerCreateCaptainRosterPlayer,
   useCaptainsControllerCreateRosterPlayer,
   useCaptainsControllerDeleteRosterPlayer,
   useCaptainsControllerUpdateRosterPlayer,
@@ -20,6 +21,16 @@ export function useCaptainRosterMutations() {
   }
 
   const createMutation = useCaptainsControllerCreateRosterPlayer({
+    mutation: {
+      onSuccess: (player) => {
+        queryClient.setQueryData<RosterPlayer[]>(listKey, (current = []) => [...current, player])
+        queryClient.setQueryData(getCaptainsControllerGetRosterPlayerQueryKey(player.id), player)
+        refreshDashboard()
+      },
+    },
+  })
+
+  const createCaptainMutation = useCaptainsControllerCreateCaptainRosterPlayer({
     mutation: {
       onSuccess: (player) => {
         queryClient.setQueryData<RosterPlayer[]>(listKey, (current = []) => [...current, player])
@@ -57,9 +68,11 @@ export function useCaptainRosterMutations() {
 
   return {
     createPlayer: createMutation.mutateAsync,
+    createCaptainPlayer: createCaptainMutation.mutateAsync,
     updatePlayer: updateMutation.mutateAsync,
     deletePlayer: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
+    isCreatingCaptain: createCaptainMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
   }
