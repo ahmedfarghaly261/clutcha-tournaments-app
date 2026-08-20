@@ -28,6 +28,7 @@ import type {
   CaptainDashboardResponseDto,
   CaptainProfileResponseDto,
   CaptainTeamResponseDto,
+  CreateCaptainRosterPlayerDto,
   CreateCaptainTeamDto,
   CreateRosterPlayerDto,
   RosterPlayerResponseDto,
@@ -532,6 +533,71 @@ export const useCaptainsControllerUpdateTeam = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getCaptainsControllerUpdateTeamMutationOptions(options), queryClient);
+    }
+    /**
+ * Backfills the required Captain roster member for a team created before automatic Captain roster creation. The server copies real name, email, phone number, and Discord username from the authenticated Captain profile.
+ * @summary Create the authenticated Captain roster member
+ */
+export const captainsControllerCreateCaptainRosterPlayer = (
+    createCaptainRosterPlayerDto: BodyType<CreateCaptainRosterPlayerDto>,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<RosterPlayerResponseDto>(
+      {url: `/api/captain/team/captain-player`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: createCaptainRosterPlayerDto, signal
+    },
+      options);
+    }
+
+
+
+
+export const getCaptainsControllerCreateCaptainRosterPlayerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof captainsControllerCreateCaptainRosterPlayer>>, TError,{data: BodyType<CreateCaptainRosterPlayerDto>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof captainsControllerCreateCaptainRosterPlayer>>, TError,{data: BodyType<CreateCaptainRosterPlayerDto>}, TContext> => {
+
+const mutationKey = ['captainsControllerCreateCaptainRosterPlayer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof captainsControllerCreateCaptainRosterPlayer>>, {data: BodyType<CreateCaptainRosterPlayerDto>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  captainsControllerCreateCaptainRosterPlayer(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CaptainsControllerCreateCaptainRosterPlayerMutationResult = NonNullable<Awaited<ReturnType<typeof captainsControllerCreateCaptainRosterPlayer>>>
+    export type CaptainsControllerCreateCaptainRosterPlayerMutationBody = BodyType<CreateCaptainRosterPlayerDto>
+    export type CaptainsControllerCreateCaptainRosterPlayerMutationError = ErrorType<void>
+
+    /**
+ * @summary Create the authenticated Captain roster member
+ */
+export const useCaptainsControllerCreateCaptainRosterPlayer = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof captainsControllerCreateCaptainRosterPlayer>>, TError,{data: BodyType<CreateCaptainRosterPlayerDto>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof captainsControllerCreateCaptainRosterPlayer>>,
+        TError,
+        {data: BodyType<CreateCaptainRosterPlayerDto>},
+        TContext
+      > => {
+      return useMutation(getCaptainsControllerCreateCaptainRosterPlayerMutationOptions(options), queryClient);
     }
     /**
  * Returns private roster-player records for the authenticated Captain team, including player contact fields. No player user accounts are created.

@@ -28,6 +28,8 @@ export interface RosterPlayerResponseDto {
   verificationStatus: RosterPlayerResponseDtoVerificationStatus;
   eligibilityStatus: RosterPlayerResponseDtoEligibilityStatus;
   teamId: string;
+  /** True only for the roster record linked to the authenticated Captain user. */
+  isCaptain: boolean;
   createdAt: string;
   updatedAt: string;
 }

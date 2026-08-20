@@ -22,6 +22,8 @@ export * from './captainProfileResponseDtoStatus';
 export * from './captainProfileResponseDtoTeam';
 export * from './captainTeamResponseDto';
 export * from './captainTeamResponseDtoStatus';
+export * from './createCaptainRosterPlayerDto';
+export * from './createCaptainRosterPlayerDtoRosterType';
 export * from './createCaptainTeamDto';
 export * from './createRosterPlayerDto';
 export * from './createRosterPlayerDtoRosterType';

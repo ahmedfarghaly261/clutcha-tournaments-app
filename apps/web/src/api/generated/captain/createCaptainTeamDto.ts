@@ -5,6 +5,7 @@
  * API documentation for the CLUTCHA online and on-site esports tournament platform.
  * OpenAPI spec version: 1.0.0
  */
+import type { CreateCaptainRosterPlayerDto } from './createCaptainRosterPlayerDto';
 
 export interface CreateCaptainTeamDto {
   /**
@@ -43,4 +44,6 @@ export interface CreateCaptainTeamDto {
      * @nullable
      */
   discordServerUrl?: string | null;
+  /** Required playing identity for the authenticated Captain. Personal contact fields are copied from the Captain profile and cannot be submitted here. */
+  captainRosterPlayer: CreateCaptainRosterPlayerDto;
 }
