@@ -2,10 +2,12 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma, TeamStatus, UserRole } from '@clutcha/database';
 import { DatabaseService } from '../../database/database.service';
 import { type CreateCaptainTeamDto } from './dto/create-captain-team.dto';
+import { type CreateCaptainRosterPlayerDto } from './dto/create-captain-roster-player.dto';
 import { type CreateRosterPlayerDto } from './dto/create-roster-player.dto';
 import { type UpdateRosterPlayerDto } from './dto/update-roster-player.dto';
 import { type UpdateCaptainTeamDto } from './dto/update-captain-team.dto';
@@ -74,6 +76,7 @@ const rosterPlayerSelect = {
   verificationStatus: true,
   eligibilityStatus: true,
   teamId: true,
+  captainUserId: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.RosterPlayerSelect;
@@ -94,7 +97,10 @@ type CaptainTeamMutableData = Pick<
   | 'discordServerUrl'
 >;
 
-type TeamSlugTransaction = Pick<Prisma.TransactionClient, 'team'>;
+type TeamSlugTransaction = Pick<
+  Prisma.TransactionClient,
+  'team' | 'rosterPlayer'
+>;
 
 type RosterPlayerMutableData = Pick<
   Prisma.RosterPlayerUpdateInput,
@@ -155,7 +161,9 @@ export class CaptainsService {
   }
 
   async createTeam(userId: string, dto: CreateCaptainTeamDto) {
-    await this.findCaptainOrThrow(userId);
+    const captain = await this.findCaptainOrThrow(userId);
+    this.assertCaptainRosterContactIsComplete(captain.phoneNumber);
+    const captainPhoneNumber = captain.phoneNumber;
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
@@ -175,7 +183,7 @@ export class CaptainsService {
               transaction,
             );
 
-            return transaction.team.create({
+            const team = await transaction.team.create({
               data: {
                 name: dto.name,
                 slug,
@@ -190,6 +198,25 @@ export class CaptainsService {
               },
               select: captainTeamSelect,
             });
+
+            await transaction.rosterPlayer.create({
+              data: {
+                gamerTag: dto.captainRosterPlayer.gamerTag,
+                realName: captain.displayName,
+                gameAccountId: dto.captainRosterPlayer.gameAccountId,
+                phoneNumber: captainPhoneNumber,
+                email: captain.email,
+                discordUsername: captain.discordUsername,
+                rank: dto.captainRosterPlayer.rank,
+                country: dto.captainRosterPlayer.country,
+                rosterType: dto.captainRosterPlayer.rosterType,
+                teamId: team.id,
+                captainUserId: captain.id,
+              },
+              select: { id: true },
+            });
+
+            return team;
           },
           {
             isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -292,6 +319,50 @@ export class CaptainsService {
     }
   }
 
+  async createCaptainRosterPlayer(
+    userId: string,
+    dto: CreateCaptainRosterPlayerDto,
+  ) {
+    const captain = await this.findCaptainOrThrow(userId);
+    this.assertCaptainRosterContactIsComplete(captain.phoneNumber);
+    const team = await this.findCaptainTeamOrThrow(userId);
+
+    try {
+      const player = await this.databaseService.client.rosterPlayer.create({
+        data: {
+          gamerTag: dto.gamerTag,
+          realName: captain.displayName,
+          gameAccountId: dto.gameAccountId,
+          phoneNumber: captain.phoneNumber,
+          email: captain.email,
+          discordUsername: captain.discordUsername,
+          rank: dto.rank,
+          country: dto.country,
+          rosterType: dto.rosterType,
+          teamId: team.id,
+          captainUserId: captain.id,
+        },
+        select: rosterPlayerSelect,
+      });
+
+      return toRosterPlayerResponse(player);
+    } catch (error) {
+      if (this.isPrismaUniqueConstraintError(error)) {
+        const target = this.getUniqueConstraintTarget(error);
+
+        if (
+          target.includes('captainUserId') ||
+          target.includes('captain_user_id')
+        ) {
+          throw new ConflictException('Captain roster member already exists');
+        }
+      }
+
+      this.throwRosterConflictIfNeeded(error);
+      throw error;
+    }
+  }
+
   async getRosterPlayer(userId: string, playerId: string) {
     const team = await this.findCaptainTeamOrThrow(userId);
     const player = await this.findRosterPlayerOrThrow(team.id, playerId);
@@ -305,12 +376,25 @@ export class CaptainsService {
     dto: UpdateRosterPlayerDto,
   ) {
     const team = await this.findCaptainTeamOrThrow(userId);
-    await this.findRosterPlayerOrThrow(team.id, playerId);
+    const existingPlayer = await this.findRosterPlayerOrThrow(
+      team.id,
+      playerId,
+    );
+    const updateData = this.toRosterPlayerUpdateData(dto);
+
+    if (existingPlayer.captainUserId) {
+      const captain = await this.findCaptainOrThrow(userId);
+      this.assertCaptainRosterContactIsComplete(captain.phoneNumber);
+      updateData.realName = captain.displayName;
+      updateData.phoneNumber = captain.phoneNumber;
+      updateData.email = captain.email;
+      updateData.discordUsername = captain.discordUsername;
+    }
 
     try {
       const player = await this.databaseService.client.rosterPlayer.update({
         where: { id: playerId },
-        data: this.toRosterPlayerUpdateData(dto),
+        data: updateData,
         select: rosterPlayerSelect,
       });
 
@@ -323,7 +407,16 @@ export class CaptainsService {
 
   async deleteRosterPlayer(userId: string, playerId: string) {
     const team = await this.findCaptainTeamOrThrow(userId);
-    await this.findRosterPlayerOrThrow(team.id, playerId);
+    const existingPlayer = await this.findRosterPlayerOrThrow(
+      team.id,
+      playerId,
+    );
+
+    if (existingPlayer.captainUserId) {
+      throw new ConflictException(
+        'The Captain roster member cannot be removed',
+      );
+    }
 
     const player = await this.databaseService.client.rosterPlayer.delete({
       where: { id: playerId },
@@ -428,6 +521,16 @@ export class CaptainsService {
       country: dto.country,
       rosterType: dto.rosterType,
     };
+  }
+
+  private assertCaptainRosterContactIsComplete(
+    phoneNumber: string | null,
+  ): asserts phoneNumber is string {
+    if (!phoneNumber) {
+      throw new UnprocessableEntityException(
+        'Complete the Captain profile phone number before creating the team roster member',
+      );
+    }
   }
 
   private assertTeamGameChangeIsAllowed(): void {

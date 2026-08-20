@@ -160,6 +160,7 @@ type RosterPlayerRecord = {
   verificationStatus: VerificationStatus;
   eligibilityStatus: EligibilityStatus;
   teamId: string;
+  captainUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -189,6 +190,7 @@ type RosterPlayerCreateArgs = {
     country?: string | null;
     rosterType?: RosterType;
     teamId: string;
+    captainUserId?: string;
   };
 };
 
@@ -217,6 +219,9 @@ type TeamTransactionClient = {
       args: TeamFindUniqueArgs,
     ) => Promise<CaptainTeamRecord | { id: string } | null>;
     create: (args: TeamCreateArgs) => Promise<CaptainTeamRecord>;
+  };
+  rosterPlayer: {
+    create: (args: RosterPlayerCreateArgs) => Promise<RosterPlayerRecord>;
   };
 };
 
@@ -393,6 +398,15 @@ describe('CaptainsService', () => {
     );
     rosterPlayerCreate = jest.fn((args: RosterPlayerCreateArgs) => {
       if (
+        args.data.captainUserId &&
+        rosterPlayers.some(
+          (player) => player.captainUserId === args.data.captainUserId,
+        )
+      ) {
+        throw createPrismaKnownRequestError('P2002', ['captain_user_id']);
+      }
+
+      if (
         rosterPlayers.some(
           (player) =>
             player.teamId === args.data.teamId &&
@@ -417,6 +431,7 @@ describe('CaptainsService', () => {
         country: args.data.country ?? null,
         rosterType: args.data.rosterType ?? RosterType.STARTER,
         teamId: args.data.teamId,
+        captainUserId: args.data.captainUserId ?? null,
       });
 
       rosterPlayers.push(player);
@@ -477,6 +492,9 @@ describe('CaptainsService', () => {
                   team: {
                     findUnique: teamFindUnique,
                     create: teamCreate,
+                  },
+                  rosterPlayer: {
+                    create: rosterPlayerCreate,
                   },
                 }),
               ),
@@ -587,6 +605,7 @@ describe('CaptainsService', () => {
   });
 
   it('creates one active team for the authenticated Captain', async () => {
+    users[0].phoneNumber = '+201001234567';
     const result = await service.createTeam('captain-1', {
       name: 'Cairo Titans',
       description: 'Competitive Valorant roster',
@@ -595,6 +614,13 @@ describe('CaptainsService', () => {
       logoUrl: 'https://cdn.clutcha.gg/logo.png',
       coverUrl: 'https://cdn.clutcha.gg/cover.png',
       discordServerUrl: 'https://discord.gg/cairo-titans',
+      captainRosterPlayer: {
+        gamerTag: 'CaptainOne',
+        gameAccountId: 'CAPTAIN#0001',
+        rank: 'Immortal 2',
+        country: 'EG',
+        rosterType: RosterType.STARTER,
+      },
     });
 
     expect(result).toMatchObject({
@@ -609,15 +635,31 @@ describe('CaptainsService', () => {
       status: TeamStatus.ACTIVE,
       captainId: 'captain-1',
     });
+    expect(rosterPlayers).toEqual([
+      expect.objectContaining({
+        gamerTag: 'CaptainOne',
+        realName: 'Captain One',
+        gameAccountId: 'CAPTAIN#0001',
+        phoneNumber: '+201001234567',
+        email: 'captain@example.com',
+        captainUserId: 'captain-1',
+        teamId: result.id,
+      }),
+    ]);
   });
 
   it('uses the authenticated user ID as captainId and ignores submitted ownership fields', async () => {
+    users[0].phoneNumber = '+201001234567';
     await service.createTeam('captain-1', {
       name: 'JWT Owned Team',
       gameKey: 'valorant',
       captainId: 'attacker-captain',
       userId: 'attacker-user',
       status: TeamStatus.SUSPENDED,
+      captainRosterPlayer: {
+        gamerTag: 'CaptainOne',
+        gameAccountId: 'CAPTAIN#0001',
+      },
     } as never);
 
     const createArgs = teamCreate.mock.calls.at(0)?.[0];
@@ -653,17 +695,23 @@ describe('CaptainsService', () => {
   });
 
   it('returns 409 when the Captain already owns a team', async () => {
+    users[0].phoneNumber = '+201001234567';
     teams.push(createTeamRecord({ captainId: 'captain-1' }));
 
     await expect(
       service.createTeam('captain-1', {
         name: 'Second Team',
         gameKey: 'valorant',
+        captainRosterPlayer: {
+          gamerTag: 'CaptainOne',
+          gameAccountId: 'CAPTAIN#0001',
+        },
       }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('blocks concurrent duplicate team creation through the unique constraint', async () => {
+    users[0].phoneNumber = '+201001234567';
     teamFindUnique.mockResolvedValueOnce(null);
     teamCreate.mockImplementationOnce(() => {
       throw createPrismaKnownRequestError('P2002', ['captainId']);
@@ -673,6 +721,10 @@ describe('CaptainsService', () => {
       service.createTeam('captain-1', {
         name: 'Race Team',
         gameKey: 'valorant',
+        captainRosterPlayer: {
+          gamerTag: 'CaptainOne',
+          gameAccountId: 'CAPTAIN#0001',
+        },
       }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
@@ -790,6 +842,48 @@ describe('CaptainsService', () => {
     });
   });
 
+  it('backfills the Captain roster member from profile contact data', async () => {
+    users[0].phoneNumber = '+201001234567';
+    users[0].discordUsername = 'captain-discord';
+    teams.push(createTeamRecord({ id: 'team-1', captainId: 'captain-1' }));
+
+    const result = await service.createCaptainRosterPlayer('captain-1', {
+      gamerTag: 'CaptainOne',
+      gameAccountId: 'CAPTAIN#0001',
+      rank: 'Immortal 2',
+      country: 'EG',
+      rosterType: RosterType.STARTER,
+    });
+
+    expect(result).toMatchObject({
+      gamerTag: 'CaptainOne',
+      realName: 'Captain One',
+      gameAccountId: 'CAPTAIN#0001',
+      phoneNumber: '+201001234567',
+      email: 'captain@example.com',
+      discordUsername: 'captain-discord',
+      isCaptain: true,
+    });
+  });
+
+  it('rejects a duplicate Captain roster member', async () => {
+    users[0].phoneNumber = '+201001234567';
+    teams.push(createTeamRecord({ id: 'team-1', captainId: 'captain-1' }));
+    rosterPlayers.push(
+      createRosterPlayerRecord({
+        id: 'captain-player',
+        captainUserId: 'captain-1',
+      }),
+    );
+
+    await expect(
+      service.createCaptainRosterPlayer('captain-1', {
+        gamerTag: 'CaptainAgain',
+        gameAccountId: 'CAPTAIN#0002',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
   it('rejects missing roster-player phone number in the request DTO', async () => {
     const dto = plainToInstance(CreateRosterPlayerDto, {
       gamerTag: 'Fegoo',
@@ -859,6 +953,21 @@ describe('CaptainsService', () => {
     await expect(
       service.getRosterPlayer('captain-1', 'player-2'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('does not allow the Captain roster member to be removed', async () => {
+    teams.push(createTeamRecord({ id: 'team-1', captainId: 'captain-1' }));
+    rosterPlayers.push(
+      createRosterPlayerRecord({
+        id: 'captain-player',
+        captainUserId: 'captain-1',
+      }),
+    );
+
+    await expect(
+      service.deleteRosterPlayer('captain-1', 'captain-player'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(rosterPlayers).toHaveLength(1);
   });
 
   it('returns 409 for duplicate game account IDs on the same team', async () => {
@@ -1057,6 +1166,7 @@ const createRosterPlayerRecord = (
   verificationStatus: VerificationStatus.UNVERIFIED,
   eligibilityStatus: EligibilityStatus.PENDING_REVIEW,
   teamId: 'team-1',
+  captainUserId: null,
   createdAt: new Date('2026-08-04T12:00:00.000Z'),
   updatedAt: new Date('2026-08-04T12:00:00.000Z'),
   ...overrides,
