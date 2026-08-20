@@ -51,6 +51,13 @@ export class RosterPlayerResponseDto {
   @ApiProperty({ example: 'team-id' })
   teamId!: string;
 
+  @ApiProperty({
+    example: true,
+    description:
+      'True only for the roster record linked to the authenticated Captain user.',
+  })
+  isCaptain!: boolean;
+
   @ApiProperty({ example: '2026-08-04T12:00:00.000Z' })
   createdAt!: Date;
 

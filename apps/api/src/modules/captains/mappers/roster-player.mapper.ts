@@ -14,6 +14,7 @@ type RosterPlayerRecord = {
   verificationStatus: RosterPlayerResponseDto['verificationStatus'];
   eligibilityStatus: RosterPlayerResponseDto['eligibilityStatus'];
   teamId: string;
+  captainUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -34,6 +35,7 @@ export const toRosterPlayerResponse = (
   verificationStatus: player.verificationStatus,
   eligibilityStatus: player.eligibilityStatus,
   teamId: player.teamId,
+  isCaptain: player.captainUserId !== null,
   createdAt: player.createdAt,
   updatedAt: player.updatedAt,
 });

@@ -1,13 +1,15 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsOptional,
   IsString,
   IsUrl,
   Length,
   MaxLength,
+  ValidateNested,
   ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { CreateCaptainRosterPlayerDto } from './create-captain-roster-player.dto';
 
 const trimString = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -88,4 +90,13 @@ export class CreateCaptainTeamDto {
   @IsUrl({ protocols: ['https'], require_protocol: true })
   @MaxLength(2048)
   discordServerUrl?: string | null;
+
+  @ApiProperty({
+    type: CreateCaptainRosterPlayerDto,
+    description:
+      'Required playing identity for the authenticated Captain. Personal contact fields are copied from the Captain profile and cannot be submitted here.',
+  })
+  @Type(() => CreateCaptainRosterPlayerDto)
+  @ValidateNested()
+  captainRosterPlayer!: CreateCaptainRosterPlayerDto;
 }
