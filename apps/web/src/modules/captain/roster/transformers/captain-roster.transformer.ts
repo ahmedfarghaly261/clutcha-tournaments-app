@@ -1,10 +1,20 @@
 import { CreateRosterPlayerDtoRosterType } from '@/api/generated/captain'
 import type {
+  CaptainRosterMemberFormValues,
+  CreateCaptainRosterPlayer,
   CreateRosterPlayer,
   RosterPlayer,
   RosterPlayerFormValues,
   UpdateRosterPlayer,
 } from '../types/captain-roster.types'
+
+export const captainRosterMemberDefaultValues: CaptainRosterMemberFormValues = {
+  gamerTag: '',
+  gameAccountId: '',
+  rank: '',
+  country: '',
+  rosterType: CreateRosterPlayerDtoRosterType.STARTER,
+}
 
 export const rosterPlayerDefaultValues: RosterPlayerFormValues = {
   gamerTag: '',
@@ -37,6 +47,18 @@ export function transformRosterPlayerToFormValues(
 function transformOptionalString(value: string): string | null {
   const normalizedValue = value.trim()
   return normalizedValue || null
+}
+
+export function transformFormValuesToCreateCaptainRosterPlayer(
+  values: CaptainRosterMemberFormValues,
+): CreateCaptainRosterPlayer {
+  return {
+    gamerTag: values.gamerTag.trim(),
+    gameAccountId: values.gameAccountId.trim(),
+    rank: transformOptionalString(values.rank),
+    country: transformOptionalString(values.country),
+    rosterType: values.rosterType,
+  }
 }
 
 export function transformFormValuesToCreateRosterPlayer(
