@@ -15,8 +15,16 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCaptainTournamentEligibilityService } from '../services/captain-tournament-eligibility.service'
 import { transformTournamentEligibility } from '../transformers/captain-tournament-eligibility.transformer'
+import { CaptainTournamentRegistrationDialog } from '../../registration'
+import type { CaptainTournamentRegistrationDialogDetails } from '../../registration/types/captain-tournament-registration.types'
 
-export function CaptainTournamentEligibilityPanel({ tournamentId }: { tournamentId: string }) {
+export function CaptainTournamentEligibilityPanel({
+  tournamentId,
+  tournamentName,
+  rules,
+  rulesVersion,
+  registrationFeeLabel,
+}: CaptainTournamentRegistrationDialogDetails) {
   const eligibilityQuery = useCaptainTournamentEligibilityService(tournamentId)
   const eligibility = eligibilityQuery.data
     ? transformTournamentEligibility(eligibilityQuery.data)
@@ -68,7 +76,13 @@ export function CaptainTournamentEligibilityPanel({ tournamentId }: { tournament
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#8ef0cf]" />
             <div><p className="text-sm font-black text-[#d8fff1]">{eligibility.team?.name ?? 'Your team'} meets the current requirements.</p><p className="mt-1 text-xs leading-5 text-[#a8dac9]">Eligibility is evaluated again when registration is submitted.</p></div>
           </div>
-          <Button className="mt-4 w-full" disabled><ShieldCheck /> Registration submission is next</Button>
+          <CaptainTournamentRegistrationDialog
+            tournamentId={tournamentId}
+            tournamentName={tournamentName}
+            rules={rules}
+            rulesVersion={rulesVersion}
+            registrationFeeLabel={registrationFeeLabel}
+          />
         </CardContent>
       </Card>
     )
