@@ -166,6 +166,7 @@ model User {
   lastLoginAt     DateTime?
 
   captainTeam          Team?                    @relation("TeamCaptain")
+  captainRosterPlayer  RosterPlayer?            @relation("CaptainRosterPlayer")
   authSessions         AuthSession[]
   organizerProfile     OrganizerProfile?
   organizedTournaments Tournament[]             @relation("TournamentOrganizer")
@@ -226,6 +227,9 @@ model RosterPlayer {
 
   teamId String
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  captainUserId String? @unique @map("captain_user_id")
+  captainUser   User?   @relation("CaptainRosterPlayer", fields: [captainUserId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
