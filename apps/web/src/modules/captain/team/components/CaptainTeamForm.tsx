@@ -2,7 +2,19 @@ import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { isAxiosError } from 'axios'
-import { CircleAlert, Info, LoaderCircle, Save, ShieldPlus, X } from 'lucide-react'
+import {
+  CircleAlert,
+  Gamepad2,
+  Info,
+  LoaderCircle,
+  Mail,
+  MessageCircle,
+  Phone,
+  Save,
+  ShieldPlus,
+  UserRound,
+  X,
+} from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,11 +22,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { captainTeamSchema } from '../schemas/captain-team.schema'
+import { CreateCaptainRosterPlayerDtoRosterType } from '@/api/generated/captain'
+import {
+  captainTeamCreateSchema,
+  captainTeamUpdateSchema,
+} from '../schemas/captain-team.schema'
 import {
   captainTeamDefaultValues,
-  mapCaptainTeamToFormValues,
-} from '../services/captain-team.service'
+  transformCaptainTeamToFormValues,
+} from '../transformers/captain-team.transformer'
+import type { CaptainProfile } from '../../profile/types/captain-profile.types'
 import type {
   CaptainTeam,
   CaptainTeamFormMode,
@@ -33,6 +50,7 @@ const gameOptions = [
 type CaptainTeamFormProps = {
   mode: CaptainTeamFormMode
   team?: CaptainTeam
+  profile?: CaptainProfile
   isSaving: boolean
   onCancel?: () => void
   onSubmit: (values: CaptainTeamFormValues) => Promise<CaptainTeam>
@@ -60,6 +78,7 @@ function getTeamErrorMessage(error: unknown, mode: CaptainTeamFormMode): string 
 export function CaptainTeamForm({
   mode,
   team,
+  profile,
   isSaving,
   onCancel,
   onSubmit,
@@ -67,12 +86,12 @@ export function CaptainTeamForm({
 }: CaptainTeamFormProps) {
   const [requestError, setRequestError] = useState<string | null>(null)
   const form = useForm<CaptainTeamFormValues>({
-    resolver: zodResolver(captainTeamSchema),
+    resolver: zodResolver(mode === 'create' ? captainTeamCreateSchema : captainTeamUpdateSchema),
     defaultValues: captainTeamDefaultValues,
   })
 
   useEffect(() => {
-    form.reset(team ? mapCaptainTeamToFormValues(team) : captainTeamDefaultValues)
+    form.reset(team ? transformCaptainTeamToFormValues(team) : captainTeamDefaultValues)
   }, [form, team])
 
   const submitTeam = form.handleSubmit(async (values) => {
@@ -80,7 +99,7 @@ export function CaptainTeamForm({
 
     try {
       const savedTeam = await onSubmit(values)
-      form.reset(mapCaptainTeamToFormValues(savedTeam))
+      form.reset(transformCaptainTeamToFormValues(savedTeam))
       onSaved()
     } catch (error) {
       setRequestError(getTeamErrorMessage(error, mode))
@@ -163,6 +182,66 @@ export function CaptainTeamForm({
         </CardContent>
       </Card>
 
+      {mode === 'create' && (
+        <Card className="border-[#34505e] bg-[#151b21] shadow-[0_0_55px_rgba(82,205,244,0.06)]">
+          <CardHeader>
+            <UserRound className="h-5 w-5 text-[#71dcff]" />
+            <div>
+              <CardTitle>Your Captain roster member</CardTitle>
+              <p className="mt-1 text-xs leading-5 text-[#8f9bab]">
+                You will be added to the roster when the team is created. Identity and contact details come from your Captain profile.
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <ProfileValue icon={UserRound} label="Real name" value={profile?.displayName} />
+              <ProfileValue icon={Mail} label="Email" value={profile?.email} />
+              <ProfileValue icon={Phone} label="Phone" value={profile?.phoneNumber} />
+              <ProfileValue icon={MessageCircle} label="Discord" value={profile?.discordUsername} optional />
+            </div>
+
+            <div className="grid gap-4 border-t border-[#2c343e] pt-5 md:grid-cols-2 xl:grid-cols-3">
+              <TeamField label="Your gamer tag" error={form.formState.errors.captainGamerTag?.message}>
+                <Input
+                  placeholder="Fegoo"
+                  aria-invalid={Boolean(form.formState.errors.captainGamerTag)}
+                  {...form.register('captainGamerTag')}
+                />
+              </TeamField>
+              <TeamField label="Your game account ID" error={form.formState.errors.captainGameAccountId?.message}>
+                <Input
+                  placeholder="VALORANT#1234"
+                  aria-invalid={Boolean(form.formState.errors.captainGameAccountId)}
+                  {...form.register('captainGameAccountId')}
+                />
+              </TeamField>
+              <TeamField label="Roster role">
+                <Controller
+                  name="captainRosterType"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={CreateCaptainRosterPlayerDtoRosterType.STARTER}>Starter</SelectItem>
+                        <SelectItem value={CreateCaptainRosterPlayerDtoRosterType.SUBSTITUTE}>Substitute</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </TeamField>
+              <TeamField label="Competitive rank" error={form.formState.errors.captainRank?.message}>
+                <Input placeholder="Immortal 2" {...form.register('captainRank')} />
+              </TeamField>
+              <TeamField label="Country" error={form.formState.errors.captainCountry?.message}>
+                <Input placeholder="EG" {...form.register('captainCountry')} />
+              </TeamField>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {requestError && (
         <Alert className="border-[#78444a] bg-[#351d21] text-[#ffd1d4]">
           <CircleAlert className="h-5 w-5" />
@@ -185,6 +264,29 @@ export function CaptainTeamForm({
         </Button>
       </div>
     </form>
+  )
+}
+
+function ProfileValue({
+  icon: Icon,
+  label,
+  value,
+  optional = false,
+}: {
+  icon: typeof Gamepad2
+  label: string
+  value?: string | null
+  optional?: boolean
+}) {
+  return (
+    <div className="min-w-0 rounded-lg border border-[#2c343e] bg-[#11161b] p-3">
+      <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#81909f]">
+        <Icon className="h-3.5 w-3.5 text-[#71dcff]" /> {label}
+      </p>
+      <p className="mt-2 truncate text-sm font-bold text-[#e6eef5]">
+        {value || (optional ? 'Not provided' : 'Required in profile')}
+      </p>
+    </div>
   )
 }
 

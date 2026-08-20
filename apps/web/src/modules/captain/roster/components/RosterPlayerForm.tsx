@@ -73,7 +73,11 @@ export function RosterPlayerForm({
           {mode === 'create' ? <UserPlus className="h-5 w-5 text-[#71dcff]" /> : <Save className="h-5 w-5 text-[#71dcff]" />}
           <div>
             <CardTitle>{mode === 'create' ? 'Add roster player' : `Edit ${player?.gamerTag ?? 'player'}`}</CardTitle>
-            <p className="mt-1 text-xs text-[#8f9bab]">Roster players are managed records and do not receive CLUTCHA login accounts.</p>
+            <p className="mt-1 text-xs text-[#8f9bab]">
+              {player?.isCaptain
+                ? 'Your identity and contact fields are managed from the Captain profile.'
+                : 'Roster players are managed records and do not receive CLUTCHA login accounts.'}
+            </p>
           </div>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -81,7 +85,7 @@ export function RosterPlayerForm({
             <Input placeholder="Fegoo" aria-invalid={Boolean(form.formState.errors.gamerTag)} {...form.register('gamerTag')} />
           </Field>
           <Field label="Real name" hint="Optional private identity.">
-            <Input placeholder="Ahmed Farghaly" {...form.register('realName')} />
+            <Input readOnly={player?.isCaptain} placeholder="Ahmed Farghaly" {...form.register('realName')} />
           </Field>
           <Field label="Roster role">
             <Controller name="rosterType" control={form.control} render={({ field }) => (
@@ -98,13 +102,13 @@ export function RosterPlayerForm({
             <Input placeholder="VALORANT#1234" aria-invalid={Boolean(form.formState.errors.gameAccountId)} {...form.register('gameAccountId')} />
           </Field>
           <Field label="Phone number" hint="Required private contact in international format." error={form.formState.errors.phoneNumber?.message}>
-            <Input inputMode="tel" placeholder="+201001234567" aria-invalid={Boolean(form.formState.errors.phoneNumber)} {...form.register('phoneNumber')} />
+            <Input readOnly={player?.isCaptain} inputMode="tel" placeholder="+201001234567" aria-invalid={Boolean(form.formState.errors.phoneNumber)} {...form.register('phoneNumber')} />
           </Field>
           <Field label="Email" hint="Optional private contact." error={form.formState.errors.email?.message}>
-            <Input type="email" placeholder="player@example.com" aria-invalid={Boolean(form.formState.errors.email)} {...form.register('email')} />
+            <Input readOnly={player?.isCaptain} type="email" placeholder="player@example.com" aria-invalid={Boolean(form.formState.errors.email)} {...form.register('email')} />
           </Field>
           <Field label="Discord username" error={form.formState.errors.discordUsername?.message}>
-            <Input placeholder="player.username" {...form.register('discordUsername')} />
+            <Input readOnly={player?.isCaptain} placeholder="player.username" {...form.register('discordUsername')} />
           </Field>
           <Field label="Competitive rank" error={form.formState.errors.rank?.message}>
             <Input placeholder="Immortal 2" {...form.register('rank')} />

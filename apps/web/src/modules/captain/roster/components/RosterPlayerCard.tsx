@@ -43,7 +43,12 @@ export function RosterPlayerCard({ player, isDeleting, onEdit, onDelete }: Roste
             <p className="mt-1 truncate text-xs text-[#8f9baa]">{player.realName || player.gameAccountId}</p>
           </div>
         </div>
-        <span className="rounded-full border border-[#38576a] bg-[#172c36] px-2.5 py-1 text-[10px] font-black uppercase text-[#8be4ff]">{player.rosterType}</span>
+        <div className="flex flex-wrap justify-end gap-2">
+          {player.isCaptain && (
+            <span className="rounded-full border border-[#7857a2] bg-[#2d1e3b] px-2.5 py-1 text-[10px] font-black uppercase text-[#dcb0ff]">Captain</span>
+          )}
+          <span className="rounded-full border border-[#38576a] bg-[#172c36] px-2.5 py-1 text-[10px] font-black uppercase text-[#8be4ff]">{player.rosterType}</span>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="mb-4 flex flex-wrap gap-2">
@@ -63,19 +68,21 @@ export function RosterPlayerCard({ player, isDeleting, onEdit, onDelete }: Roste
           </div>
           <div className="flex shrink-0 gap-2">
             <Button variant="outline" size="sm" onClick={onEdit}><Pencil /> Edit</Button>
-            <AlertDialog>
-              <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}><Trash2 /> Remove</AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Remove {player.gamerTag}?</AlertDialogTitle>
-                  <AlertDialogDescription>This permanently removes the player record from your current roster. The action cannot be undone.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Keep player</AlertDialogCancel>
-                  <AlertDialogAction variant="destructive" disabled={isDeleting} onClick={() => void onDelete()}>{isDeleting ? 'Removing...' : 'Remove player'}</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            {!player.isCaptain && (
+              <AlertDialog>
+                <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}><Trash2 /> Remove</AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove {player.gamerTag}?</AlertDialogTitle>
+                    <AlertDialogDescription>This permanently removes the player record from your current roster. The action cannot be undone.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep player</AlertDialogCancel>
+                    <AlertDialogAction variant="destructive" disabled={isDeleting} onClick={() => void onDelete()}>{isDeleting ? 'Removing...' : 'Remove player'}</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
       </CardContent>
