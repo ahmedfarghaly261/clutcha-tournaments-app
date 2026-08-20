@@ -19,6 +19,7 @@ import {
   ApiCreatedResponse,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { UserRole } from '@clutcha/database';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -27,6 +28,7 @@ import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
 import { CaptainDashboardResponseDto } from './dto/captain-dashboard-response.dto';
 import { CaptainTeamResponseDto } from './dto/captain-team-response.dto';
 import { CreateCaptainTeamDto } from './dto/create-captain-team.dto';
+import { CreateCaptainRosterPlayerDto } from './dto/create-captain-roster-player.dto';
 import { CreateRosterPlayerDto } from './dto/create-roster-player.dto';
 import { CaptainProfileResponseDto } from './dto/captain-profile-response.dto';
 import { RosterPlayerResponseDto } from './dto/roster-player-response.dto';
@@ -135,11 +137,53 @@ export class CaptainsController {
   @ApiConflictResponse({
     description: 'The authenticated Captain already owns a team.',
   })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'The Captain profile does not contain the phone number required for the Captain roster member.',
+  })
   async createTeam(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateCaptainTeamDto,
   ): Promise<CaptainTeamResponseDto> {
     return this.captainsService.createTeam(user.id, dto);
+  }
+
+  @Post('team/captain-player')
+  @ApiTags('Captain Roster')
+  @ApiOperation({
+    summary: 'Create the authenticated Captain roster member',
+    description:
+      'Backfills the required Captain roster member for a team created before automatic Captain roster creation. The server copies real name, email, phone number, and Discord username from the authenticated Captain profile.',
+  })
+  @ApiCreatedResponse({
+    description: 'Captain roster member created.',
+    type: RosterPlayerResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The Captain player payload is invalid.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not a Captain.',
+  })
+  @ApiNotFoundResponse({
+    description: 'The authenticated Captain has not created a team.',
+  })
+  @ApiConflictResponse({
+    description:
+      'The Captain roster member already exists or the game account ID is already used by the team.',
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'The Captain profile does not contain the required phone number.',
+  })
+  async createCaptainRosterPlayer(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateCaptainRosterPlayerDto,
+  ): Promise<RosterPlayerResponseDto> {
+    return this.captainsService.createCaptainRosterPlayer(user.id, dto);
   }
 
   @Get('team')
@@ -353,7 +397,7 @@ export class CaptainsController {
   })
   @ApiConflictResponse({
     description:
-      'Deletion is blocked by a current roster lock once roster locks exist.',
+      'Deletion is blocked for the Captain roster member or by a current roster lock once roster locks exist.',
   })
   async deleteRosterPlayer(
     @CurrentUser() user: AuthenticatedUser,

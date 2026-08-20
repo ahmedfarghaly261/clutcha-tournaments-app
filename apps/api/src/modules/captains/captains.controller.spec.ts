@@ -51,6 +51,9 @@ describe('CaptainsController', () => {
     expect(typeof CaptainsController.prototype.createRosterPlayer).toBe(
       'function',
     );
+    expect(typeof CaptainsController.prototype.createCaptainRosterPlayer).toBe(
+      'function',
+    );
     expect(typeof CaptainsController.prototype.getRosterPlayer).toBe(
       'function',
     );
