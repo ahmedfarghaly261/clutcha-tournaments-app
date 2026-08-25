@@ -5,6 +5,7 @@ import { OrganizerTournamentsController } from './organizer-tournaments.controll
 import { PublicTournamentsController } from './public-tournaments.controller';
 import { TournamentsService } from './tournaments.service';
 import { TournamentCoverImageStorageService } from './tournament-cover-image-storage.service';
+import { TournamentPaymentProofStorageService } from './tournament-payment-proof-storage.service';
 
 @Module({
   controllers: [
@@ -13,6 +14,10 @@ import { TournamentCoverImageStorageService } from './tournament-cover-image-sto
     CaptainTournamentEligibilityController,
     PublicTournamentsController,
   ],
-  providers: [TournamentsService, TournamentCoverImageStorageService],
+  providers: [
+    TournamentsService,
+    TournamentCoverImageStorageService,
+    TournamentPaymentProofStorageService,
+  ],
 })
 export class TournamentsModule {}
