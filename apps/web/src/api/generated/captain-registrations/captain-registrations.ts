@@ -36,6 +36,8 @@ import type {
   CaptainRegistrationProgressResponseDto,
   CaptainRegistrationStandingsResponseDto,
   CaptainRegistrationsControllerListRegistrationsParams,
+  CaptainRegistrationsControllerSubmitPaymentProofBody,
+  PaymentProofResponseDto,
   WithdrawCaptainRegistrationDto
 } from './..';
 
@@ -1064,6 +1066,84 @@ export function useCaptainRegistrationsControllerGetRegistrationMatch<TData = Aw
 
 
 /**
+ * Uploads proof that the Captain paid the Organizer outside CLUTCHA. CLUTCHA stores the proof but does not verify the payment.
+ * @summary Submit manual payment proof
+ */
+export const captainRegistrationsControllerSubmitPaymentProof = (
+    registrationId: string,
+    captainRegistrationsControllerSubmitPaymentProofBody: BodyType<CaptainRegistrationsControllerSubmitPaymentProofBody>,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+      const formData = new FormData();
+formData.append(`paymentMethodId`, captainRegistrationsControllerSubmitPaymentProofBody.paymentMethodId);
+if(captainRegistrationsControllerSubmitPaymentProofBody.transactionReference !== undefined) {
+ formData.append(`transactionReference`, captainRegistrationsControllerSubmitPaymentProofBody.transactionReference);
+ }
+if(captainRegistrationsControllerSubmitPaymentProofBody.paidAt !== undefined) {
+ formData.append(`paidAt`, captainRegistrationsControllerSubmitPaymentProofBody.paidAt);
+ }
+if(captainRegistrationsControllerSubmitPaymentProofBody.captainNote !== undefined) {
+ formData.append(`captainNote`, captainRegistrationsControllerSubmitPaymentProofBody.captainNote);
+ }
+formData.append(`file`, captainRegistrationsControllerSubmitPaymentProofBody.file);
+
+      return clutchaApiClient<PaymentProofResponseDto>(
+      {url: `/api/captain/registrations/${registrationId}/payment-proof`, method: 'POST',
+      headers: {'Content-Type': 'multipart/form-data', },
+       data: formData, signal
+    },
+      options);
+    }
+
+
+
+
+export const getCaptainRegistrationsControllerSubmitPaymentProofMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof captainRegistrationsControllerSubmitPaymentProof>>, TError,{registrationId: string;data: BodyType<CaptainRegistrationsControllerSubmitPaymentProofBody>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof captainRegistrationsControllerSubmitPaymentProof>>, TError,{registrationId: string;data: BodyType<CaptainRegistrationsControllerSubmitPaymentProofBody>}, TContext> => {
+
+const mutationKey = ['captainRegistrationsControllerSubmitPaymentProof'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof captainRegistrationsControllerSubmitPaymentProof>>, {registrationId: string;data: BodyType<CaptainRegistrationsControllerSubmitPaymentProofBody>}> = (props) => {
+          const {registrationId,data} = props ?? {};
+
+          return  captainRegistrationsControllerSubmitPaymentProof(registrationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CaptainRegistrationsControllerSubmitPaymentProofMutationResult = NonNullable<Awaited<ReturnType<typeof captainRegistrationsControllerSubmitPaymentProof>>>
+    export type CaptainRegistrationsControllerSubmitPaymentProofMutationBody = BodyType<CaptainRegistrationsControllerSubmitPaymentProofBody>
+    export type CaptainRegistrationsControllerSubmitPaymentProofMutationError = ErrorType<void>
+
+    /**
+ * @summary Submit manual payment proof
+ */
+export const useCaptainRegistrationsControllerSubmitPaymentProof = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof captainRegistrationsControllerSubmitPaymentProof>>, TError,{registrationId: string;data: BodyType<CaptainRegistrationsControllerSubmitPaymentProofBody>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof captainRegistrationsControllerSubmitPaymentProof>>,
+        TError,
+        {registrationId: string;data: BodyType<CaptainRegistrationsControllerSubmitPaymentProofBody>},
+        TContext
+      > => {
+      return useMutation(getCaptainRegistrationsControllerSubmitPaymentProofMutationOptions(options), queryClient);
+    }
+    /**
  * Withdraws a registration owned by the authenticated Captain without deleting it. Submitted roster and Captain contact snapshots are preserved.
  * @summary Withdraw Captain tournament registration
  */

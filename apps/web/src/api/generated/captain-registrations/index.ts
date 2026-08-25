@@ -89,6 +89,7 @@ export * from './captainRegistrationsControllerListRegistrationsSortBy';
 export * from './captainRegistrationsControllerListRegistrationsSortDirection';
 export * from './captainRegistrationsControllerListRegistrationsStatus';
 export * from './captainRegistrationsControllerListRegistrationsTime';
+export * from './captainRegistrationsControllerSubmitPaymentProofBody';
 export * from './captainRegistrationStandingsResponseDto';
 export * from './captainRegistrationTournamentSummaryDto';
 export * from './captainRegistrationTournamentSummaryDtoMode';

@@ -27,6 +27,7 @@ import type {
 import type {
   CreateTournamentRegistrationDto,
   TournamentEligibilityResponseDto,
+  TournamentPaymentMethodResponseDto,
   TournamentRegistrationResponseDto
 } from './..';
 
@@ -135,6 +136,99 @@ export function useCaptainTournamentEligibilityControllerGetEligibility<TData = 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getCaptainTournamentEligibilityControllerGetEligibilityQueryOptions(tournamentId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+/**
+ * Returns enabled manual payment methods for a tournament so the Captain can pay the Organizer outside CLUTCHA.
+ * @summary List available tournament payment methods
+ */
+export const captainTournamentEligibilityControllerListPaymentMethods = (
+    tournamentId: string,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<TournamentPaymentMethodResponseDto[]>(
+      {url: `/api/tournaments/${tournamentId}/payment-methods`, method: 'GET', signal
+    },
+      options);
+    }
+
+
+
+
+export const getCaptainTournamentEligibilityControllerListPaymentMethodsQueryKey = (tournamentId: string,) => {
+    return [
+    `/api/tournaments/${tournamentId}/payment-methods`
+    ] as const;
+    }
+
+
+export const getCaptainTournamentEligibilityControllerListPaymentMethodsQueryOptions = <TData = Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>, TError = ErrorType<unknown>>(tournamentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>, TError, TData>>, request?: SecondParameter<typeof clutchaApiClient>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCaptainTournamentEligibilityControllerListPaymentMethodsQueryKey(tournamentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>> = ({ signal }) => captainTournamentEligibilityControllerListPaymentMethods(tournamentId, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: tournamentId !== null && tournamentId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CaptainTournamentEligibilityControllerListPaymentMethodsQueryResult = NonNullable<Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>>
+export type CaptainTournamentEligibilityControllerListPaymentMethodsQueryError = ErrorType<unknown>
+
+
+export function useCaptainTournamentEligibilityControllerListPaymentMethods<TData = Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>, TError = ErrorType<unknown>>(
+ tournamentId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>,
+          TError,
+          Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCaptainTournamentEligibilityControllerListPaymentMethods<TData = Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>, TError = ErrorType<unknown>>(
+ tournamentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>,
+          TError,
+          Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCaptainTournamentEligibilityControllerListPaymentMethods<TData = Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>, TError = ErrorType<unknown>>(
+ tournamentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>, TError, TData>>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List available tournament payment methods
+ */
+
+export function useCaptainTournamentEligibilityControllerListPaymentMethods<TData = Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>, TError = ErrorType<unknown>>(
+ tournamentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof captainTournamentEligibilityControllerListPaymentMethods>>, TError, TData>>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCaptainTournamentEligibilityControllerListPaymentMethodsQueryOptions(tournamentId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

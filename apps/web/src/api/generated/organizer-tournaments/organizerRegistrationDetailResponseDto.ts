@@ -5,6 +5,7 @@
  * API documentation for the CLUTCHA online and on-site esports tournament platform.
  * OpenAPI spec version: 1.0.0
  */
+import type { PaymentProofResponseDto } from '../paymentProofResponseDto';
 import type { OrganizerRegistrationDetailResponseDtoApprovalStatus } from './organizerRegistrationDetailResponseDtoApprovalStatus';
 import type { OrganizerRegistrationDetailResponseDtoCaptainContactSnapshot } from './organizerRegistrationDetailResponseDtoCaptainContactSnapshot';
 import type { OrganizerRegistrationDetailResponseDtoPaymentStatus } from './organizerRegistrationDetailResponseDtoPaymentStatus';
@@ -32,4 +33,9 @@ export interface OrganizerRegistrationDetailResponseDto {
   approvedAt?: string | null;
   /** @nullable */
   rejectedAt?: string | null;
+  /**
+     * Latest submitted manual-payment proof visible only to the owning organizer.
+     * @nullable
+     */
+  latestPaymentProof?: PaymentProofResponseDto | null;
 }

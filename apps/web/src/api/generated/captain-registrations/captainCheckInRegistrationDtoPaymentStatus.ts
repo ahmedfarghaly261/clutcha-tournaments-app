@@ -14,6 +14,10 @@ export type CaptainCheckInRegistrationDtoPaymentStatus = typeof CaptainCheckInRe
 
 export const CaptainCheckInRegistrationDtoPaymentStatus = {
   NOT_REQUIRED: 'NOT_REQUIRED',
+  AWAITING_PROOF: 'AWAITING_PROOF',
+  PROOF_SUBMITTED: 'PROOF_SUBMITTED',
+  VERIFIED: 'VERIFIED',
+  REJECTED: 'REJECTED',
   PENDING: 'PENDING',
   PAID: 'PAID',
   FAILED: 'FAILED',

@@ -40,12 +40,16 @@ import type {
   OrganizerTournamentListResponseDto,
   OrganizerTournamentsControllerListOrganizerTournamentsParams,
   OrganizerTournamentsControllerUploadTournamentCoverBody,
+  PaymentProofResponseDto,
   RejectOrganizerRegistrationDto,
+  RejectPaymentProofDto,
   ScheduleOrganizerMatchDto,
+  TournamentPaymentMethodResponseDto,
   TournamentResponseDto,
   UpdateGamingRoomDto,
   UpdateTournamentDraftDto,
   UpsertOnlineConfigurationDto,
+  UpsertTournamentPaymentMethodDto,
   UpsertVenueDto,
   VenueResponseDto
 } from './..';
@@ -1003,6 +1007,427 @@ export const useOrganizerTournamentsControllerRejectTournamentRegistration = <TE
         TContext
       > => {
       return useMutation(getOrganizerTournamentsControllerRejectTournamentRegistrationMutationOptions(options), queryClient);
+    }
+    /**
+ * Marks the latest submitted payment proof as verified. The organizer must first confirm that the money reached their own account; CLUTCHA does not verify payments.
+ * @summary Manually verify payment proof
+ */
+export const organizerTournamentsControllerVerifyRegistrationPaymentProof = (
+    tournamentId: string,
+    registrationId: string,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<PaymentProofResponseDto>(
+      {url: `/api/organizer/tournaments/${tournamentId}/registrations/${registrationId}/payment-proof/verify`, method: 'POST', signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizerTournamentsControllerVerifyRegistrationPaymentProofMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerVerifyRegistrationPaymentProof>>, TError,{tournamentId: string;registrationId: string}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerVerifyRegistrationPaymentProof>>, TError,{tournamentId: string;registrationId: string}, TContext> => {
+
+const mutationKey = ['organizerTournamentsControllerVerifyRegistrationPaymentProof'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof organizerTournamentsControllerVerifyRegistrationPaymentProof>>, {tournamentId: string;registrationId: string}> = (props) => {
+          const {tournamentId,registrationId} = props ?? {};
+
+          return  organizerTournamentsControllerVerifyRegistrationPaymentProof(tournamentId,registrationId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OrganizerTournamentsControllerVerifyRegistrationPaymentProofMutationResult = NonNullable<Awaited<ReturnType<typeof organizerTournamentsControllerVerifyRegistrationPaymentProof>>>
+
+    export type OrganizerTournamentsControllerVerifyRegistrationPaymentProofMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Manually verify payment proof
+ */
+export const useOrganizerTournamentsControllerVerifyRegistrationPaymentProof = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerVerifyRegistrationPaymentProof>>, TError,{tournamentId: string;registrationId: string}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof organizerTournamentsControllerVerifyRegistrationPaymentProof>>,
+        TError,
+        {tournamentId: string;registrationId: string},
+        TContext
+      > => {
+      return useMutation(getOrganizerTournamentsControllerVerifyRegistrationPaymentProofMutationOptions(options), queryClient);
+    }
+    /**
+ * Rejects the latest submitted payment proof and records an organizer-provided reason for the Captain.
+ * @summary Reject payment proof
+ */
+export const organizerTournamentsControllerRejectRegistrationPaymentProof = (
+    tournamentId: string,
+    registrationId: string,
+    rejectPaymentProofDto: BodyType<RejectPaymentProofDto>,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<PaymentProofResponseDto>(
+      {url: `/api/organizer/tournaments/${tournamentId}/registrations/${registrationId}/payment-proof/reject`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: rejectPaymentProofDto, signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizerTournamentsControllerRejectRegistrationPaymentProofMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerRejectRegistrationPaymentProof>>, TError,{tournamentId: string;registrationId: string;data: BodyType<RejectPaymentProofDto>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerRejectRegistrationPaymentProof>>, TError,{tournamentId: string;registrationId: string;data: BodyType<RejectPaymentProofDto>}, TContext> => {
+
+const mutationKey = ['organizerTournamentsControllerRejectRegistrationPaymentProof'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof organizerTournamentsControllerRejectRegistrationPaymentProof>>, {tournamentId: string;registrationId: string;data: BodyType<RejectPaymentProofDto>}> = (props) => {
+          const {tournamentId,registrationId,data} = props ?? {};
+
+          return  organizerTournamentsControllerRejectRegistrationPaymentProof(tournamentId,registrationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OrganizerTournamentsControllerRejectRegistrationPaymentProofMutationResult = NonNullable<Awaited<ReturnType<typeof organizerTournamentsControllerRejectRegistrationPaymentProof>>>
+    export type OrganizerTournamentsControllerRejectRegistrationPaymentProofMutationBody = BodyType<RejectPaymentProofDto>
+    export type OrganizerTournamentsControllerRejectRegistrationPaymentProofMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Reject payment proof
+ */
+export const useOrganizerTournamentsControllerRejectRegistrationPaymentProof = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerRejectRegistrationPaymentProof>>, TError,{tournamentId: string;registrationId: string;data: BodyType<RejectPaymentProofDto>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof organizerTournamentsControllerRejectRegistrationPaymentProof>>,
+        TError,
+        {tournamentId: string;registrationId: string;data: BodyType<RejectPaymentProofDto>},
+        TContext
+      > => {
+      return useMutation(getOrganizerTournamentsControllerRejectRegistrationPaymentProofMutationOptions(options), queryClient);
+    }
+    /**
+ * Returns manual payment methods configured for an organizer-owned tournament.
+ * @summary List tournament payment methods
+ */
+export const organizerTournamentsControllerListPaymentMethods = (
+    tournamentId: string,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<TournamentPaymentMethodResponseDto[]>(
+      {url: `/api/organizer/tournaments/${tournamentId}/payment-methods`, method: 'GET', signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizerTournamentsControllerListPaymentMethodsQueryKey = (tournamentId: string,) => {
+    return [
+    `/api/organizer/tournaments/${tournamentId}/payment-methods`
+    ] as const;
+    }
+
+
+export const getOrganizerTournamentsControllerListPaymentMethodsQueryOptions = <TData = Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>, TError = ErrorType<unknown>>(tournamentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>, TError, TData>>, request?: SecondParameter<typeof clutchaApiClient>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getOrganizerTournamentsControllerListPaymentMethodsQueryKey(tournamentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>> = ({ signal }) => organizerTournamentsControllerListPaymentMethods(tournamentId, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: tournamentId !== null && tournamentId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type OrganizerTournamentsControllerListPaymentMethodsQueryResult = NonNullable<Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>>
+export type OrganizerTournamentsControllerListPaymentMethodsQueryError = ErrorType<unknown>
+
+
+export function useOrganizerTournamentsControllerListPaymentMethods<TData = Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>, TError = ErrorType<unknown>>(
+ tournamentId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>,
+          TError,
+          Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useOrganizerTournamentsControllerListPaymentMethods<TData = Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>, TError = ErrorType<unknown>>(
+ tournamentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>,
+          TError,
+          Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useOrganizerTournamentsControllerListPaymentMethods<TData = Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>, TError = ErrorType<unknown>>(
+ tournamentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>, TError, TData>>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List tournament payment methods
+ */
+
+export function useOrganizerTournamentsControllerListPaymentMethods<TData = Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>, TError = ErrorType<unknown>>(
+ tournamentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof organizerTournamentsControllerListPaymentMethods>>, TError, TData>>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getOrganizerTournamentsControllerListPaymentMethodsQueryOptions(tournamentId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+/**
+ * Adds a manual payment method for an organizer-owned tournament.
+ * @summary Create tournament payment method
+ */
+export const organizerTournamentsControllerCreatePaymentMethod = (
+    tournamentId: string,
+    upsertTournamentPaymentMethodDto: BodyType<UpsertTournamentPaymentMethodDto>,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<TournamentPaymentMethodResponseDto>(
+      {url: `/api/organizer/tournaments/${tournamentId}/payment-methods`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: upsertTournamentPaymentMethodDto, signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizerTournamentsControllerCreatePaymentMethodMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerCreatePaymentMethod>>, TError,{tournamentId: string;data: BodyType<UpsertTournamentPaymentMethodDto>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerCreatePaymentMethod>>, TError,{tournamentId: string;data: BodyType<UpsertTournamentPaymentMethodDto>}, TContext> => {
+
+const mutationKey = ['organizerTournamentsControllerCreatePaymentMethod'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof organizerTournamentsControllerCreatePaymentMethod>>, {tournamentId: string;data: BodyType<UpsertTournamentPaymentMethodDto>}> = (props) => {
+          const {tournamentId,data} = props ?? {};
+
+          return  organizerTournamentsControllerCreatePaymentMethod(tournamentId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OrganizerTournamentsControllerCreatePaymentMethodMutationResult = NonNullable<Awaited<ReturnType<typeof organizerTournamentsControllerCreatePaymentMethod>>>
+    export type OrganizerTournamentsControllerCreatePaymentMethodMutationBody = BodyType<UpsertTournamentPaymentMethodDto>
+    export type OrganizerTournamentsControllerCreatePaymentMethodMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create tournament payment method
+ */
+export const useOrganizerTournamentsControllerCreatePaymentMethod = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerCreatePaymentMethod>>, TError,{tournamentId: string;data: BodyType<UpsertTournamentPaymentMethodDto>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof organizerTournamentsControllerCreatePaymentMethod>>,
+        TError,
+        {tournamentId: string;data: BodyType<UpsertTournamentPaymentMethodDto>},
+        TContext
+      > => {
+      return useMutation(getOrganizerTournamentsControllerCreatePaymentMethodMutationOptions(options), queryClient);
+    }
+    /**
+ * Updates a manual payment method for an organizer-owned tournament.
+ * @summary Update tournament payment method
+ */
+export const organizerTournamentsControllerUpdatePaymentMethod = (
+    tournamentId: string,
+    paymentMethodId: string,
+    upsertTournamentPaymentMethodDto: BodyType<UpsertTournamentPaymentMethodDto>,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<TournamentPaymentMethodResponseDto>(
+      {url: `/api/organizer/tournaments/${tournamentId}/payment-methods/${paymentMethodId}`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: upsertTournamentPaymentMethodDto, signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizerTournamentsControllerUpdatePaymentMethodMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerUpdatePaymentMethod>>, TError,{tournamentId: string;paymentMethodId: string;data: BodyType<UpsertTournamentPaymentMethodDto>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerUpdatePaymentMethod>>, TError,{tournamentId: string;paymentMethodId: string;data: BodyType<UpsertTournamentPaymentMethodDto>}, TContext> => {
+
+const mutationKey = ['organizerTournamentsControllerUpdatePaymentMethod'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof organizerTournamentsControllerUpdatePaymentMethod>>, {tournamentId: string;paymentMethodId: string;data: BodyType<UpsertTournamentPaymentMethodDto>}> = (props) => {
+          const {tournamentId,paymentMethodId,data} = props ?? {};
+
+          return  organizerTournamentsControllerUpdatePaymentMethod(tournamentId,paymentMethodId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OrganizerTournamentsControllerUpdatePaymentMethodMutationResult = NonNullable<Awaited<ReturnType<typeof organizerTournamentsControllerUpdatePaymentMethod>>>
+    export type OrganizerTournamentsControllerUpdatePaymentMethodMutationBody = BodyType<UpsertTournamentPaymentMethodDto>
+    export type OrganizerTournamentsControllerUpdatePaymentMethodMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update tournament payment method
+ */
+export const useOrganizerTournamentsControllerUpdatePaymentMethod = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerUpdatePaymentMethod>>, TError,{tournamentId: string;paymentMethodId: string;data: BodyType<UpsertTournamentPaymentMethodDto>}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof organizerTournamentsControllerUpdatePaymentMethod>>,
+        TError,
+        {tournamentId: string;paymentMethodId: string;data: BodyType<UpsertTournamentPaymentMethodDto>},
+        TContext
+      > => {
+      return useMutation(getOrganizerTournamentsControllerUpdatePaymentMethodMutationOptions(options), queryClient);
+    }
+    /**
+ * Removes a manual payment method from an organizer-owned tournament.
+ * @summary Delete tournament payment method
+ */
+export const organizerTournamentsControllerDeletePaymentMethod = (
+    tournamentId: string,
+    paymentMethodId: string,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<TournamentPaymentMethodResponseDto>(
+      {url: `/api/organizer/tournaments/${tournamentId}/payment-methods/${paymentMethodId}`, method: 'DELETE', signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizerTournamentsControllerDeletePaymentMethodMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerDeletePaymentMethod>>, TError,{tournamentId: string;paymentMethodId: string}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerDeletePaymentMethod>>, TError,{tournamentId: string;paymentMethodId: string}, TContext> => {
+
+const mutationKey = ['organizerTournamentsControllerDeletePaymentMethod'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof organizerTournamentsControllerDeletePaymentMethod>>, {tournamentId: string;paymentMethodId: string}> = (props) => {
+          const {tournamentId,paymentMethodId} = props ?? {};
+
+          return  organizerTournamentsControllerDeletePaymentMethod(tournamentId,paymentMethodId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OrganizerTournamentsControllerDeletePaymentMethodMutationResult = NonNullable<Awaited<ReturnType<typeof organizerTournamentsControllerDeletePaymentMethod>>>
+
+    export type OrganizerTournamentsControllerDeletePaymentMethodMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete tournament payment method
+ */
+export const useOrganizerTournamentsControllerDeletePaymentMethod = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerDeletePaymentMethod>>, TError,{tournamentId: string;paymentMethodId: string}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof organizerTournamentsControllerDeletePaymentMethod>>,
+        TError,
+        {tournamentId: string;paymentMethodId: string},
+        TContext
+      > => {
+      return useMutation(getOrganizerTournamentsControllerDeletePaymentMethodMutationOptions(options), queryClient);
     }
     /**
  * Publishes an organizer-owned draft tournament after publication validation passes.
