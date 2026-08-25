@@ -93,5 +93,6 @@ export type TournamentManagementSection =
   | 'general'
   | 'configuration'
   | 'gaming-rooms'
+  | 'payments'
   | 'bracket'
   | 'lifecycle'
