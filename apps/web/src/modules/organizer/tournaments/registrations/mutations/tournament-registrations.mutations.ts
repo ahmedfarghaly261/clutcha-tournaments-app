@@ -3,7 +3,9 @@ import {
   getOrganizerTournamentsControllerGetTournamentRegistrationQueryKey,
   getOrganizerTournamentsControllerListTournamentRegistrationsQueryKey,
   useOrganizerTournamentsControllerApproveTournamentRegistration,
+  useOrganizerTournamentsControllerRejectRegistrationPaymentProof,
   useOrganizerTournamentsControllerRejectTournamentRegistration,
+  useOrganizerTournamentsControllerVerifyRegistrationPaymentProof,
 } from '@/api/generated/organizer-tournaments/organizer-tournaments'
 
 export function useTournamentRegistrationMutations(tournamentId: string) {
@@ -36,12 +38,30 @@ export function useTournamentRegistrationMutations(tournamentId: string) {
       onSuccess: async (_, variables) => refreshRegistration(variables.registrationId),
     },
   })
+  const verifyPaymentMutation = useOrganizerTournamentsControllerVerifyRegistrationPaymentProof({
+    mutation: {
+      onSuccess: async (_, variables) => refreshRegistration(variables.registrationId),
+    },
+  })
+  const rejectPaymentMutation = useOrganizerTournamentsControllerRejectRegistrationPaymentProof({
+    mutation: {
+      onSuccess: async (_, variables) => refreshRegistration(variables.registrationId),
+    },
+  })
 
   return {
     approveRegistration: approveMutation.mutateAsync,
     rejectRegistration: rejectMutation.mutateAsync,
+    verifyPaymentProof: verifyPaymentMutation.mutateAsync,
+    rejectPaymentProof: rejectPaymentMutation.mutateAsync,
     isApproving: approveMutation.isPending,
     isRejecting: rejectMutation.isPending,
-    isPending: approveMutation.isPending || rejectMutation.isPending,
+    isVerifyingPayment: verifyPaymentMutation.isPending,
+    isRejectingPayment: rejectPaymentMutation.isPending,
+    isPending:
+      approveMutation.isPending ||
+      rejectMutation.isPending ||
+      verifyPaymentMutation.isPending ||
+      rejectPaymentMutation.isPending,
   }
 }
