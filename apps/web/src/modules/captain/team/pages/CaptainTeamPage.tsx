@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { CircleAlert, LoaderCircle, RotateCw, ShieldPlus } from 'lucide-react'
@@ -12,6 +12,7 @@ import {
 } from '../mutations/captain-team.mutations'
 import {
   useCaptainTeamService,
+  useCaptainTeamRegionsService,
 } from '../services/captain-team.service'
 import { useCaptainProfileService } from '../../profile/services/captain-profile.service'
 import {
@@ -22,11 +23,23 @@ import {
 export function CaptainTeamPage() {
   const [isEditing, setIsEditing] = useState(false)
   const teamQuery = useCaptainTeamService()
+  const regionsQuery = useCaptainTeamRegionsService()
   const profileQuery = useCaptainProfileService()
   const createTeamMutation = useCreateCaptainTeamMutation()
   const updateTeamMutation = useUpdateCaptainTeamMutation()
   const teamNotFound = teamQuery.isError && isAxiosError(teamQuery.error) && teamQuery.error.response?.status === 404
   const team = teamQuery.data
+  const availableRegions = useMemo(() => {
+    const regions = regionsQuery.data?.regions ?? []
+    const currentRegion = team?.region
+
+    return Array.from(
+      new Set([
+        ...regions,
+        ...(currentRegion && !regions.includes(currentRegion) ? [currentRegion] : []),
+      ]),
+    )
+  }, [regionsQuery.data?.regions, team?.region])
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -102,6 +115,8 @@ export function CaptainTeamPage() {
             <CaptainTeamForm
               mode="create"
               profile={profileQuery.data}
+              availableRegions={availableRegions}
+              isLoadingRegions={regionsQuery.isLoading}
               isSaving={createTeamMutation.isPending}
               onSubmit={(values) => createTeamMutation.mutateAsync({ data: transformFormValuesToCreateCaptainTeam(values) })}
               onSaved={() => setIsEditing(false)}
@@ -115,6 +130,8 @@ export function CaptainTeamPage() {
           <CaptainTeamForm
             mode="edit"
             team={team}
+            availableRegions={availableRegions}
+            isLoadingRegions={regionsQuery.isLoading}
             isSaving={updateTeamMutation.isPending}
             onCancel={() => setIsEditing(false)}
             onSubmit={(values) => updateTeamMutation.mutateAsync({ data: transformFormValuesToUpdateCaptainTeam(values) })}

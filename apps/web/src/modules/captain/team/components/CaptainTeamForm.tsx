@@ -51,6 +51,8 @@ type CaptainTeamFormProps = {
   mode: CaptainTeamFormMode
   team?: CaptainTeam
   profile?: CaptainProfile
+  availableRegions: string[]
+  isLoadingRegions?: boolean
   isSaving: boolean
   onCancel?: () => void
   onSubmit: (values: CaptainTeamFormValues) => Promise<CaptainTeam>
@@ -79,6 +81,8 @@ export function CaptainTeamForm({
   mode,
   team,
   profile,
+  availableRegions,
+  isLoadingRegions = false,
   isSaving,
   onCancel,
   onSubmit,
@@ -152,8 +156,25 @@ export function CaptainTeamForm({
             />
           </TeamField>
 
-          <TeamField label="Region" hint="Optional competitive region, for example MENA.">
-            <Input placeholder="MENA" {...form.register('region')} />
+          <TeamField label="Region" error={form.formState.errors.region?.message}>
+            <Controller
+              name="region"
+              control={form.control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange} disabled={isLoadingRegions || availableRegions.length === 0}>
+                  <SelectTrigger aria-invalid={Boolean(form.formState.errors.region)}>
+                    <SelectValue placeholder="Select a region" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableRegions.map((region) => (
+                      <SelectItem key={region} value={region}>{region}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {isLoadingRegions && <p className="text-xs leading-5 text-[#8492a2]">Loading available regions...</p>}
+            {!isLoadingRegions && availableRegions.length === 0 && <p className="text-xs leading-5 text-[#ffafb5]">No tournament regions are available yet.</p>}
           </TeamField>
 
           <TeamField
@@ -256,7 +277,7 @@ export function CaptainTeamForm({
             <X /> Cancel
           </Button>
         )}
-        <Button type="submit" disabled={isSaving || (mode === 'edit' && !form.formState.isDirty)}>
+        <Button type="submit" disabled={isSaving || isLoadingRegions || availableRegions.length === 0 || (mode === 'edit' && !form.formState.isDirty)}>
           {isSaving ? <LoaderCircle className="animate-spin" /> : mode === 'create' ? <ShieldPlus /> : <Save />}
           {isSaving
             ? mode === 'create' ? 'Registering team...' : 'Saving team...'
