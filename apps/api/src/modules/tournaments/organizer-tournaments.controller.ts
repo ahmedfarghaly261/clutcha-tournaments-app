@@ -54,12 +54,16 @@ import {
   OrganizerRegistrationDetailResponseDto,
   OrganizerRegistrationListResponseDto,
 } from './dto/organizer-registration-response.dto';
+import { PaymentProofResponseDto } from './dto/payment-proof-response.dto';
+import { RejectPaymentProofDto } from './dto/reject-payment-proof.dto';
 import { TournamentResponseDto } from './dto/tournament-response.dto';
 import { RejectOrganizerRegistrationDto } from './dto/reject-organizer-registration.dto';
 import { ScheduleOrganizerMatchDto } from './dto/schedule-organizer-match.dto';
+import { TournamentPaymentMethodResponseDto } from './dto/tournament-payment-method-response.dto';
 import { UpdateGamingRoomDto } from './dto/update-gaming-room.dto';
 import { UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
 import { UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.dto';
+import { UpsertTournamentPaymentMethodDto } from './dto/upsert-tournament-payment-method.dto';
 import { UpsertVenueDto } from './dto/upsert-venue.dto';
 import { VenueResponseDto } from './dto/venue-response.dto';
 import { TournamentsService } from './tournaments.service';
@@ -416,6 +420,52 @@ export class OrganizerTournamentsController {
     );
   }
 
+  @Post(':tournamentId/registrations/:registrationId/payment-proof/verify')
+  @ApiOperation({
+    summary: 'Manually verify payment proof',
+    description:
+      'Marks the latest submitted payment proof as verified. The organizer must first confirm that the money reached their own account; CLUTCHA does not verify payments.',
+  })
+  @ApiOkResponse({
+    description: 'Payment proof manually verified.',
+    type: PaymentProofResponseDto,
+  })
+  async verifyRegistrationPaymentProof(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Param('registrationId', new ParseUUIDPipe()) registrationId: string,
+  ): Promise<PaymentProofResponseDto> {
+    return this.tournamentsService.verifyOrganizerRegistrationPaymentProof(
+      user.id,
+      tournamentId,
+      registrationId,
+    );
+  }
+
+  @Post(':tournamentId/registrations/:registrationId/payment-proof/reject')
+  @ApiOperation({
+    summary: 'Reject payment proof',
+    description:
+      'Rejects the latest submitted payment proof and records an organizer-provided reason for the Captain.',
+  })
+  @ApiOkResponse({
+    description: 'Payment proof rejected.',
+    type: PaymentProofResponseDto,
+  })
+  async rejectRegistrationPaymentProof(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Param('registrationId', new ParseUUIDPipe()) registrationId: string,
+    @Body() dto: RejectPaymentProofDto,
+  ): Promise<PaymentProofResponseDto> {
+    return this.tournamentsService.rejectOrganizerRegistrationPaymentProof(
+      user.id,
+      tournamentId,
+      registrationId,
+      dto,
+    );
+  }
+
   @Patch(':tournamentId')
   @ApiOperation({
     summary: 'Update tournament draft',
@@ -455,6 +505,95 @@ export class OrganizerTournamentsController {
       user.id,
       tournamentId,
       dto,
+    );
+  }
+
+  @Get(':tournamentId/payment-methods')
+  @ApiOperation({
+    summary: 'List tournament payment methods',
+    description:
+      'Returns manual payment methods configured for an organizer-owned tournament.',
+  })
+  @ApiOkResponse({
+    description: 'Payment methods returned.',
+    type: TournamentPaymentMethodResponseDto,
+    isArray: true,
+  })
+  async listPaymentMethods(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+  ): Promise<TournamentPaymentMethodResponseDto[]> {
+    return this.tournamentsService.listOrganizerTournamentPaymentMethods(
+      user.id,
+      tournamentId,
+    );
+  }
+
+  @Post(':tournamentId/payment-methods')
+  @ApiOperation({
+    summary: 'Create tournament payment method',
+    description:
+      'Adds a manual payment method for an organizer-owned tournament.',
+  })
+  @ApiCreatedResponse({
+    description: 'Payment method created.',
+    type: TournamentPaymentMethodResponseDto,
+  })
+  async createPaymentMethod(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Body() dto: UpsertTournamentPaymentMethodDto,
+  ): Promise<TournamentPaymentMethodResponseDto> {
+    return this.tournamentsService.createOrganizerTournamentPaymentMethod(
+      user.id,
+      tournamentId,
+      dto,
+    );
+  }
+
+  @Patch(':tournamentId/payment-methods/:paymentMethodId')
+  @ApiOperation({
+    summary: 'Update tournament payment method',
+    description:
+      'Updates a manual payment method for an organizer-owned tournament.',
+  })
+  @ApiOkResponse({
+    description: 'Payment method updated.',
+    type: TournamentPaymentMethodResponseDto,
+  })
+  async updatePaymentMethod(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Param('paymentMethodId', new ParseUUIDPipe()) paymentMethodId: string,
+    @Body() dto: UpsertTournamentPaymentMethodDto,
+  ): Promise<TournamentPaymentMethodResponseDto> {
+    return this.tournamentsService.updateOrganizerTournamentPaymentMethod(
+      user.id,
+      tournamentId,
+      paymentMethodId,
+      dto,
+    );
+  }
+
+  @Delete(':tournamentId/payment-methods/:paymentMethodId')
+  @ApiOperation({
+    summary: 'Delete tournament payment method',
+    description:
+      'Removes a manual payment method from an organizer-owned tournament.',
+  })
+  @ApiOkResponse({
+    description: 'Payment method deleted.',
+    type: TournamentPaymentMethodResponseDto,
+  })
+  async deletePaymentMethod(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+    @Param('paymentMethodId', new ParseUUIDPipe()) paymentMethodId: string,
+  ): Promise<TournamentPaymentMethodResponseDto> {
+    return this.tournamentsService.deleteOrganizerTournamentPaymentMethod(
+      user.id,
+      tournamentId,
+      paymentMethodId,
     );
   }
 

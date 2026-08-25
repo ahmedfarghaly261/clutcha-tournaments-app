@@ -1,7 +1,22 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  UploadedFile,
+  UseInterceptors,
+  Query,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
   ApiConflictResponse,
+  ApiConsumes,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -10,6 +25,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { UserRole } from '@clutcha/database';
+import { type Request } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
@@ -28,8 +44,15 @@ import {
 import { CaptainRegistrationProgressResponseDto } from './dto/captain-registration-progress-response.dto';
 import { CaptainRegistrationStandingsResponseDto } from './dto/captain-registration-standings-response.dto';
 import { ListCaptainRegistrationsQueryDto } from './dto/list-captain-registrations-query.dto';
+import { PaymentProofResponseDto } from './dto/payment-proof-response.dto';
+import { SubmitPaymentProofDto } from './dto/submit-payment-proof.dto';
 import { WithdrawCaptainRegistrationDto } from './dto/withdraw-captain-registration.dto';
+import { type TournamentPaymentProofFile } from './tournament-payment-proof-storage.service';
 import { TournamentsService } from './tournaments.service';
+
+const paymentProofUploadOptions = {
+  limits: { fileSize: 10 * 1024 * 1024 },
+};
 
 @ApiTags('Captain Registrations')
 @ApiBearerAuth('access-token')
@@ -370,6 +393,58 @@ export class CaptainRegistrationsController {
       user.id,
       registrationId,
       matchId,
+    );
+  }
+
+  @Post(':registrationId/payment-proof')
+  @UseInterceptors(FileInterceptor('file', paymentProofUploadOptions))
+  @ApiOperation({
+    summary: 'Submit manual payment proof',
+    description:
+      'Uploads proof that the Captain paid the Organizer outside CLUTCHA. CLUTCHA stores the proof but does not verify the payment.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['paymentMethodId', 'file'],
+      properties: {
+        paymentMethodId: { type: 'string', format: 'uuid' },
+        transactionReference: { type: 'string' },
+        paidAt: { type: 'string', format: 'date-time' },
+        captainNote: { type: 'string' },
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'JPEG, PNG, WebP, or PDF proof up to 10MB.',
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'Payment proof submitted.',
+    type: PaymentProofResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The proof payload or uploaded file is invalid.',
+  })
+  @ApiConflictResponse({
+    description:
+      'The registration does not require proof or no longer allows proof submission.',
+  })
+  async submitPaymentProof(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('registrationId', new ParseUUIDPipe()) registrationId: string,
+    @Body() dto: SubmitPaymentProofDto,
+    @UploadedFile() file: TournamentPaymentProofFile | undefined,
+    @Req() request: Request,
+  ): Promise<PaymentProofResponseDto> {
+    return this.tournamentsService.submitCaptainRegistrationPaymentProof(
+      user.id,
+      registrationId,
+      dto,
+      file,
+      `${request.protocol}://${request.get('host')}`,
     );
   }
 

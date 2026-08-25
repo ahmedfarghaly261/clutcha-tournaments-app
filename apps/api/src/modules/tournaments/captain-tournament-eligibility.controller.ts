@@ -17,6 +17,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
 import { CreateTournamentRegistrationDto } from './dto/create-tournament-registration.dto';
+import { TournamentPaymentMethodResponseDto } from './dto/tournament-payment-method-response.dto';
 import { TournamentEligibilityResponseDto } from './dto/tournament-eligibility-response.dto';
 import { TournamentRegistrationResponseDto } from './dto/tournament-registration-response.dto';
 import { TournamentsService } from './tournaments.service';
@@ -56,6 +57,25 @@ export class CaptainTournamentEligibilityController {
   ): Promise<TournamentEligibilityResponseDto> {
     return this.tournamentsService.getCaptainTournamentEligibility(
       user.id,
+      tournamentId,
+    );
+  }
+
+  @Get(':tournamentId/payment-methods')
+  @ApiOperation({
+    summary: 'List available tournament payment methods',
+    description:
+      'Returns enabled manual payment methods for a tournament so the Captain can pay the Organizer outside CLUTCHA.',
+  })
+  @ApiOkResponse({
+    description: 'Available payment methods returned.',
+    type: TournamentPaymentMethodResponseDto,
+    isArray: true,
+  })
+  async listPaymentMethods(
+    @Param('tournamentId') tournamentId: string,
+  ): Promise<TournamentPaymentMethodResponseDto[]> {
+    return this.tournamentsService.listCaptainTournamentPaymentMethods(
       tournamentId,
     );
   }
