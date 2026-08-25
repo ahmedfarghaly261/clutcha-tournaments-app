@@ -27,6 +27,7 @@ import type {
 import type {
   CaptainDashboardResponseDto,
   CaptainProfileResponseDto,
+  CaptainTeamRegionListResponseDto,
   CaptainTeamResponseDto,
   CreateCaptainRosterPlayerDto,
   CreateCaptainTeamDto,
@@ -600,6 +601,99 @@ export const useCaptainsControllerCreateCaptainRosterPlayer = <TError = ErrorTyp
       return useMutation(getCaptainsControllerCreateCaptainRosterPlayerMutationOptions(options), queryClient);
     }
     /**
+ * Returns distinct tournament allowed-region values captains can select for team eligibility.
+ * @summary List available Captain team regions
+ */
+export const captainsControllerListTeamRegions = (
+
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<CaptainTeamRegionListResponseDto>(
+      {url: `/api/captain/team/regions`, method: 'GET', signal
+    },
+      options);
+    }
+
+
+
+
+export const getCaptainsControllerListTeamRegionsQueryKey = () => {
+    return [
+    `/api/captain/team/regions`
+    ] as const;
+    }
+
+
+export const getCaptainsControllerListTeamRegionsQueryOptions = <TData = Awaited<ReturnType<typeof captainsControllerListTeamRegions>>, TError = ErrorType<void>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof captainsControllerListTeamRegions>>, TError, TData>>, request?: SecondParameter<typeof clutchaApiClient>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCaptainsControllerListTeamRegionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof captainsControllerListTeamRegions>>> = ({ signal }) => captainsControllerListTeamRegions(requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof captainsControllerListTeamRegions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CaptainsControllerListTeamRegionsQueryResult = NonNullable<Awaited<ReturnType<typeof captainsControllerListTeamRegions>>>
+export type CaptainsControllerListTeamRegionsQueryError = ErrorType<void>
+
+
+export function useCaptainsControllerListTeamRegions<TData = Awaited<ReturnType<typeof captainsControllerListTeamRegions>>, TError = ErrorType<void>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof captainsControllerListTeamRegions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof captainsControllerListTeamRegions>>,
+          TError,
+          Awaited<ReturnType<typeof captainsControllerListTeamRegions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCaptainsControllerListTeamRegions<TData = Awaited<ReturnType<typeof captainsControllerListTeamRegions>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof captainsControllerListTeamRegions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof captainsControllerListTeamRegions>>,
+          TError,
+          Awaited<ReturnType<typeof captainsControllerListTeamRegions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCaptainsControllerListTeamRegions<TData = Awaited<ReturnType<typeof captainsControllerListTeamRegions>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof captainsControllerListTeamRegions>>, TError, TData>>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List available Captain team regions
+ */
+
+export function useCaptainsControllerListTeamRegions<TData = Awaited<ReturnType<typeof captainsControllerListTeamRegions>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof captainsControllerListTeamRegions>>, TError, TData>>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCaptainsControllerListTeamRegionsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+/**
  * Returns private roster-player records for the authenticated Captain team, including player contact fields. No player user accounts are created.
  * @summary List roster players for the authenticated Captain team
  */

@@ -20,6 +20,7 @@ export * from './captainProfileResponseDto';
 export * from './captainProfileResponseDtoRole';
 export * from './captainProfileResponseDtoStatus';
 export * from './captainProfileResponseDtoTeam';
+export * from './captainTeamRegionListResponseDto';
 export * from './captainTeamResponseDto';
 export * from './captainTeamResponseDtoStatus';
 export * from './createCaptainRosterPlayerDto';
