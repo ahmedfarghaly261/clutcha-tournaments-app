@@ -9,6 +9,7 @@ import { CaptainTeamPage } from '@/modules/captain/team'
 import { CaptainRosterPage } from '@/modules/captain/roster'
 import { CaptainTournamentDiscoveryPage } from '@/modules/captain/tournaments/discovery'
 import { CaptainTournamentDetailsPage } from '@/modules/captain/tournaments/details'
+import { CaptainRegistrationsPage } from '@/modules/captain/tournaments/registrations'
 import { CaptainPlaceholderPage } from '@/modules/captain/shell'
 
 export const captainRoutes: RouteObject[] = [
@@ -30,7 +31,7 @@ export const captainRoutes: RouteObject[] = [
               { path: 'tournaments/:slug', element: <CaptainTournamentDetailsPage /> },
               {
                 path: 'registrations',
-                element: <CaptainPlaceholderPage title="Registrations" description="Track submitted tournament registrations, approval, payment, and check-in status." />,
+                element: <CaptainRegistrationsPage />,
               },
               {
                 path: 'matches',

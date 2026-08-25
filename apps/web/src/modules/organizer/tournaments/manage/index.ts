@@ -2,3 +2,4 @@ export { TournamentGeneralSettingsPage } from './pages/TournamentGeneralSettings
 export { TournamentGamingRoomsPage } from './pages/TournamentGamingRoomsPage'
 export { TournamentLifecyclePage } from './pages/TournamentLifecyclePage'
 export { TournamentModeConfigurationPage } from './pages/TournamentModeConfigurationPage'
+export { TournamentPaymentMethodsPage } from './pages/TournamentPaymentMethodsPage'
