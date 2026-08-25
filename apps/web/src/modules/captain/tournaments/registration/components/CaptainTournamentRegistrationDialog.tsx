@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   CircleAlert,
   ClipboardCheck,
+  CreditCard,
   LoaderCircle,
   ShieldCheck,
 } from 'lucide-react'
@@ -25,6 +26,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { useCaptainTournamentEligibilityControllerListPaymentMethods } from '@/api/generated/captain-tournaments/captain-tournaments'
+import { PaymentMethodDetails } from '../../payment/components/PaymentMethodDetails'
 import { useCreateCaptainTournamentRegistrationMutation } from '../mutations/captain-tournament-registration.mutations'
 import { captainTournamentRegistrationSchema } from '../schemas/captain-tournament-registration.schema'
 import {
@@ -77,6 +80,13 @@ export function CaptainTournamentRegistrationDialog({
   const [open, setOpen] = useState(false)
   const [requestError, setRequestError] = useState<string | null>(null)
   const registrationMutation = useCreateCaptainTournamentRegistrationMutation(tournamentId)
+  const paidTournament = !registrationFeeLabel.toLowerCase().startsWith('free') && !registrationFeeLabel.startsWith('0 ')
+  const paymentMethodsQuery = useCaptainTournamentEligibilityControllerListPaymentMethods(tournamentId, {
+    query: {
+      enabled: open && paidTournament,
+      staleTime: 30_000,
+    },
+  })
   const form = useForm<CaptainTournamentRegistrationFormValues>({
     resolver: zodResolver(captainTournamentRegistrationSchema),
     defaultValues: captainTournamentRegistrationDefaultValues,
@@ -131,6 +141,33 @@ export function CaptainTournamentRegistrationDialog({
             <SummaryValue label="Entry fee" value={registrationFeeLabel} />
             <SummaryValue label="Rules version" value={rulesVersion} />
           </div>
+
+          {paidTournament && (
+            <Alert className="border-[#735f2c] bg-[#332916] text-[#f1d384]">
+              <CreditCard className="h-5 w-5" />
+              <AlertTitle>Manual organizer payment</AlertTitle>
+              <AlertDescription className="text-[#d9c387]">
+                Pay the organizer directly outside CLUTCHA, then upload proof from your registration after submitting. CLUTCHA does not process or automatically verify the transaction.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {paidTournament && (
+            <div className="space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#d7a5ff]">Available payment methods</p>
+              {paymentMethodsQuery.isLoading && <p className="text-sm text-[#9f94a4]">Loading payment methods...</p>}
+              {paymentMethodsQuery.data?.map((method) => (
+                <PaymentMethodDetails key={method.id} method={method} />
+              ))}
+              {!paymentMethodsQuery.isLoading && paymentMethodsQuery.data?.length === 0 && (
+                <Alert className="border-[#78444a] bg-[#351d21] text-[#ffd1d4]">
+                  <CircleAlert className="h-5 w-5" />
+                  <AlertTitle>No payment methods available</AlertTitle>
+                  <AlertDescription className="text-[#e6b8bc]">The organizer must configure payment instructions before paid registration can be completed.</AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
 
           <div className="max-h-52 overflow-y-auto rounded-lg border border-[#38323b] bg-[#121113] p-4">
             <p className="mb-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#d7a5ff]">
@@ -193,7 +230,7 @@ export function CaptainTournamentRegistrationDialog({
 
           <AlertDialogFooter>
             <AlertDialogCancel type="button" disabled={registrationMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction type="submit" disabled={registrationMutation.isPending}>
+            <AlertDialogAction type="submit" disabled={registrationMutation.isPending || (paidTournament && (paymentMethodsQuery.isLoading || paymentMethodsQuery.data?.length === 0))}>
               {registrationMutation.isPending ? <LoaderCircle className="animate-spin" /> : <ClipboardCheck />}
               {registrationMutation.isPending ? 'Submitting...' : 'Confirm registration'}
             </AlertDialogAction>
@@ -212,3 +249,4 @@ function SummaryValue({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
+
