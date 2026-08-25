@@ -7,6 +7,8 @@ import {
   Check,
   CircleAlert,
   Clock3,
+  CreditCard,
+  ExternalLink,
   Mail,
   Phone,
   Search,
@@ -124,13 +126,26 @@ function toRoster(value: unknown): RosterSnapshotMember[] {
   }))
 }
 
-function canApprove(registration: OrganizerRegistrationDetailResponseDto) {
-  return (
-    registration.approvalStatus === 'PENDING' &&
-    registration.eligibility.eligible &&
-    ['PAID', 'NOT_REQUIRED'].includes(registration.paymentStatus) &&
-    ['PENDING_APPROVAL', 'WAITLISTED'].includes(registration.status)
-  )
+function getApprovalUnavailableReason(
+  registration: OrganizerRegistrationDetailResponseDto,
+) {
+  if (registration.approvalStatus !== 'PENDING') {
+    return 'Only pending registrations can be approved.'
+  }
+
+  if (!registration.eligibility.eligible) {
+    return 'Resolve the eligibility issues before approving this team.'
+  }
+
+  if (!['PROOF_SUBMITTED', 'VERIFIED', 'PAID', 'NOT_REQUIRED'].includes(registration.paymentStatus)) {
+    return 'Paid registrations require submitted payment proof before approval.'
+  }
+
+  if (!['PENDING_APPROVAL', 'WAITLISTED'].includes(registration.status)) {
+    return 'This registration status does not allow approval.'
+  }
+
+  return null
 }
 
 function canReject(registration: OrganizerRegistrationDetailResponseDto) {
@@ -197,6 +212,26 @@ function RejectDialog({
   return <AlertDialog open={open} onOpenChange={setOpen}><AlertDialogTrigger render={<Button variant="destructive" disabled={pending} />}><X className="h-4 w-4" /> Reject team</AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Reject this registration?</AlertDialogTitle><AlertDialogDescription>The captain will see the rejection reason. Keep it clear and actionable.</AlertDialogDescription></AlertDialogHeader><div><Label htmlFor="registration-rejection-reason" className="mb-2">Rejection reason</Label><Textarea id="registration-rejection-reason" value={reason} maxLength={500} onChange={(event) => setReason(event.target.value)} placeholder="Explain why this registration cannot be accepted..." /><p className="mt-1.5 text-xs text-[#8f8494]">{reason.trim().length}/500 characters</p></div><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction variant="destructive" disabled={!valid || pending} onClick={() => void confirm()}>{pending ? 'Rejecting...' : 'Confirm rejection'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
 }
 
+function RejectPaymentDialog({
+  pending,
+  onReject,
+}: {
+  pending: boolean
+  onReject: (reason: string) => Promise<boolean>
+}) {
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const valid = reason.trim().length >= 3 && reason.trim().length <= 500
+  const confirm = async () => {
+    if (valid && await onReject(reason.trim())) {
+      setReason('')
+      setOpen(false)
+    }
+  }
+
+  return <AlertDialog open={open} onOpenChange={setOpen}><AlertDialogTrigger render={<Button variant="destructive" disabled={pending} />}><X className="h-4 w-4" /> Reject payment</AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Reject payment proof?</AlertDialogTitle><AlertDialogDescription>The captain will see this reason and may upload new proof while registration is still open.</AlertDialogDescription></AlertDialogHeader><div><Label htmlFor="payment-rejection-reason" className="mb-2">Rejection reason</Label><Textarea id="payment-rejection-reason" value={reason} maxLength={500} onChange={(event) => setReason(event.target.value)} placeholder="Payment was not received, incorrect amount, unreadable proof..." /><p className="mt-1.5 text-xs text-[#8f8494]">{reason.trim().length}/500 characters</p></div><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction variant="destructive" disabled={!valid || pending} onClick={() => void confirm()}>{pending ? 'Rejecting...' : 'Reject proof'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+}
+
 function RegistrationDetails({
   tournamentId,
   registrationId,
@@ -234,11 +269,37 @@ function RegistrationDetails({
     }
   }
 
+  const verifyPayment = async () => {
+    onMessage(null, null)
+    try {
+      await mutations.verifyPaymentProof({ tournamentId, registrationId })
+      onMessage('Payment proof manually verified.', null)
+      return true
+    } catch (error) {
+      onMessage(null, getErrorMessage(error, 'Could not verify this payment proof.'))
+      return false
+    }
+  }
+
+  const rejectPayment = async (reason: string) => {
+    onMessage(null, null)
+    try {
+      await mutations.rejectPaymentProof({ tournamentId, registrationId, data: { reason } })
+      onMessage('Payment proof rejected.', null)
+      return true
+    } catch (error) {
+      onMessage(null, getErrorMessage(error, 'Could not reject this payment proof.'))
+      return false
+    }
+  }
+
   if (detailsQuery.isLoading) return <div className="h-[620px] animate-pulse rounded-xl bg-[#1b191c]" />
   if (detailsQuery.isError || !registration) return <Alert className="border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Registration could not be loaded</AlertTitle><AlertDescription className="text-[#ffcbc7]">It may have been removed or no longer belongs to this tournament.</AlertDescription></Alert>
 
   const contact = toCaptainContact(registration.captainContactSnapshot)
   const roster = toRoster(registration.rosterSnapshot)
+  const approvalUnavailableReason = getApprovalUnavailableReason(registration)
+  const paymentProof = registration.latestPaymentProof
   return (
     <div className="space-y-5">
       <Card>
@@ -252,9 +313,98 @@ function RegistrationDetails({
 
       <Card><CardHeader><UserRound className="h-5 w-5 text-[#d7a5ff]" /><CardTitle>Captain contact</CardTitle></CardHeader><CardContent>{contact ? <div><p className="font-black text-[#f1ebf3]">{contact.displayName || 'Captain'}</p><div className="mt-4 grid gap-3 text-sm sm:grid-cols-2"><p className="flex items-center gap-2 text-[#c4bac8]"><Mail className="h-4 w-4 text-[#d7a5ff]" /> {contact.email || 'Not provided'}</p><p className="flex items-center gap-2 text-[#c4bac8]"><Phone className="h-4 w-4 text-[#d7a5ff]" /> {contact.phoneNumber || 'Not provided'}</p><p className="text-[#c4bac8]">Discord: <strong>{contact.discordUsername || 'Not provided'}</strong></p></div></div> : <p className="text-sm text-[#958a99]">Captain contact was not included in this submission.</p>}</CardContent></Card>
 
+      <Card>
+        <CardHeader><CreditCard className="h-5 w-5 text-[#8ff5d8]" /><CardTitle>Manual payment</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-md bg-[#151316] p-3"><p className="text-[10px] font-black uppercase text-[#837987]">Payment status</p><p className="mt-1 text-sm font-bold text-[#e8e1ea]">{formatLabel(registration.paymentStatus)}</p></div>
+            <div className="rounded-md bg-[#151316] p-3"><p className="text-[10px] font-black uppercase text-[#837987]">Expected amount</p><p className="mt-1 text-sm font-bold text-[#e8e1ea]">{paymentProof ? `${paymentProof.expectedAmount} ${paymentProof.currency}` : 'Not submitted'}</p></div>
+            <div className="rounded-md bg-[#151316] p-3"><p className="text-[10px] font-black uppercase text-[#837987]">Proof status</p><p className="mt-1 text-sm font-bold text-[#e8e1ea]">{paymentProof ? formatLabel(paymentProof.status) : 'No proof'}</p></div>
+          </div>
+          {paymentProof ? (
+            <div className="rounded-lg border border-[#39343c] bg-[#151316] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div><p className="font-black text-[#f0eaf2]">{paymentProof.paymentMethod.displayName}</p><p className="mt-1 text-xs text-[#928798]">Submitted {formatDate(paymentProof.submittedAt)}</p></div>
+                <Button render={<a href={paymentProof.proofUrl} target="_blank" rel="noreferrer" />} variant="outline" size="sm"><ExternalLink className="h-4 w-4" /> View proof</Button>
+              </div>
+              <div className="mt-4 grid gap-2 text-xs text-[#b5abb9] sm:grid-cols-2">
+                <p>Reference: <strong className="text-[#e2dbe5]">{paymentProof.transactionReference || 'Not provided'}</strong></p>
+                <p>Paid at: <strong className="text-[#e2dbe5]">{paymentProof.paidAt ? formatDate(paymentProof.paidAt) : 'Not provided'}</strong></p>
+              </div>
+              {paymentProof.captainNote && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[#cfc6d2]">{paymentProof.captainNote}</p>}
+              {paymentProof.rejectionReason && <Alert className="mt-4 border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Payment rejection reason</AlertTitle><AlertDescription className="text-[#ffcbc7]">{paymentProof.rejectionReason}</AlertDescription></Alert>}
+              {paymentProof.status === 'SUBMITTED' && (
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <AlertDialog>
+                    <AlertDialogTrigger render={<Button disabled={mutations.isPending} />}><Check className="h-4 w-4" /> Verify payment</AlertDialogTrigger>
+                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Manually verify this payment?</AlertDialogTitle><AlertDialogDescription>You are confirming that the money reached your real payment account. CLUTCHA does not validate or guarantee this transaction.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction disabled={mutations.isPending} onClick={() => void verifyPayment()}>{mutations.isVerifyingPayment ? 'Verifying...' : 'Confirm payment received'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                  </AlertDialog>
+                  <RejectPaymentDialog pending={mutations.isRejectingPayment} onReject={rejectPayment} />
+                </div>
+              )}
+            </div>
+          ) : <p className="text-sm text-[#958a99]">No payment proof has been submitted for this registration.</p>}
+        </CardContent>
+      </Card>
+
       <Card><CardHeader><UsersRound className="h-5 w-5 text-[#55ddff]" /><CardTitle>Submitted roster ({roster.length})</CardTitle></CardHeader><CardContent>{roster.length === 0 ? <p className="text-sm text-[#958a99]">No roster snapshot was included.</p> : <div className="space-y-3">{roster.map((member, index) => <div key={member.rosterPlayerId || `${member.gamerTag}-${index}`} className="rounded-lg border border-[#39343c] bg-[#151316] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-black text-[#f0eaf2]">{member.gamerTag || 'Unnamed player'}</p><p className="mt-1 text-xs text-[#928798]">{member.realName || 'Real name not provided'}</p></div><span className="rounded-full border border-[#504556] px-2.5 py-1 text-[10px] font-black uppercase text-[#d7a5ff]">{formatLabel(member.rosterType || 'player')}</span></div><div className="mt-4 grid gap-2 text-xs text-[#b5abb9] sm:grid-cols-3"><p>Account: <strong className="text-[#e2dbe5]">{member.gameAccountId || '—'}</strong></p><p>Rank: <strong className="text-[#e2dbe5]">{member.rank || '—'}</strong></p><p>Country: <strong className="text-[#e2dbe5]">{member.country || '—'}</strong></p></div></div>)}</div>}</CardContent></Card>
 
-      {(canApprove(registration) || canReject(registration)) && <Card><CardHeader><ShieldCheck className="h-5 w-5 text-[#d7a5ff]" /><CardTitle>Organizer decision</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-3">{canApprove(registration) && <AlertDialog><AlertDialogTrigger render={<Button disabled={mutations.isPending} />}><Check className="h-4 w-4" /> Approve team</AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Approve {registration.team.name}?</AlertDialogTitle><AlertDialogDescription>This confirms the team’s place in the tournament. The API will recheck eligibility, payment state, and capacity before approval.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction disabled={mutations.isPending} onClick={() => void approve()}>{mutations.isApproving ? 'Approving...' : 'Approve registration'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}{canReject(registration) && <RejectDialog pending={mutations.isRejecting} onReject={reject} />}</CardContent></Card>}
+      {(registration.approvalStatus === 'PENDING' || canReject(registration)) && (
+        <Card>
+          <CardHeader>
+            <ShieldCheck className="h-5 w-5 text-[#d7a5ff]" />
+            <CardTitle>Organizer decision</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-3">
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button
+                      disabled={
+                        mutations.isPending || Boolean(approvalUnavailableReason)
+                      }
+                    />
+                  }
+                >
+                  <Check className="h-4 w-4" /> Approve team
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Approve {registration.team.name}?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This confirms the team's place in the tournament. The API
+                      will recheck eligibility, submitted payment proof, and
+                      capacity before approval.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={mutations.isPending}
+                      onClick={() => void approve()}
+                    >
+                      {mutations.isApproving
+                        ? 'Approving...'
+                        : 'Approve registration'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              {canReject(registration) && (
+                <RejectDialog pending={mutations.isRejecting} onReject={reject} />
+              )}
+            </div>
+            {approvalUnavailableReason && (
+              <p className="text-xs leading-5 text-[#ffd08b]">
+                {approvalUnavailableReason}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
