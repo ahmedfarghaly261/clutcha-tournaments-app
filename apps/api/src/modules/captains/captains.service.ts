@@ -160,6 +160,29 @@ export class CaptainsService {
     return toCaptainTeamResponse(team);
   }
 
+  async listTeamRegions() {
+    const tournaments = await this.databaseService.client.tournament.findMany({
+      where: {
+        allowedRegion: {
+          not: null,
+        },
+      },
+      distinct: ['allowedRegion'],
+      orderBy: {
+        allowedRegion: 'asc',
+      },
+      select: {
+        allowedRegion: true,
+      },
+    });
+
+    return {
+      regions: tournaments
+        .map((tournament) => tournament.allowedRegion)
+        .filter((region): region is string => Boolean(region)),
+    };
+  }
+
   async createTeam(userId: string, dto: CreateCaptainTeamDto) {
     const captain = await this.findCaptainOrThrow(userId);
     this.assertCaptainRosterContactIsComplete(captain.phoneNumber);
