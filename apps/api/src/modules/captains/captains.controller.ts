@@ -26,6 +26,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
 import { CaptainDashboardResponseDto } from './dto/captain-dashboard-response.dto';
+import { CaptainTeamRegionListResponseDto } from './dto/captain-team-region-list-response.dto';
 import { CaptainTeamResponseDto } from './dto/captain-team-response.dto';
 import { CreateCaptainTeamDto } from './dto/create-captain-team.dto';
 import { CreateCaptainRosterPlayerDto } from './dto/create-captain-roster-player.dto';
@@ -210,6 +211,27 @@ export class CaptainsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CaptainTeamResponseDto> {
     return this.captainsService.getTeam(user.id);
+  }
+
+  @Get('team/regions')
+  @ApiTags('Captain Team')
+  @ApiOperation({
+    summary: 'List available Captain team regions',
+    description:
+      'Returns distinct tournament allowed-region values captains can select for team eligibility.',
+  })
+  @ApiOkResponse({
+    description: 'Available team regions returned.',
+    type: CaptainTeamRegionListResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not a Captain.',
+  })
+  async listTeamRegions(): Promise<CaptainTeamRegionListResponseDto> {
+    return this.captainsService.listTeamRegions();
   }
 
   @Patch('team')
