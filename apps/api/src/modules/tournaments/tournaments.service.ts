@@ -635,6 +635,7 @@ const eligibilityTournamentSelect = {
   maximumRank: true,
   registrationOpensAt: true,
   registrationClosesAt: true,
+  registrationOpenedAt: true,
   cancelledAt: true,
 } satisfies Prisma.TournamentSelect;
 
@@ -661,6 +662,7 @@ const registrationTournamentSelect = {
   rulesVersion: true,
   registrationOpensAt: true,
   registrationClosesAt: true,
+  registrationOpenedAt: true,
   startsAt: true,
   cancelledAt: true,
 } satisfies Prisma.TournamentSelect;
@@ -2213,11 +2215,17 @@ export class TournamentsService {
           'Only published tournaments can open registration.',
         );
 
+        const openedAt = new Date();
+
         return transaction.tournament.update({
           where: { id: tournament.id },
           data: {
             status: TournamentStatus.REGISTRATION_OPEN,
-            registrationOpenedAt: new Date(),
+            registrationOpenedAt: openedAt,
+            registrationOpensAt:
+              tournament.registrationOpensAt > openedAt
+                ? openedAt
+                : tournament.registrationOpensAt,
             registrationClosedAt: null,
           },
           select: tournamentSelect,
@@ -3359,7 +3367,7 @@ export class TournamentsService {
       rosterSnapshot: registration.rosterSnapshot,
       approvedAt: registration.approvedAt,
       rejectedAt: registration.rejectedAt,
-      latestPaymentProof: registration.paymentProofs[0]
+      latestPaymentProof: registration.paymentProofs?.[0]
         ? this.toPaymentProofResponse(registration.paymentProofs[0])
         : null,
     };
@@ -3389,10 +3397,13 @@ export class TournamentsService {
     registration: OrganizerRegistrationDetailRecord,
   ): void {
     if (
+      registration.paymentStatus !== RegistrationPaymentStatus.PROOF_SUBMITTED &&
       registration.paymentStatus !== RegistrationPaymentStatus.VERIFIED &&
       registration.paymentStatus !== RegistrationPaymentStatus.NOT_REQUIRED
     ) {
-      throw new ConflictException('Unpaid registrations cannot be approved.');
+      throw new ConflictException(
+        'Paid registrations require submitted payment proof before approval.',
+      );
     }
 
     if (registration.approvalStatus !== RegistrationApprovalStatus.PENDING) {
@@ -4370,6 +4381,7 @@ export class TournamentsService {
     }
 
     if (
+      registration.paymentStatus !== RegistrationPaymentStatus.PROOF_SUBMITTED &&
       registration.paymentStatus !== RegistrationPaymentStatus.VERIFIED &&
       registration.paymentStatus !== RegistrationPaymentStatus.NOT_REQUIRED
     ) {
@@ -4528,7 +4540,10 @@ export class TournamentsService {
       );
     }
 
-    if (now < tournament.registrationOpensAt) {
+    if (
+      now < tournament.registrationOpensAt &&
+      tournament.status !== TournamentStatus.REGISTRATION_OPEN
+    ) {
       this.addEligibilityIssue(
         issues,
         TournamentEligibilityIssueCode.REGISTRATION_NOT_OPEN,

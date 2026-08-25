@@ -43,6 +43,7 @@ import {
   TournamentCoverImageStorageService,
   type TournamentCoverImageFile,
 } from './tournament-cover-image-storage.service';
+import { TournamentPaymentProofStorageService } from './tournament-payment-proof-storage.service';
 import { TournamentsService } from './tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
@@ -66,6 +67,10 @@ jest.mock('@clutcha/database', () => ({
   },
   RegistrationPaymentStatus: {
     NOT_REQUIRED: 'NOT_REQUIRED',
+    AWAITING_PROOF: 'AWAITING_PROOF',
+    PROOF_SUBMITTED: 'PROOF_SUBMITTED',
+    VERIFIED: 'VERIFIED',
+    REJECTED: 'REJECTED',
     PENDING: 'PENDING',
     PAID: 'PAID',
     FAILED: 'FAILED',
@@ -909,6 +914,10 @@ describe('TournamentsService', () => {
           provide: TournamentCoverImageStorageService,
           useValue: { saveCoverImage },
         },
+        {
+          provide: TournamentPaymentProofStorageService,
+          useValue: {},
+        },
       ],
     }).compile();
 
@@ -1285,8 +1294,8 @@ describe('TournamentsService', () => {
       createTournamentRecord({
         id: 'eligibility-open-cup',
         status: TournamentStatus.REGISTRATION_OPEN,
-        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
-        registrationClosesAt: new Date('2026-08-10T20:00:00.000Z'),
+        registrationOpensAt: new Date('2026-08-20T10:00:00.000Z'),
+        registrationClosesAt: new Date('2026-09-10T20:00:00.000Z'),
         allowedRegion: 'MENA',
         allowedCountries: ['EG'],
       }),
@@ -1403,8 +1412,8 @@ describe('TournamentsService', () => {
         id: 'free-registration-cup',
         slug: 'free-registration-cup',
         status: TournamentStatus.REGISTRATION_OPEN,
-        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
-        registrationClosesAt: new Date('2026-08-10T20:00:00.000Z'),
+        registrationOpensAt: new Date('2026-08-20T10:00:00.000Z'),
+        registrationClosesAt: new Date('2026-09-10T20:00:00.000Z'),
         allowedRegion: 'MENA',
         allowedCountries: ['EG'],
         rulesVersion: '2.1',
@@ -1477,8 +1486,8 @@ describe('TournamentsService', () => {
         slug: 'paid-registration-cup',
         status: TournamentStatus.REGISTRATION_OPEN,
         registrationFee: { toString: () => '150.00' },
-        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
-        registrationClosesAt: new Date('2026-08-10T20:00:00.000Z'),
+        registrationOpensAt: new Date('2026-08-20T10:00:00.000Z'),
+        registrationClosesAt: new Date('2026-09-10T20:00:00.000Z'),
         allowedRegion: 'MENA',
         allowedCountries: ['EG'],
       }),
@@ -1491,7 +1500,7 @@ describe('TournamentsService', () => {
     );
 
     expect(result.status).toBe(TournamentRegistrationStatus.PENDING_PAYMENT);
-    expect(result.paymentStatus).toBe(RegistrationPaymentStatus.PENDING);
+    expect(result.paymentStatus).toBe(RegistrationPaymentStatus.AWAITING_PROOF);
     expect(result.approvalStatus).toBe(RegistrationApprovalStatus.PENDING);
     expect(result.tournament.registrationFee).toBe('150.00');
   });
@@ -3414,6 +3423,38 @@ describe('TournamentsService', () => {
     });
   });
 
+  it('approves a paid registration after captain submits payment proof', async () => {
+    const tournament = createTournamentRecord({
+      id: 'organizer-approve-proof-submitted-cup',
+      organizerId: 'organizer-1',
+      maximumTeams: 8,
+      registrationFee: { toString: () => '150.00' },
+    });
+    createdTournaments.push(tournament);
+    tournamentRegistrations = [
+      createTournamentRegistrationRecord({
+        id: 'organizer-approve-proof-submitted-registration',
+        tournamentId: tournament.id,
+        tournament,
+        team: createTeamRecord(),
+        status: TournamentRegistrationStatus.PENDING_APPROVAL,
+        paymentStatus: RegistrationPaymentStatus.PROOF_SUBMITTED,
+      }),
+    ];
+
+    const result = await service.approveOrganizerTournamentRegistration(
+      'organizer-1',
+      'organizer-approve-proof-submitted-cup',
+      'organizer-approve-proof-submitted-registration',
+    );
+
+    expect(result.status).toBe(TournamentRegistrationStatus.CONFIRMED);
+    expect(result.paymentStatus).toBe(
+      RegistrationPaymentStatus.PROOF_SUBMITTED,
+    );
+    expect(result.approvalStatus).toBe(RegistrationApprovalStatus.APPROVED);
+  });
+
   it('rejects approving unpaid registrations or over capacity', async () => {
     const unpaidTournament = createTournamentRecord({
       id: 'organizer-approve-unpaid-cup',
@@ -4188,6 +4229,7 @@ describe('TournamentsService', () => {
 
     expect(opened.status).toBe(TournamentStatus.REGISTRATION_OPEN);
     expect(opened.registrationOpenedAt).toBeInstanceOf(Date);
+    expect(opened.registrationOpensAt).toEqual(opened.registrationOpenedAt);
 
     const openTournament = createdTournaments.find(
       (item) => item.id === 'tournament-2',
@@ -4198,6 +4240,9 @@ describe('TournamentsService', () => {
     }
 
     openTournament.status = TournamentStatus.REGISTRATION_OPEN;
+    expect(openTournament.registrationOpensAt).toEqual(
+      openTournament.registrationOpenedAt,
+    );
 
     const closed = await service.closeOrganizerTournamentRegistration(
       'organizer-1',
