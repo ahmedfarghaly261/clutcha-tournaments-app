@@ -6,6 +6,7 @@ import {
   TournamentRegistrationStatus,
 } from '@clutcha/database';
 import { CaptainRegistrationPaginationMetaDto } from './captain-registration-response.dto';
+import { PaymentProofResponseDto } from './payment-proof-response.dto';
 import { TournamentEligibilityIssueDto } from './tournament-eligibility-response.dto';
 
 export class OrganizerRegistrationTeamDto {
@@ -95,4 +96,12 @@ export class OrganizerRegistrationDetailResponseDto extends OrganizerRegistratio
 
   @ApiPropertyOptional({ example: '2026-08-04T17:00:00.000Z' })
   rejectedAt!: Date | null;
+
+  @ApiPropertyOptional({
+    type: PaymentProofResponseDto,
+    nullable: true,
+    description:
+      'Latest submitted manual-payment proof visible only to the owning organizer.',
+  })
+  latestPaymentProof!: PaymentProofResponseDto | null;
 }
