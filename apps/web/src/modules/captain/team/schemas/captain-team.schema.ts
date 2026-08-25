@@ -37,6 +37,7 @@ const captainTeamFields = {
   region: z
     .string()
     .trim()
+    .min(1, 'Choose a team region')
     .max(80, 'Region must be 80 characters or less'),
   discordServerUrl: optionalHttpsUrl,
   captainGamerTag: z.string().trim().max(80, 'Gamer tag must be 80 characters or less'),
