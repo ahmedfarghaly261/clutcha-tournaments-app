@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   CalendarCheck,
+  ClipboardCheck,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
@@ -36,6 +37,7 @@ const captainNavItems: CaptainNavItem[] = [
   { label: 'Roster', to: '/captain/roster', icon: UsersRound },
   { label: 'Tournaments', to: '/captain/tournaments', icon: Gamepad2 },
   { label: 'Registrations', to: '/captain/registrations', icon: CalendarCheck },
+  { label: 'Registered tournaments', to: '/captain/registered-tournaments', icon: ClipboardCheck },
   { label: 'Matches', to: '/captain/matches', icon: Swords },
 ]
 
