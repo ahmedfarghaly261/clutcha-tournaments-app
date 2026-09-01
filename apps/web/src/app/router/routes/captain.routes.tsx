@@ -9,6 +9,7 @@ import { CaptainTeamPage } from '@/modules/captain/team'
 import { CaptainRosterPage } from '@/modules/captain/roster'
 import { CaptainTournamentDiscoveryPage } from '@/modules/captain/tournaments/discovery'
 import { CaptainTournamentDetailsPage } from '@/modules/captain/tournaments/details'
+import { CaptainTournamentHubPage } from '@/modules/captain/tournaments/hub'
 import { CaptainRegistrationsPage } from '@/modules/captain/tournaments/registrations'
 import { CaptainRegisteredTournamentsPage } from '@/modules/captain/tournaments/registered'
 import { CaptainPlaceholderPage } from '@/modules/captain/shell'
@@ -33,6 +34,10 @@ export const captainRoutes: RouteObject[] = [
               {
                 path: 'registrations',
                 element: <CaptainRegistrationsPage />,
+              },
+              {
+                path: 'registrations/:registrationId/hub',
+                element: <CaptainTournamentHubPage />,
               },
               {
                 path: 'registered',
