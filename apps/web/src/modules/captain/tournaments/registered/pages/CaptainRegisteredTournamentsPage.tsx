@@ -44,7 +44,7 @@ function RegisteredTournamentCard({ registration }: { registration: CaptainRegis
           </div>
           <div className="min-w-0">
             <CardTitle className="truncate text-lg">{tournament.name}</CardTitle>
-            <p className="mt-1 text-xs font-bold text-[#9f94a4]">{formatLabel(tournament.gameKey)} · {formatLabel(tournament.mode)}</p>
+            <p className="mt-1 text-xs font-bold text-[#9f94a4]">{formatLabel(tournament.gameKey)} - {formatLabel(tournament.mode)}</p>
           </div>
         </div>
         <span className="rounded-full border border-[#276f5c] bg-[#15382f] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#8ff5d8]">
@@ -61,7 +61,7 @@ function RegisteredTournamentCard({ registration }: { registration: CaptainRegis
           <p className="text-xs text-[#9f94a4]">Entry fee <span className="font-bold text-[#e8e1ea]">{formatMoney(tournament.registrationFee, tournament.currency)}</span></p>
           <div className="flex flex-wrap gap-2">
             <Button render={<Link to={`/captain/tournaments/${tournament.slug}`} />} variant="secondary" size="sm">Tournament details</Button>
-            <Button render={<Link to="/captain/registrations" />} size="sm">Registration details</Button>
+            <Button render={<Link to={`/captain/registrations/${registration.registrationId}/hub`} />} size="sm">Open hub</Button>
           </div>
         </div>
       </CardContent>
@@ -117,3 +117,4 @@ export function CaptainRegisteredTournamentsPage() {
     </div>
   )
 }
+
