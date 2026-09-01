@@ -81,7 +81,7 @@ export function CaptainSidebar() {
       <aside
         className={cn(
           'sticky left-0 top-0 z-30 flex h-screen max-h-screen min-h-screen shrink-0 flex-col border-r border-[#282d38] bg-[#15171c] text-[#f4f6fb] transition-[width] duration-200',
-          isCollapsed ? 'w-[72px]' : 'w-[196px]',
+          isCollapsed ? 'w-18' : 'w-49',
         )}
       >
         <Tooltip>
