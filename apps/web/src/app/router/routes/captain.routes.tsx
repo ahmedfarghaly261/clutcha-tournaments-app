@@ -10,6 +10,7 @@ import { CaptainRosterPage } from '@/modules/captain/roster'
 import { CaptainTournamentDiscoveryPage } from '@/modules/captain/tournaments/discovery'
 import { CaptainTournamentDetailsPage } from '@/modules/captain/tournaments/details'
 import { CaptainTournamentHubPage } from '@/modules/captain/tournaments/hub'
+import { CaptainMatchesPage } from '@/modules/captain/tournaments/matches'
 import { CaptainRegistrationsPage } from '@/modules/captain/tournaments/registrations'
 import { CaptainRegisteredTournamentsPage } from '@/modules/captain/tournaments/registered'
 import { CaptainPlaceholderPage } from '@/modules/captain/shell'
@@ -57,7 +58,7 @@ export const captainRoutes: RouteObject[] = [
               },
               {
                 path: 'matches',
-                element: <CaptainPlaceholderPage title="Matches" description="View scheduled matches, lobby details, venue assignments, and official results." />,
+                element: <CaptainMatchesPage />,
               },
               {
                 path: 'help',
