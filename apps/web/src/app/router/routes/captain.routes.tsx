@@ -35,6 +35,10 @@ export const captainRoutes: RouteObject[] = [
                 element: <CaptainRegistrationsPage />,
               },
               {
+                path: 'registered',
+                element: <CaptainRegisteredTournamentsPage />,
+              },
+              {
                 path: 'registered-tournaments',
                 element: <CaptainRegisteredTournamentsPage />,
               },
