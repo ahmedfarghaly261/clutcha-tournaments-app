@@ -72,7 +72,7 @@ function MatchButton({ match, selected, onSelect }: { match: CaptainMatchRespons
 }
 
 function Info({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-md border border-[#343037] bg-[#151316] p-3"><p className="text-[10px] font-black uppercase text-[#837987]">{label}</p><p className="mt-1 break-words text-sm font-bold text-[#e8e1ea]">{value}</p></div>
+  return <div className="rounded-md border border-[#343037] bg-[#151316] p-3"><p className="text-[10px] font-black uppercase text-[#837987]">{label}</p><p className="mt-1 wrap-break-word text-sm font-bold text-[#e8e1ea]">{value}</p></div>
 }
 
 function MatchDetails({ registrationId, matchId }: { registrationId: string; matchId: string }) {
@@ -80,7 +80,7 @@ function MatchDetails({ registrationId, matchId }: { registrationId: string; mat
     query: { enabled: Boolean(registrationId && matchId), staleTime: 15_000 },
   })
 
-  if (matchQuery.isLoading) return <div className="h-[520px] animate-pulse rounded-xl bg-[#1b191c]" />
+  if (matchQuery.isLoading) return <div className="h-130 animate-pulse rounded-xl bg-[#1b191c]" />
   if (matchQuery.isError || !matchQuery.data) return <Alert className="border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Match could not be loaded</AlertTitle><AlertDescription className="text-[#ffcbc7]">Refresh and try again.</AlertDescription></Alert>
 
   const match = matchQuery.data
@@ -157,7 +157,7 @@ function RegistrationMatches({ registrationId }: { registrationId: string }) {
   const matches = matchesQuery.data?.items ?? []
   const activeMatchId = selectedMatchId || matches[0]?.id || ''
 
-  if (matchesQuery.isLoading) return <div className="h-[560px] animate-pulse rounded-xl bg-[#1b191c]" />
+  if (matchesQuery.isLoading) return <div className="h-140 animate-pulse rounded-xl bg-[#1b191c]" />
   if (matchesQuery.isError) return <Alert className="border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Matches could not be loaded</AlertTitle><AlertDescription className="text-[#ffcbc7]">Refresh and try again.</AlertDescription></Alert>
 
   return (
@@ -166,7 +166,7 @@ function RegistrationMatches({ registrationId }: { registrationId: string }) {
         {matches.map((match) => <MatchButton key={match.id} match={match} selected={activeMatchId === match.id} onSelect={() => setSelectedMatchId(match.id)} />)}
         {matches.length === 0 && <Card className="border-dashed"><CardContent className="py-12 text-center"><Swords className="mx-auto h-10 w-10 text-[#756a79]" /><p className="mt-3 text-sm font-bold text-[#c6bdc9]">No matches yet</p><p className="mt-1 text-xs text-[#958a99]">Matches appear after the organizer generates the bracket.</p></CardContent></Card>}
       </aside>
-      <main>{activeMatchId ? <MatchDetails registrationId={registrationId} matchId={activeMatchId} /> : <Card className="border-dashed"><CardContent className="flex min-h-[420px] items-center justify-center text-sm text-[#958a99]">Select a match.</CardContent></Card>}</main>
+      <main>{activeMatchId ? <MatchDetails registrationId={registrationId} matchId={activeMatchId} /> : <Card className="border-dashed"><CardContent className="flex min-h-105 items-center justify-center text-sm text-[#958a99]">Select a match.</CardContent></Card>}</main>
     </div>
   )
 }
@@ -181,7 +181,7 @@ export function CaptainMatchesPage() {
   }, {
     query: { staleTime: 20_000 },
   })
-  const registrations = registrationsQuery.data?.items ?? []
+  const registrations = useMemo(() => registrationsQuery.data?.items ?? [], [registrationsQuery.data?.items])
   const activeRegistrationId = selectedRegistrationId || registrations[0]?.registrationId || ''
   const activeRegistration = useMemo(() => registrations.find((registration) => registration.registrationId === activeRegistrationId), [activeRegistrationId, registrations])
 
