@@ -1,6 +1,7 @@
 import { ExternalLink } from 'lucide-react'
 import type { TournamentPaymentMethodResponseDto } from '@/api/generated'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 
 const coordinateLabels: Array<[keyof TournamentPaymentMethodResponseDto, string]> = [
   ['accountHolderName', 'Account holder'],
@@ -24,8 +25,8 @@ export function PaymentMethodDetails({ method }: { method: TournamentPaymentMeth
     .filter((item): item is { label: string; value: string } => typeof item.value === 'string' && item.value.trim().length > 0)
 
   return (
-    <div className="rounded-lg border border-[#38323b] bg-[#121113] p-4">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+    <Card className="rounded-lg border-[#38323b] bg-[#121113]">
+      <CardHeader className="flex-col justify-between gap-3 sm:flex-row sm:items-start">
         <div>
           <p className="text-sm font-black text-[#eee7f0]">{method.displayName}</p>
           <p className="mt-1 text-[10px] font-black uppercase text-[#8d8193]">{formatMethodType(method.type)}</p>
@@ -35,30 +36,32 @@ export function PaymentMethodDetails({ method }: { method: TournamentPaymentMeth
             <ExternalLink className="h-4 w-4" /> Open link
           </Button>
         )}
-      </div>
+      </CardHeader>
 
-      {coordinates.length > 0 && (
-        <dl className="mt-4 grid gap-2 sm:grid-cols-2">
-          {coordinates.map((item) => (
-            <div key={item.label} className="rounded-md border border-[#302b33] bg-[#1b191c] p-3">
-              <dt className="text-[10px] font-black uppercase text-[#8d8193]">{item.label}</dt>
-              <dd className="mt-1 break-words text-sm font-bold text-[#f0eaf2]">{item.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
+      <CardContent>
+        {coordinates.length > 0 && (
+          <dl className="grid gap-2 sm:grid-cols-2">
+            {coordinates.map((item) => (
+              <div key={item.label} className="rounded-md border border-[#302b33] bg-[#1b191c] p-3">
+                <dt className="text-[10px] font-black uppercase text-[#8d8193]">{item.label}</dt>
+                <dd className="mt-1 break-words text-sm font-bold text-[#f0eaf2]">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
 
-      <div className="mt-4 rounded-md border border-[#302b33] bg-[#1b191c] p-3">
-        <p className="text-[10px] font-black uppercase text-[#8d8193]">Payment instructions</p>
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#d2c8d6]">{method.instructions}</p>
-      </div>
-
-      {method.notes && (
-        <div className="mt-3 rounded-md border border-[#302b33] bg-[#1b191c] p-3">
-          <p className="text-[10px] font-black uppercase text-[#8d8193]">Organizer note</p>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#c9becd]">{method.notes}</p>
+        <div className="mt-4 rounded-md border border-[#302b33] bg-[#1b191c] p-3">
+          <p className="text-[10px] font-black uppercase text-[#8d8193]">Payment instructions</p>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#d2c8d6]">{method.instructions}</p>
         </div>
-      )}
-    </div>
+
+        {method.notes && (
+          <div className="mt-3 rounded-md border border-[#302b33] bg-[#1b191c] p-3">
+            <p className="text-[10px] font-black uppercase text-[#8d8193]">Organizer note</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#c9becd]">{method.notes}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
