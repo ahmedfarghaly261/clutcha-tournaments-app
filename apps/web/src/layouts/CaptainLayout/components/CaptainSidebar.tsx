@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   CalendarCheck,
+  CalendarCheck2,
   ClipboardCheck,
   ChevronLeft,
   ChevronRight,
@@ -39,6 +40,7 @@ const captainNavItems: CaptainNavItem[] = [
   { label: 'Registrations', to: '/captain/registrations', icon: CalendarCheck },
   { label: 'Registered tournaments', to: '/captain/registered', icon: ClipboardCheck },
   { label: 'Matches', to: '/captain/matches', icon: Swords },
+  { label: 'Check-in', to: '/captain/check-in', icon: CalendarCheck2 },
 ]
 
 function CollapsedTooltip({
