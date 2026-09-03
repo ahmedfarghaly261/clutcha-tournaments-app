@@ -13,8 +13,10 @@ import {
   useCaptainRegistrationsControllerListRegistrations,
 } from '@/api/generated/captain-registrations/captain-registrations'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
 function formatLabel(value: string) {
@@ -45,29 +47,33 @@ function RegistrationButton({
   onSelect: () => void
 }) {
   return (
-    <button type="button" onClick={onSelect} className={cn('w-full rounded-lg border bg-[#1b191c] p-4 text-left transition hover:border-[#6b5a74]', selected ? 'border-[#71dcff] ring-1 ring-[#71dcff]/25' : 'border-[#39343c]')}>
-      <p className="font-black text-[#f2edf4]">{registration.tournament.name}</p>
-      <p className="mt-1 text-xs font-bold text-[#9f94a4]">{formatLabel(registration.tournament.gameKey)} - {formatLabel(registration.tournament.mode)}</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <span className="rounded-full border border-[#276f5c] bg-[#15382f] px-2.5 py-1 text-[10px] font-black uppercase text-[#8ff5d8]">{formatLabel(registration.status)}</span>
-        <span className="rounded-full border border-[#3d4352] bg-[#1d2129] px-2.5 py-1 text-[10px] font-black uppercase text-[#cbd7e9]">{formatLabel(registration.tournament.status)}</span>
+    <Button variant="ghost" onClick={onSelect} className={cn('h-auto w-full justify-start rounded-lg border bg-[#1b191c] p-4 text-left hover:border-[#6b5a74]', selected ? 'border-[#71dcff] ring-1 ring-[#71dcff]/25' : 'border-[#39343c]')}>
+      <div className="w-full">
+        <p className="font-black text-[#f2edf4]">{registration.tournament.name}</p>
+        <p className="mt-1 text-xs font-bold text-[#9f94a4]">{formatLabel(registration.tournament.gameKey)} - {formatLabel(registration.tournament.mode)}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Badge variant="success">{formatLabel(registration.status)}</Badge>
+          <Badge variant="info">{formatLabel(registration.tournament.status)}</Badge>
+        </div>
       </div>
-    </button>
+    </Button>
   )
 }
 
 function MatchButton({ match, selected, onSelect }: { match: CaptainMatchResponseDto; selected: boolean; onSelect: () => void }) {
   return (
-    <button type="button" onClick={onSelect} className={cn('w-full rounded-lg border bg-[#151316] p-4 text-left transition hover:border-[#6b5a74]', selected ? 'border-[#d7a5ff] ring-1 ring-[#d7a5ff]/20' : 'border-[#343037]')}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-black text-[#f2edf4]">{match.opponent?.teamName ?? 'Opponent TBD'}</p>
-          <p className="mt-1 text-xs text-[#9f94a4]">{match.stage} · Round {match.round}</p>
+    <Button variant="ghost" onClick={onSelect} className={cn('h-auto w-full justify-start rounded-lg border bg-[#151316] p-4 text-left hover:border-[#6b5a74]', selected ? 'border-[#d7a5ff] ring-1 ring-[#d7a5ff]/20' : 'border-[#343037]')}>
+      <div className="w-full">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-black text-[#f2edf4]">{match.opponent?.teamName ?? 'Opponent TBD'}</p>
+            <p className="mt-1 text-xs text-[#9f94a4]">{match.stage} - Round {match.round}</p>
+          </div>
+          <Badge variant="info">{formatLabel(match.status)}</Badge>
         </div>
-        <span className="rounded-full border border-[#3d4352] bg-[#1d2129] px-2.5 py-1 text-[10px] font-black uppercase text-[#cbd7e9]">{formatLabel(match.status)}</span>
+        <p className="mt-3 text-xs font-bold text-[#c9becd]">{formatDate(match.scheduledAt)}</p>
       </div>
-      <p className="mt-3 text-xs font-bold text-[#c9becd]">{formatDate(match.scheduledAt)}</p>
-    </button>
+    </Button>
   )
 }
 
@@ -80,7 +86,7 @@ function MatchDetails({ registrationId, matchId }: { registrationId: string; mat
     query: { enabled: Boolean(registrationId && matchId), staleTime: 15_000 },
   })
 
-  if (matchQuery.isLoading) return <div className="h-130 animate-pulse rounded-xl bg-[#1b191c]" />
+  if (matchQuery.isLoading) return <Skeleton className="h-[520px]" />
   if (matchQuery.isError || !matchQuery.data) return <Alert className="border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Match could not be loaded</AlertTitle><AlertDescription className="text-[#ffcbc7]">Refresh and try again.</AlertDescription></Alert>
 
   const match = matchQuery.data
@@ -98,7 +104,7 @@ function MatchDetails({ registrationId, matchId }: { registrationId: string; mat
             <CardTitle>{match.tournament.name}</CardTitle>
             <p className="mt-1 text-sm text-[#9f94a4]">vs {match.opponent?.teamName ?? 'Opponent TBD'}</p>
           </div>
-          <span className="rounded-full border border-[#3d4352] bg-[#1d2129] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#cbd7e9]">{formatLabel(match.status)}</span>
+          <Badge variant="info">{formatLabel(match.status)}</Badge>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
           <Info label="Scheduled" value={formatDate(match.scheduledAt)} />
@@ -157,7 +163,7 @@ function RegistrationMatches({ registrationId }: { registrationId: string }) {
   const matches = matchesQuery.data?.items ?? []
   const activeMatchId = selectedMatchId || matches[0]?.id || ''
 
-  if (matchesQuery.isLoading) return <div className="h-140 animate-pulse rounded-xl bg-[#1b191c]" />
+  if (matchesQuery.isLoading) return <Skeleton className="h-[560px]" />
   if (matchesQuery.isError) return <Alert className="border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Matches could not be loaded</AlertTitle><AlertDescription className="text-[#ffcbc7]">Refresh and try again.</AlertDescription></Alert>
 
   return (
@@ -185,7 +191,7 @@ export function CaptainMatchesPage() {
   const activeRegistrationId = selectedRegistrationId || registrations[0]?.registrationId || ''
   const activeRegistration = useMemo(() => registrations.find((registration) => registration.registrationId === activeRegistrationId), [activeRegistrationId, registrations])
 
-  if (registrationsQuery.isLoading) return <div className="mx-auto h-[70vh] max-w-6xl animate-pulse rounded-xl bg-[#1b191c]" />
+  if (registrationsQuery.isLoading) return <Skeleton className="mx-auto h-[70vh] max-w-6xl" />
   if (registrationsQuery.isError) return <Alert className="mx-auto max-w-3xl border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Matches could not be loaded</AlertTitle><AlertDescription className="text-[#ffcbc7]">Refresh and try again.</AlertDescription></Alert>
 
   return (

@@ -8,8 +8,11 @@ import {
 import { useCaptainRegistrationsControllerListRegistrations } from '@/api/generated/captain-registrations/captain-registrations'
 import type { CaptainRegistrationListItemDto } from '@/api/generated/captain-registrations'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
 
 function formatLabel(value: string) {
   return value.toLowerCase().split('_').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
@@ -47,9 +50,7 @@ function RegisteredTournamentCard({ registration }: { registration: CaptainRegis
             <p className="mt-1 text-xs font-bold text-[#9f94a4]">{formatLabel(tournament.gameKey)} - {formatLabel(tournament.mode)}</p>
           </div>
         </div>
-        <span className="rounded-full border border-[#276f5c] bg-[#15382f] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#8ff5d8]">
-          Approved
-        </span>
+        <Badge variant="success">Approved</Badge>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
@@ -57,7 +58,8 @@ function RegisteredTournamentCard({ registration }: { registration: CaptainRegis
           <Info icon={Gamepad2} label="Tournament status" value={formatLabel(tournament.status)} />
           <Info icon={CreditCard} label="Payment" value={formatLabel(registration.paymentStatus)} />
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#343037] pt-4">
+        <Separator />
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-[#9f94a4]">Entry fee <span className="font-bold text-[#e8e1ea]">{formatMoney(tournament.registrationFee, tournament.currency)}</span></p>
           <div className="flex flex-wrap gap-2">
             <Button render={<Link to={`/captain/tournaments/${tournament.slug}`} />} variant="secondary" size="sm">Tournament details</Button>
@@ -90,7 +92,7 @@ export function CaptainRegisteredTournamentsPage() {
 
   const registrations = query.data?.items ?? []
 
-  if (query.isLoading) return <div className="mx-auto h-[70vh] max-w-6xl animate-pulse rounded-xl bg-[#1b191c]" />
+  if (query.isLoading) return <Skeleton className="mx-auto h-[70vh] max-w-6xl" />
   if (query.isError) return <Alert className="mx-auto max-w-3xl border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Registered tournaments could not be loaded</AlertTitle><AlertDescription className="text-[#ffcbc7]">Refresh and try again.</AlertDescription></Alert>
 
   return (

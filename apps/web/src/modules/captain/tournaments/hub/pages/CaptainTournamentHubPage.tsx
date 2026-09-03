@@ -5,6 +5,7 @@ import type { CaptainRegistrationHubResponseDto } from '@/api/generated/captain-
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 
 function formatLabel(value: string) {
   return value.toLowerCase().split('_').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
@@ -96,7 +97,7 @@ export function CaptainTournamentHubPage() {
     query: { enabled: Boolean(registrationId), staleTime: 15_000 },
   })
 
-  if (hubQuery.isLoading) return <div className="mx-auto h-[70vh] max-w-6xl animate-pulse rounded-xl bg-[#1b191c]" />
+  if (hubQuery.isLoading) return <Skeleton className="mx-auto h-[70vh] max-w-6xl" />
   if (hubQuery.isError || !hubQuery.data) return <Alert className="mx-auto max-w-3xl border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Tournament hub could not be loaded</AlertTitle><AlertDescription className="text-[#ffcbc7]">Your team may not be approved for this registration yet.</AlertDescription><Button render={<Link to="/captain/registered" />} variant="outline" className="mt-4"><ArrowLeft className="h-4 w-4" /> Back to registered tournaments</Button></Alert>
 
   const hub = hubQuery.data
@@ -109,7 +110,7 @@ export function CaptainTournamentHubPage() {
         <Button render={<Link to="/captain/registered" />} variant="link" className="mb-2 h-auto px-0 text-xs"><ArrowLeft className="h-4 w-4" /> Back to registered tournaments</Button>
         <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-[#71dcff]"><ShieldCheck className="h-4 w-4" /> Approved tournament hub</p>
         <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-[#f5f1f7]">{tournament.name}</h1>
-        <p className="mt-2 text-sm text-[#a99ead]">{formatLabel(tournament.gameKey)} · {formatLabel(tournament.mode)} · {formatLabel(tournament.status)}</p>
+        <p className="mt-2 text-sm text-[#a99ead]">{formatLabel(tournament.gameKey)} - {formatLabel(tournament.mode)} - {formatLabel(tournament.status)}</p>
       </header>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">

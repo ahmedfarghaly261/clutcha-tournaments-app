@@ -10,11 +10,13 @@ import {
 } from '@/api/generated/captain-registrations/captain-registrations'
 import { useCaptainTournamentEligibilityControllerListPaymentMethods } from '@/api/generated/captain-tournaments/captain-tournaments'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { PaymentMethodDetails } from '../../payment/components/PaymentMethodDetails'
@@ -33,7 +35,7 @@ export function CaptainRegistrationsPage() {
   const items = useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items])
   const selectedRegistrationId = selectedId || items[0]?.registrationId || ''
 
-  if (listQuery.isLoading) return <div className="mx-auto h-[70vh] max-w-6xl animate-pulse rounded-xl bg-[#1b191c]" />
+  if (listQuery.isLoading) return <Skeleton className="mx-auto h-[70vh] max-w-6xl" />
   if (listQuery.isError) return <Alert className="mx-auto max-w-3xl border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Registrations could not be loaded</AlertTitle><AlertDescription className="text-[#ffcbc7]">Refresh and try again.</AlertDescription></Alert>
 
   return (
@@ -46,13 +48,15 @@ export function CaptainRegistrationsPage() {
       <div className="grid items-start gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         <aside className="space-y-3">
           {items.map((registration) => (
-            <button key={registration.registrationId} type="button" onClick={() => setSelectedId(registration.registrationId)} className={cn('w-full rounded-xl border bg-[#1b191c] p-4 text-left transition hover:border-[#6b5a74]', selectedRegistrationId === registration.registrationId ? 'border-[#71dcff] ring-1 ring-[#71dcff]/25' : 'border-[#39343c]')}>
-              <p className="font-black text-[#f2edf4]">{registration.tournament.name}</p>
-              <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                <span className="text-[#9a8fa0]">Payment <strong className="block text-[#e6dfea]">{formatLabel(registration.paymentStatus)}</strong></span>
-                <span className="text-[#9a8fa0]">Approval <strong className="block text-[#e6dfea]">{formatLabel(registration.approvalStatus)}</strong></span>
+            <Button key={registration.registrationId} variant="ghost" onClick={() => setSelectedId(registration.registrationId)} className={cn('h-auto w-full justify-start rounded-xl border bg-[#1b191c] p-4 text-left hover:border-[#6b5a74]', selectedRegistrationId === registration.registrationId ? 'border-[#71dcff] ring-1 ring-[#71dcff]/25' : 'border-[#39343c]')}>
+              <div className="w-full">
+                <p className="font-black text-[#f2edf4]">{registration.tournament.name}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge variant="info">Payment {formatLabel(registration.paymentStatus)}</Badge>
+                  <Badge variant="accent">Approval {formatLabel(registration.approvalStatus)}</Badge>
+                </div>
               </div>
-            </button>
+            </Button>
           ))}
           {items.length === 0 && <Card><CardContent className="py-12 text-center"><Trophy className="mx-auto h-10 w-10 text-[#756a79]" /><p className="mt-3 text-sm font-bold text-[#c6bdc9]">No registrations yet</p></CardContent></Card>}
         </aside>
@@ -122,7 +126,7 @@ function CaptainRegistrationDetail({ registrationId }: { registrationId: string 
     }
   }
 
-  if (detailQuery.isLoading) return <div className="h-[560px] animate-pulse rounded-xl bg-[#1b191c]" />
+  if (detailQuery.isLoading) return <Skeleton className="h-[560px]" />
   if (detailQuery.isError || !registration) return <Alert className="border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Registration could not be loaded</AlertTitle><AlertDescription className="text-[#ffcbc7]">It may no longer exist.</AlertDescription></Alert>
 
   const requiresProof = paymentNeedsProof.has(registration.lifecycle.paymentStatus)
