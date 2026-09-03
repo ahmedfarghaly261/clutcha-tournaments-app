@@ -45,6 +45,7 @@ const lifecycleSteps: Array<{ status: TournamentResponseDtoStatus; label: string
   { status: 'PUBLISHED', label: 'Published' },
   { status: 'REGISTRATION_OPEN', label: 'Registration open' },
   { status: 'REGISTRATION_CLOSED', label: 'Registration closed' },
+  { status: 'CHECK_IN_OPEN', label: 'Check-in open' },
 ]
 
 const cancellableStatuses: TournamentResponseDtoStatus[] = [
@@ -212,11 +213,13 @@ export function TournamentLifecyclePage() {
       if (action === 'publish') await mutations.publishTournament({ tournamentId })
       if (action === 'open-registration') await mutations.openRegistration({ tournamentId })
       if (action === 'close-registration') await mutations.closeRegistration({ tournamentId })
+      if (action === 'open-check-in') await mutations.openCheckIn({ tournamentId })
       if (action === 'cancel') await mutations.cancelTournament({ tournamentId, data: { reason: cancellationReason ?? '' } })
       const labels: Record<TournamentLifecycleAction, string> = {
         publish: 'Tournament published successfully.',
         'open-registration': 'Registration is now open.',
         'close-registration': 'Registration was closed.',
+        'open-check-in': 'Check-in is now open.',
         cancel: 'Tournament cancelled successfully.',
       }
       setMessage(labels[action])
@@ -243,7 +246,8 @@ export function TournamentLifecyclePage() {
         {tournament.status === 'DRAFT' && <ActionDialog title="Publish tournament?" description="The tournament becomes visible according to its visibility setting. Draft-only settings will no longer be editable." trigger={<Button className="w-full" disabled={!publicationReadiness.ready || mutations.isPending}><Rocket className="h-4 w-4" /> Publish tournament</Button>} actionLabel="Publish" pending={mutations.isPublishing} onConfirm={() => runAction('publish')} />}
         {tournament.status === 'PUBLISHED' && <ActionDialog title="Open registration?" description="Eligible captains will be able to submit their teams for this tournament." trigger={<Button className="w-full" disabled={mutations.isPending}><DoorOpen className="h-4 w-4" /> Open registration</Button>} actionLabel="Open registration" pending={mutations.isOpeningRegistration} onConfirm={() => runAction('open-registration')} />}
         {tournament.status === 'REGISTRATION_OPEN' && <ActionDialog title="Close registration?" description="No new tournament registrations will be accepted after this action." trigger={<Button className="w-full" disabled={mutations.isPending}><LockKeyhole className="h-4 w-4" /> Close registration</Button>} actionLabel="Close registration" pending={mutations.isClosingRegistration} onConfirm={() => runAction('close-registration')} />}
-        {!['DRAFT', 'PUBLISHED', 'REGISTRATION_OPEN'].includes(tournament.status) && <div className="rounded-lg border border-[#39343c] bg-[#151316] p-4"><p className="text-sm font-bold text-[#ddd5df]">No forward lifecycle action is available.</p><p className="mt-2 text-xs leading-5 text-[#958a99]">Current status: {formatStatus(tournament.status)}</p></div>}
+        {tournament.status === 'REGISTRATION_CLOSED' && <ActionDialog title="Open check-in?" description="Approved captains will be able to complete team check-in immediately, even if the scheduled check-in open date is later." trigger={<Button className="w-full" disabled={mutations.isPending}><ClipboardCheck className="h-4 w-4" /> Open check-in</Button>} actionLabel="Open check-in" pending={mutations.isOpeningCheckIn} onConfirm={() => runAction('open-check-in')} />}
+        {!['DRAFT', 'PUBLISHED', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED'].includes(tournament.status) && <div className="rounded-lg border border-[#39343c] bg-[#151316] p-4"><p className="text-sm font-bold text-[#ddd5df]">No forward lifecycle action is available.</p><p className="mt-2 text-xs leading-5 text-[#958a99]">Current status: {formatStatus(tournament.status)}</p></div>}
         {tournament.status === 'DRAFT' && !publicationReadiness.ready && <p className="text-xs leading-5 text-[#c5a86e]">Resolve every publication issue before publishing.</p>}
         {canCancel && <div className="border-t border-[#39343c] pt-4"><CancellationDialog pending={mutations.isCancelling} onConfirm={(reason) => runAction('cancel', reason)} /></div>}
         {!canCancel && <Alert className="border-[#49414d] bg-[#242126]"><AlertTitle>Terminal status</AlertTitle><AlertDescription className="text-[#9f94a4]">This tournament can no longer be cancelled.</AlertDescription></Alert>}
