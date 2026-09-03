@@ -1619,6 +1619,69 @@ export const useOrganizerTournamentsControllerCloseRegistration = <TError = Erro
       return useMutation(getOrganizerTournamentsControllerCloseRegistrationMutationOptions(options), queryClient);
     }
     /**
+ * Moves an organizer-owned registration-closed tournament into CHECK_IN_OPEN status.
+ * @summary Open tournament check-in
+ */
+export const organizerTournamentsControllerOpenCheckIn = (
+    tournamentId: string,
+ options?: SecondParameter<typeof clutchaApiClient>,signal?: AbortSignal
+) => {
+
+
+      return clutchaApiClient<TournamentResponseDto>(
+      {url: `/api/organizer/tournaments/${tournamentId}/open-check-in`, method: 'POST', signal
+    },
+      options);
+    }
+
+
+
+
+export const getOrganizerTournamentsControllerOpenCheckInMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerOpenCheckIn>>, TError,{tournamentId: string}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerOpenCheckIn>>, TError,{tournamentId: string}, TContext> => {
+
+const mutationKey = ['organizerTournamentsControllerOpenCheckIn'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof organizerTournamentsControllerOpenCheckIn>>, {tournamentId: string}> = (props) => {
+          const {tournamentId} = props ?? {};
+
+          return  organizerTournamentsControllerOpenCheckIn(tournamentId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OrganizerTournamentsControllerOpenCheckInMutationResult = NonNullable<Awaited<ReturnType<typeof organizerTournamentsControllerOpenCheckIn>>>
+
+    export type OrganizerTournamentsControllerOpenCheckInMutationError = ErrorType<void>
+
+    /**
+ * @summary Open tournament check-in
+ */
+export const useOrganizerTournamentsControllerOpenCheckIn = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof organizerTournamentsControllerOpenCheckIn>>, TError,{tournamentId: string}, TContext>, request?: SecondParameter<typeof clutchaApiClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof organizerTournamentsControllerOpenCheckIn>>,
+        TError,
+        {tournamentId: string},
+        TContext
+      > => {
+      return useMutation(getOrganizerTournamentsControllerOpenCheckInMutationOptions(options), queryClient);
+    }
+    /**
  * Cancels an organizer-owned tournament that has not reached a terminal lifecycle status.
  * @summary Cancel tournament
  */
