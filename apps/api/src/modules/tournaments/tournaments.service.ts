@@ -2268,6 +2268,43 @@ export class TournamentsService {
     return toTournamentResponse(updated);
   }
 
+  async openOrganizerTournamentCheckIn(
+    organizerId: string,
+    tournamentId: string,
+  ): Promise<TournamentResponseDto> {
+    const updated = await this.databaseService.client.$transaction(
+      async (transaction) => {
+        const tournament = await this.findOwnedTournamentForLifecycleOrThrow(
+          transaction,
+          organizerId,
+          tournamentId,
+        );
+
+        this.assertLifecycleStatus(
+          tournament.status,
+          [TournamentStatus.REGISTRATION_CLOSED],
+          'Only registration-closed tournaments can open check-in.',
+        );
+
+        const openedAt = new Date();
+
+        return transaction.tournament.update({
+          where: { id: tournament.id },
+          data: {
+            status: TournamentStatus.CHECK_IN_OPEN,
+            checkInOpensAt:
+              !tournament.checkInOpensAt || tournament.checkInOpensAt > openedAt
+                ? openedAt
+                : tournament.checkInOpensAt,
+          },
+          select: tournamentSelect,
+        });
+      },
+    );
+
+    return toTournamentResponse(updated);
+  }
+
   async cancelOrganizerTournament(
     organizerId: string,
     tournamentId: string,

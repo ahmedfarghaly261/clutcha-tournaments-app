@@ -4222,6 +4222,20 @@ describe('TournamentsService', () => {
   });
 
   it('opens and closes tournament registration atomically', async () => {
+    const publishedTournament = createdTournaments.find(
+      (item) => item.id === 'tournament-2',
+    );
+
+    if (!publishedTournament) {
+      throw new Error('Expected tournament-2 to exist.');
+    }
+
+    publishedTournament.registrationOpensAt = new Date(
+      '2026-09-20T10:00:00.000Z',
+    );
+    publishedTournament.checkInOpensAt = new Date('2026-09-12T16:00:00.000Z');
+    publishedTournament.checkInClosesAt = new Date('2026-09-12T17:00:00.000Z');
+
     const opened = await service.openOrganizerTournamentRegistration(
       'organizer-1',
       'tournament-2',
@@ -4231,17 +4245,9 @@ describe('TournamentsService', () => {
     expect(opened.registrationOpenedAt).toBeInstanceOf(Date);
     expect(opened.registrationOpensAt).toEqual(opened.registrationOpenedAt);
 
-    const openTournament = createdTournaments.find(
-      (item) => item.id === 'tournament-2',
-    );
-
-    if (!openTournament) {
-      throw new Error('Expected tournament-2 to exist.');
-    }
-
-    openTournament.status = TournamentStatus.REGISTRATION_OPEN;
-    expect(openTournament.registrationOpensAt).toEqual(
-      openTournament.registrationOpenedAt,
+    publishedTournament.status = TournamentStatus.REGISTRATION_OPEN;
+    expect(publishedTournament.registrationOpensAt).toEqual(
+      publishedTournament.registrationOpenedAt,
     );
 
     const closed = await service.closeOrganizerTournamentRegistration(
@@ -4251,6 +4257,17 @@ describe('TournamentsService', () => {
 
     expect(closed.status).toBe(TournamentStatus.REGISTRATION_CLOSED);
     expect(closed.registrationClosedAt).toBeInstanceOf(Date);
+
+    const checkInOpened = await service.openOrganizerTournamentCheckIn(
+      'organizer-1',
+      'tournament-2',
+    );
+
+    expect(checkInOpened.status).toBe(TournamentStatus.CHECK_IN_OPEN);
+    expect(checkInOpened.checkInOpensAt).toBeInstanceOf(Date);
+    expect(checkInOpened.checkInOpensAt).not.toEqual(
+      new Date('2026-09-12T16:00:00.000Z'),
+    );
   });
 
   it('rejects invalid registration lifecycle transitions', async () => {
@@ -4266,6 +4283,10 @@ describe('TournamentsService', () => {
         'organizer-1',
         'tournament-2',
       ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      service.openOrganizerTournamentCheckIn('organizer-1', 'tournament-2'),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
