@@ -742,6 +742,42 @@ export class OrganizerTournamentsController {
     );
   }
 
+  @Post(':tournamentId/open-check-in')
+  @ApiOperation({
+    summary: 'Open tournament check-in',
+    description:
+      'Moves an organizer-owned registration-closed tournament into CHECK_IN_OPEN status.',
+  })
+  @ApiOkResponse({
+    description: 'Tournament check-in opened.',
+    type: TournamentResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'The tournament id is not a valid UUID.',
+  })
+  @ApiConflictResponse({
+    description: 'Only registration-closed tournaments can open check-in.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The access token is missing or invalid.',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user is not an organizer.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The tournament does not exist or is not owned by the authenticated organizer.',
+  })
+  async openCheckIn(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tournamentId', new ParseUUIDPipe()) tournamentId: string,
+  ): Promise<TournamentResponseDto> {
+    return this.tournamentsService.openOrganizerTournamentCheckIn(
+      user.id,
+      tournamentId,
+    );
+  }
+
   @Post(':tournamentId/cancel')
   @ApiOperation({
     summary: 'Cancel tournament',

@@ -17,6 +17,11 @@ jest.mock('@clutcha/database', () => ({
     REFUND_PENDING: 'REFUND_PENDING',
     REFUNDED: 'REFUNDED',
   },
+  TournamentPaymentMethodType: {
+    BANK_TRANSFER: 'BANK_TRANSFER',
+    INSTAPAY: 'INSTAPAY',
+    VODAFONE_CASH: 'VODAFONE_CASH',
+  },
   TournamentRegistrationStatus: {
     PENDING_PAYMENT: 'PENDING_PAYMENT',
     PENDING_APPROVAL: 'PENDING_APPROVAL',
@@ -110,6 +115,21 @@ describe('OrganizerTournamentsController', () => {
     expect(
       typeof OrganizerTournamentsController.prototype.deleteTournamentDraft,
     ).toBe('function');
+  });
+
+  it('exposes lifecycle transition handlers', () => {
+    expect(
+      typeof OrganizerTournamentsController.prototype.publishTournament,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype.openRegistration,
+    ).toBe('function');
+    expect(
+      typeof OrganizerTournamentsController.prototype.closeRegistration,
+    ).toBe('function');
+    expect(typeof OrganizerTournamentsController.prototype.openCheckIn).toBe(
+      'function',
+    );
   });
 
   it('exposes a tournament cover upload handler', () => {
