@@ -4,6 +4,7 @@ import {
   getOrganizerTournamentsControllerListOrganizerTournamentsQueryKey,
   useOrganizerTournamentsControllerCancelTournament,
   useOrganizerTournamentsControllerCloseRegistration,
+  useOrganizerTournamentsControllerOpenCheckIn,
   useOrganizerTournamentsControllerOpenRegistration,
   useOrganizerTournamentsControllerPublishTournament,
 } from '@/api/generated/organizer-tournaments/organizer-tournaments'
@@ -32,6 +33,9 @@ export function useTournamentLifecycleMutations(tournamentId: string) {
   const closeRegistrationMutation = useOrganizerTournamentsControllerCloseRegistration({
     mutation: { onSuccess: refreshTournament },
   })
+  const openCheckInMutation = useOrganizerTournamentsControllerOpenCheckIn({
+    mutation: { onSuccess: refreshTournament },
+  })
   const cancelMutation = useOrganizerTournamentsControllerCancelTournament({
     mutation: { onSuccess: refreshTournament },
   })
@@ -40,15 +44,18 @@ export function useTournamentLifecycleMutations(tournamentId: string) {
     publishTournament: publishMutation.mutateAsync,
     openRegistration: openRegistrationMutation.mutateAsync,
     closeRegistration: closeRegistrationMutation.mutateAsync,
+    openCheckIn: openCheckInMutation.mutateAsync,
     cancelTournament: cancelMutation.mutateAsync,
     isPublishing: publishMutation.isPending,
     isOpeningRegistration: openRegistrationMutation.isPending,
     isClosingRegistration: closeRegistrationMutation.isPending,
+    isOpeningCheckIn: openCheckInMutation.isPending,
     isCancelling: cancelMutation.isPending,
     isPending:
       publishMutation.isPending ||
       openRegistrationMutation.isPending ||
       closeRegistrationMutation.isPending ||
+      openCheckInMutation.isPending ||
       cancelMutation.isPending,
   }
 }
