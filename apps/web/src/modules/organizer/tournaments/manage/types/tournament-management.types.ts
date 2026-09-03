@@ -87,6 +87,7 @@ export type TournamentLifecycleAction =
   | 'publish'
   | 'open-registration'
   | 'close-registration'
+  | 'open-check-in'
   | 'cancel'
 
 export type TournamentManagementSection =
