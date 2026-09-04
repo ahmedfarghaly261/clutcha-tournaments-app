@@ -6,6 +6,7 @@ import { PublicTournamentsController } from './controllers/public-tournaments.co
 import { TournamentsService } from './services/tournaments.service';
 import { TournamentCoverImageStorageService } from './services/tournament-cover-image-storage.service';
 import { TournamentPaymentProofStorageService } from './services/tournament-payment-proof-storage.service';
+import { TournamentQueryService } from './services/tournament-query.service';
 
 @Module({
   controllers: [
@@ -18,6 +19,7 @@ import { TournamentPaymentProofStorageService } from './services/tournament-paym
     TournamentsService,
     TournamentCoverImageStorageService,
     TournamentPaymentProofStorageService,
+    TournamentQueryService,
   ],
 })
 export class TournamentsModule {}
