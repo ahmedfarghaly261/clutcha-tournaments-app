@@ -44,6 +44,7 @@ import {
   type TournamentCoverImageFile,
 } from '../services/tournament-cover-image-storage.service';
 import { TournamentPaymentProofStorageService } from '../services/tournament-payment-proof-storage.service';
+import { TournamentPaymentService } from '../services/tournament-payment.service';
 import { TournamentConfigurationService } from '../services/tournament-configuration.service';
 import { TournamentEligibilityService } from '../services/tournament-eligibility.service';
 import { TournamentQueryService } from '../services/tournament-query.service';
@@ -921,6 +922,7 @@ describe('TournamentsService', () => {
           provide: TournamentPaymentProofStorageService,
           useValue: {},
         },
+        TournamentPaymentService,
         TournamentQueryService,
         TournamentConfigurationService,
         TournamentEligibilityService,
