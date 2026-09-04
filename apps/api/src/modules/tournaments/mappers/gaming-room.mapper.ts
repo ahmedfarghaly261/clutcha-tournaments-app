@@ -1,5 +1,5 @@
 import { type GamingRoomPurpose } from '@clutcha/database';
-import { type GamingRoomResponseDto } from '../dto/gaming-room-response.dto';
+import { type GamingRoomResponseDto } from '../dtos/gaming-room-response.dto';
 
 export type GamingRoomRecord = {
   id: string;

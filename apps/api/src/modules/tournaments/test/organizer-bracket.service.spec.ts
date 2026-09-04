@@ -9,9 +9,15 @@ import {
   TournamentSeedingMethod,
   TournamentStatus,
 } from '@clutcha/database';
-import { DatabaseService } from '../../database/database.service';
-import { TournamentCoverImageStorageService } from './tournament-cover-image-storage.service';
-import { TournamentsService } from './tournaments.service';
+import { DatabaseService } from '../../../database/database.service';
+import { TournamentCoverImageStorageService } from '../services/tournament-cover-image-storage.service';
+import { TournamentConfigurationService } from '../services/tournament-configuration.service';
+import { TournamentBracketService } from '../services/tournament-bracket.service';
+import { TournamentEligibilityService } from '../services/tournament-eligibility.service';
+import { TournamentLifecycleService } from '../services/tournament-lifecycle.service';
+import { TournamentPaymentService } from '../services/tournament-payment.service';
+import { TournamentQueryService } from '../services/tournament-query.service';
+import { TournamentsService } from '../services/tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
   Prisma: {
@@ -322,6 +328,22 @@ describe('TournamentsService organizer bracket', () => {
     service = new TournamentsService(
       { client } as unknown as DatabaseService,
       {} as TournamentCoverImageStorageService,
+      new TournamentQueryService({ client } as unknown as DatabaseService),
+      new TournamentConfigurationService({
+        client,
+      } as unknown as DatabaseService),
+      new TournamentBracketService({
+        client,
+      } as unknown as DatabaseService),
+      new TournamentEligibilityService({
+        client,
+      } as unknown as DatabaseService),
+      new TournamentLifecycleService({
+        client,
+      } as unknown as DatabaseService),
+      new TournamentPaymentService({
+        client,
+      } as unknown as DatabaseService),
     );
   });
 

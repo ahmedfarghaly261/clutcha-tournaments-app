@@ -1,4 +1,4 @@
-import { type VenueResponseDto } from '../dto/venue-response.dto';
+import { type VenueResponseDto } from '../dtos/venue-response.dto';
 
 export type VenueRecord = {
   id: string;

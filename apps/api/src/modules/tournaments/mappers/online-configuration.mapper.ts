@@ -1,4 +1,4 @@
-import { type OnlineConfigurationResponseDto } from '../dto/online-configuration-response.dto';
+import { type OnlineConfigurationResponseDto } from '../dtos/online-configuration-response.dto';
 
 export type OnlineConfigurationRecord = {
   id: string;

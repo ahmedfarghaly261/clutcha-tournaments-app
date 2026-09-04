@@ -6,11 +6,11 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { Public } from '../auth/decorators/public.decorator';
-import { ListPublicTournamentsQueryDto } from './dto/list-public-tournaments-query.dto';
-import { PublicTournamentDetailResponseDto } from './dto/public-tournament-detail-response.dto';
-import { PublicTournamentListResponseDto } from './dto/public-tournament-list-response.dto';
-import { TournamentsService } from './tournaments.service';
+import { Public } from '../../auth/decorators/public.decorator';
+import { ListPublicTournamentsQueryDto } from '../dtos/list-public-tournaments-query.dto';
+import { PublicTournamentDetailResponseDto } from '../dtos/public-tournament-detail-response.dto';
+import { PublicTournamentListResponseDto } from '../dtos/public-tournament-list-response.dto';
+import { TournamentsService } from '../services/tournaments.service';
 
 @Public()
 @ApiTags('Public Tournaments')

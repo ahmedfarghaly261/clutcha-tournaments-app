@@ -1,5 +1,11 @@
 import { Transform } from 'class-transformer';
-import { IsDateString, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import {
+  IsDateString,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 const trimOptionalStringToNull = ({ value }: { value: unknown }): unknown => {

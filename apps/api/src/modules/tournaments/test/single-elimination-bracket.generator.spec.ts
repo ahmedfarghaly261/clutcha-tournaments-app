@@ -1,7 +1,7 @@
 import {
   generateSingleEliminationBracket,
   getSingleEliminationBracketSize,
-} from './single-elimination-bracket.generator';
+} from '../services/single-elimination-bracket.generator';
 
 describe('single-elimination bracket generator', () => {
   it('uses the next power of two for bracket capacity', () => {

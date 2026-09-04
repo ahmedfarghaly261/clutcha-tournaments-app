@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { UserRole } from '@clutcha/database';
-import { ROLES_KEY } from '../auth/decorators/roles.decorator';
-import { OrganizerTournamentsController } from './organizer-tournaments.controller';
+import { ROLES_KEY } from '../../auth/decorators/roles.decorator';
+import { OrganizerTournamentsController } from '../controllers/organizer-tournaments.controller';
 
 jest.mock('@clutcha/database', () => ({
   RegistrationApprovalStatus: {

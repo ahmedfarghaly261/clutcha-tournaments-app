@@ -1,6 +1,6 @@
 import 'reflect-metadata';
-import { IS_PUBLIC_KEY } from '../auth/decorators/public.decorator';
-import { PublicTournamentsController } from './public-tournaments.controller';
+import { IS_PUBLIC_KEY } from '../../auth/decorators/public.decorator';
+import { PublicTournamentsController } from '../controllers/public-tournaments.controller';
 
 jest.mock('@clutcha/database', () => ({
   RegistrationApprovalStatus: {
