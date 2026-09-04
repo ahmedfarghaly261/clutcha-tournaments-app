@@ -58,11 +58,7 @@ import { type CreateTournamentDto } from '../dtos/create-tournament.dto';
 import { type GamingRoomListResponseDto } from '../dtos/gaming-room-list-response.dto';
 import { type GamingRoomResponseDto } from '../dtos/gaming-room-response.dto';
 import { type GenerateOrganizerBracketDto } from '../dtos/generate-organizer-bracket.dto';
-import {
-  type ListOrganizerTournamentsQueryDto,
-  OrganizerTournamentSortBy,
-  SortDirection,
-} from '../dtos/list-organizer-tournaments-query.dto';
+import { type ListOrganizerTournamentsQueryDto } from '../dtos/list-organizer-tournaments-query.dto';
 import {
   CaptainRegistrationSortDirection,
   CaptainRegistrationSortBy,
@@ -103,9 +99,7 @@ import { type UpsertVenueDto } from '../dtos/upsert-venue.dto';
 import { type VenueResponseDto } from '../dtos/venue-response.dto';
 import { type WithdrawCaptainRegistrationDto } from '../dtos/withdraw-captain-registration.dto';
 import { toGamingRoomResponse } from '../mappers/gaming-room.mapper';
-import { toOnlineConfigurationResponse } from '../mappers/online-configuration.mapper';
 import { toTournamentResponse } from '../mappers/tournament.mapper';
-import { toVenueResponse } from '../mappers/venue.mapper';
 import {
   TournamentCoverImageStorageService,
   type TournamentCoverImageFile,
@@ -118,6 +112,7 @@ import {
   generateSingleEliminationBracket,
   getSingleEliminationBracketSize,
 } from './single-elimination-bracket.generator';
+import { TournamentConfigurationService } from './tournament-configuration.service';
 import { TournamentQueryService } from './tournament-query.service';
 
 type ValidationIssue = {
@@ -127,16 +122,6 @@ type ValidationIssue = {
 
 type PublicationReadinessIssue =
   OrganizerTournamentDetailResponseDto['publicationReadiness']['issues'][number];
-
-type OnlineConfigurationData = Omit<
-  Prisma.TournamentOnlineConfigurationUncheckedCreateInput,
-  'id' | 'tournamentId' | 'createdAt' | 'updatedAt'
->;
-
-type VenueData = Omit<
-  Prisma.TournamentVenueUncheckedCreateInput,
-  'id' | 'tournamentId' | 'createdAt' | 'updatedAt'
->;
 
 type GamingRoomData = Omit<
   Prisma.TournamentGamingRoomUncheckedCreateInput,
@@ -378,48 +363,6 @@ const tournamentDetailSelect = {
     },
   },
 } satisfies Prisma.TournamentSelect;
-
-const onlineConfigurationSelect = {
-  id: true,
-  tournamentId: true,
-  serverRegion: true,
-  publicInstructions: true,
-  connectionRules: true,
-  evidenceRequired: true,
-  screenshotRequirements: true,
-  resultSubmissionDeadlineMinutes: true,
-  discordServerUrl: true,
-  captainSupportChannel: true,
-  matchReportingChannel: true,
-  lobbyInstructions: true,
-  privateSupportContact: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.TournamentOnlineConfigurationSelect;
-
-const venueSelect = {
-  id: true,
-  tournamentId: true,
-  name: true,
-  country: true,
-  city: true,
-  address: true,
-  mapUrl: true,
-  checkInLocation: true,
-  parkingInfo: true,
-  spectatorPolicy: true,
-  venueRules: true,
-  emergencyContact: true,
-  equipmentProvided: true,
-  playersMayBring: true,
-  playersMustBring: true,
-  personalPeripheralsAllowed: true,
-  controllersAllowed: true,
-  usbDevicesAllowed: true,
-  driverInstallationAllowed: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.TournamentVenueSelect;
 
 const gamingRoomSelect = {
   id: true,
@@ -921,6 +864,7 @@ export class TournamentsService {
     private readonly databaseService: DatabaseService,
     private readonly coverImageStorageService: TournamentCoverImageStorageService,
     private readonly tournamentQueryService: TournamentQueryService,
+    private readonly tournamentConfigurationService: TournamentConfigurationService,
     private readonly paymentProofStorageService?: TournamentPaymentProofStorageService,
   ) {}
 
@@ -2273,18 +2217,10 @@ export class TournamentsService {
     organizerId: string,
     tournamentId: string,
   ): Promise<VenueResponseDto> {
-    await this.assertOwnedOnsiteTournament(organizerId, tournamentId);
-
-    const venue = await this.databaseService.client.tournamentVenue.findUnique({
-      where: { tournamentId },
-      select: venueSelect,
-    });
-
-    if (!venue) {
-      throw new NotFoundException('Venue was not found');
-    }
-
-    return toVenueResponse(venue);
+    return this.tournamentConfigurationService.getVenue(
+      organizerId,
+      tournamentId,
+    );
   }
 
   async upsertVenue(
@@ -2292,40 +2228,21 @@ export class TournamentsService {
     tournamentId: string,
     dto: UpsertVenueDto,
   ): Promise<VenueResponseDto> {
-    await this.assertOwnedOnsiteTournament(organizerId, tournamentId);
-
-    const venue = await this.databaseService.client.tournamentVenue.upsert({
-      where: { tournamentId },
-      create: {
-        tournamentId,
-        ...this.toVenueData(dto),
-      },
-      update: this.toVenueData(dto),
-      select: venueSelect,
-    });
-
-    return toVenueResponse(venue);
+    return this.tournamentConfigurationService.upsertVenue(
+      organizerId,
+      tournamentId,
+      dto,
+    );
   }
 
   async getOnlineConfiguration(
     organizerId: string,
     tournamentId: string,
   ): Promise<OnlineConfigurationResponseDto> {
-    await this.assertOwnedOnlineTournament(organizerId, tournamentId);
-
-    const configuration =
-      await this.databaseService.client.tournamentOnlineConfiguration.findUnique(
-        {
-          where: { tournamentId },
-          select: onlineConfigurationSelect,
-        },
-      );
-
-    if (!configuration) {
-      throw new NotFoundException('Online configuration was not found');
-    }
-
-    return toOnlineConfigurationResponse(configuration);
+    return this.tournamentConfigurationService.getOnlineConfiguration(
+      organizerId,
+      tournamentId,
+    );
   }
 
   async upsertOnlineConfiguration(
@@ -2333,20 +2250,11 @@ export class TournamentsService {
     tournamentId: string,
     dto: UpsertOnlineConfigurationDto,
   ): Promise<OnlineConfigurationResponseDto> {
-    await this.assertOwnedOnlineTournament(organizerId, tournamentId);
-
-    const configuration =
-      await this.databaseService.client.tournamentOnlineConfiguration.upsert({
-        where: { tournamentId },
-        create: {
-          tournamentId,
-          ...this.toOnlineConfigurationData(dto),
-        },
-        update: this.toOnlineConfigurationData(dto),
-        select: onlineConfigurationSelect,
-      });
-
-    return toOnlineConfigurationResponse(configuration);
+    return this.tournamentConfigurationService.upsertOnlineConfiguration(
+      organizerId,
+      tournamentId,
+      dto,
+    );
   }
 
   async updateOrganizerTournamentDraft(
@@ -2435,17 +2343,11 @@ export class TournamentsService {
     organizerId: string,
     tournamentId: string,
   ): Promise<OrganizerTournamentDetailResponseDto> {
-    const tournament = await this.databaseService.client.tournament.findFirst({
-      where: {
-        id: tournamentId,
+    const tournament =
+      await this.tournamentQueryService.getOrganizerTournamentDetailsRecord(
         organizerId,
-      },
-      select: tournamentDetailSelect,
-    });
-
-    if (!tournament) {
-      throw new NotFoundException('Tournament was not found');
-    }
+        tournamentId,
+      );
 
     return {
       tournament: toTournamentResponse(tournament),
@@ -2457,35 +2359,10 @@ export class TournamentsService {
     organizerId: string,
     query: ListOrganizerTournamentsQueryDto,
   ): Promise<OrganizerTournamentListResponseDto> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const where = this.toOrganizerTournamentWhere(organizerId, query);
-    const orderBy = this.toOrganizerTournamentOrderBy(query);
-
-    const [items, totalItems] = await this.databaseService.client.$transaction([
-      this.databaseService.client.tournament.findMany({
-        where,
-        orderBy,
-        skip: (page - 1) * limit,
-        take: limit,
-        select: tournamentSelect,
-      }),
-
-      this.databaseService.client.tournament.count({ where }),
-    ]);
-    const totalPages = Math.ceil(totalItems / limit);
-
-    return {
-      items: items.map((item) => toTournamentResponse(item)),
-      meta: {
-        page,
-        limit,
-        totalItems,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPreviousPage: page > 1,
-      },
-    };
+    return this.tournamentQueryService.listOrganizerTournaments(
+      organizerId,
+      query,
+    );
   }
 
   async createOrganizerDraft(
@@ -2664,53 +2541,6 @@ export class TournamentsService {
         issues,
       });
     }
-  }
-
-  private toOrganizerTournamentWhere(
-    organizerId: string,
-    query: ListOrganizerTournamentsQueryDto,
-  ): Prisma.TournamentWhereInput {
-    const where: Prisma.TournamentWhereInput = {
-      organizerId,
-    };
-
-    if (query.status) {
-      where.status = query.status;
-    }
-
-    if (query.mode) {
-      where.mode = query.mode;
-    }
-
-    if (query.visibility) {
-      where.visibility = query.visibility;
-    }
-
-    if (query.gameKey) {
-      where.gameKey = query.gameKey;
-    }
-
-    if (query.search) {
-      where.OR = [
-        { name: { contains: query.search, mode: 'insensitive' } },
-        { slug: { contains: query.search, mode: 'insensitive' } },
-        { shortDescription: { contains: query.search, mode: 'insensitive' } },
-        { gameKey: { contains: query.search, mode: 'insensitive' } },
-      ];
-    }
-
-    return where;
-  }
-
-  private toOrganizerTournamentOrderBy(
-    query: ListOrganizerTournamentsQueryDto,
-  ): Prisma.TournamentOrderByWithRelationInput {
-    const sortBy = query.sortBy ?? OrganizerTournamentSortBy.CREATED_AT;
-    const sortDirection = query.sortDirection ?? SortDirection.DESC;
-
-    return {
-      [sortBy]: sortDirection,
-    };
   }
 
   private async findOwnedTournamentOrThrow(
@@ -4560,55 +4390,6 @@ export class TournamentsService {
     message: string,
   ): void {
     issues.push({ code, field, message });
-  }
-
-  private toOnlineConfigurationData(
-    dto: UpsertOnlineConfigurationDto,
-  ): OnlineConfigurationData {
-    return {
-      serverRegion: dto.serverRegion,
-      publicInstructions: dto.publicInstructions,
-      connectionRules: dto.connectionRules,
-      evidenceRequired: dto.evidenceRequired ?? false,
-      screenshotRequirements: dto.screenshotRequirements,
-      resultSubmissionDeadlineMinutes: dto.resultSubmissionDeadlineMinutes,
-      discordServerUrl: dto.discordServerUrl,
-      captainSupportChannel: dto.captainSupportChannel,
-      matchReportingChannel: dto.matchReportingChannel,
-      lobbyInstructions: dto.lobbyInstructions,
-      privateSupportContact: dto.privateSupportContact,
-    };
-  }
-
-  private toVenueData(dto: UpsertVenueDto): VenueData {
-    return {
-      name: dto.name,
-      country: dto.country,
-      city: dto.city,
-      address: dto.address,
-      mapUrl: dto.mapUrl,
-      checkInLocation: dto.checkInLocation,
-      parkingInfo: dto.parkingInfo,
-      spectatorPolicy: dto.spectatorPolicy,
-      venueRules: dto.venueRules,
-      emergencyContact: dto.emergencyContact,
-      equipmentProvided:
-        dto.equipmentProvided === undefined
-          ? undefined
-          : (dto.equipmentProvided as Prisma.InputJsonValue),
-      playersMayBring:
-        dto.playersMayBring === undefined
-          ? undefined
-          : (dto.playersMayBring as Prisma.InputJsonValue),
-      playersMustBring:
-        dto.playersMustBring === undefined
-          ? undefined
-          : (dto.playersMustBring as Prisma.InputJsonValue),
-      personalPeripheralsAllowed: dto.personalPeripheralsAllowed ?? false,
-      controllersAllowed: dto.controllersAllowed ?? false,
-      usbDevicesAllowed: dto.usbDevicesAllowed ?? false,
-      driverInstallationAllowed: dto.driverInstallationAllowed ?? false,
-    };
   }
 
   private toGamingRoomData(dto: CreateGamingRoomDto): GamingRoomData {
