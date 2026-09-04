@@ -11,6 +11,7 @@ import {
 } from '@clutcha/database';
 import { DatabaseService } from '../../../database/database.service';
 import { TournamentCoverImageStorageService } from '../services/tournament-cover-image-storage.service';
+import { TournamentConfigurationService } from '../services/tournament-configuration.service';
 import { TournamentQueryService } from '../services/tournament-query.service';
 import { TournamentsService } from '../services/tournaments.service';
 
@@ -324,6 +325,9 @@ describe('TournamentsService organizer bracket', () => {
       { client } as unknown as DatabaseService,
       {} as TournamentCoverImageStorageService,
       new TournamentQueryService({ client } as unknown as DatabaseService),
+      new TournamentConfigurationService({
+        client,
+      } as unknown as DatabaseService),
       undefined,
     );
   });
