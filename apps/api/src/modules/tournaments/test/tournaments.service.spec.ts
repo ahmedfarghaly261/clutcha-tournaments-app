@@ -26,25 +26,25 @@ import {
   UserRole,
   UserStatus,
 } from '@clutcha/database';
-import { DatabaseService } from '../../database/database.service';
-import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
-import { type CreateTournamentDto } from './dto/create-tournament.dto';
+import { DatabaseService } from '../../../database/database.service';
+import { type CreateGamingRoomDto } from '../dtos/create-gaming-room.dto';
+import { type CreateTournamentDto } from '../dtos/create-tournament.dto';
 import {
   CaptainRegistrationSortDirection,
   CaptainRegistrationSortBy,
   CaptainRegistrationTimeFilter,
-} from './dto/list-captain-registrations-query.dto';
+} from '../dtos/list-captain-registrations-query.dto';
 import {
   OrganizerTournamentSortBy,
   SortDirection,
-} from './dto/list-organizer-tournaments-query.dto';
-import { PublicTournamentSortBy } from './dto/list-public-tournaments-query.dto';
+} from '../dtos/list-organizer-tournaments-query.dto';
+import { PublicTournamentSortBy } from '../dtos/list-public-tournaments-query.dto';
 import {
   TournamentCoverImageStorageService,
   type TournamentCoverImageFile,
-} from './tournament-cover-image-storage.service';
-import { TournamentPaymentProofStorageService } from './tournament-payment-proof-storage.service';
-import { TournamentsService } from './tournaments.service';
+} from '../services/tournament-cover-image-storage.service';
+import { TournamentPaymentProofStorageService } from '../services/tournament-payment-proof-storage.service';
+import { TournamentsService } from '../services/tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
   Prisma: {

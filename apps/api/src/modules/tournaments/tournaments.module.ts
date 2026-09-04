@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { CaptainRegistrationsController } from './captain-registrations.controller';
-import { CaptainTournamentEligibilityController } from './captain-tournament-eligibility.controller';
-import { OrganizerTournamentsController } from './organizer-tournaments.controller';
-import { PublicTournamentsController } from './public-tournaments.controller';
-import { TournamentsService } from './tournaments.service';
-import { TournamentCoverImageStorageService } from './tournament-cover-image-storage.service';
-import { TournamentPaymentProofStorageService } from './tournament-payment-proof-storage.service';
+import { CaptainRegistrationsController } from './controllers/captain-registrations.controller';
+import { CaptainTournamentEligibilityController } from './controllers/captain-tournament-eligibility.controller';
+import { OrganizerTournamentsController } from './controllers/organizer-tournaments.controller';
+import { PublicTournamentsController } from './controllers/public-tournaments.controller';
+import { TournamentsService } from './services/tournaments.service';
+import { TournamentCoverImageStorageService } from './services/tournament-cover-image-storage.service';
+import { TournamentPaymentProofStorageService } from './services/tournament-payment-proof-storage.service';
 
 @Module({
   controllers: [

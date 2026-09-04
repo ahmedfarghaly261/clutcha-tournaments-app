@@ -9,9 +9,9 @@ import {
   TournamentSeedingMethod,
   TournamentStatus,
 } from '@clutcha/database';
-import { DatabaseService } from '../../database/database.service';
-import { TournamentCoverImageStorageService } from './tournament-cover-image-storage.service';
-import { TournamentsService } from './tournaments.service';
+import { DatabaseService } from '../../../database/database.service';
+import { TournamentCoverImageStorageService } from '../services/tournament-cover-image-storage.service';
+import { TournamentsService } from '../services/tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
   Prisma: {

@@ -3,7 +3,7 @@ import {
   type TournamentMode,
   type TournamentStatus,
 } from '@clutcha/database';
-import { type PublicTournamentSummaryResponseDto } from '../dto/public-tournament-summary-response.dto';
+import { type PublicTournamentSummaryResponseDto } from '../dtos/public-tournament-summary-response.dto';
 
 export type PublicTournamentRecord = {
   id: string;

@@ -25,92 +25,92 @@ import {
   TournamentVisibility,
   UserRole,
 } from '@clutcha/database';
-import { DatabaseService } from '../../database/database.service';
+import { DatabaseService } from '../../../database/database.service';
 import {
   CaptainRegistrationNextAction,
   type CaptainRegistrationDetailResponseDto,
   type CaptainRegistrationListItemDto,
   type CaptainRegistrationListResponseDto,
-} from './dto/captain-registration-response.dto';
-import { type CaptainRegistrationBracketResponseDto } from './dto/captain-registration-bracket-response.dto';
+} from '../dtos/captain-registration-response.dto';
+import { type CaptainRegistrationBracketResponseDto } from '../dtos/captain-registration-bracket-response.dto';
 import {
   type CaptainCheckInIssueDto,
   type CaptainRegistrationCheckInResponseDto,
-} from './dto/captain-registration-check-in-response.dto';
-import { type CaptainRegistrationHubResponseDto } from './dto/captain-registration-hub-response.dto';
-import { type CaptainRegistrationInformationResponseDto } from './dto/captain-registration-information-response.dto';
+} from '../dtos/captain-registration-check-in-response.dto';
+import { type CaptainRegistrationHubResponseDto } from '../dtos/captain-registration-hub-response.dto';
+import { type CaptainRegistrationInformationResponseDto } from '../dtos/captain-registration-information-response.dto';
 import {
   type CaptainMatchListResponseDto,
   type CaptainMatchResponseDto,
-} from './dto/captain-registration-match-response.dto';
+} from '../dtos/captain-registration-match-response.dto';
 import {
   type CaptainProgressMatchSummaryDto,
   type CaptainRegistrationProgressResponseDto,
-} from './dto/captain-registration-progress-response.dto';
+} from '../dtos/captain-registration-progress-response.dto';
 import {
   type CaptainRegistrationStandingsResponseDto,
   type CaptainStandingItemDto,
-} from './dto/captain-registration-standings-response.dto';
-import { type CancelTournamentDto } from './dto/cancel-tournament.dto';
-import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
-import { type CreateTournamentRegistrationDto } from './dto/create-tournament-registration.dto';
-import { type CreateTournamentDto } from './dto/create-tournament.dto';
-import { type GamingRoomListResponseDto } from './dto/gaming-room-list-response.dto';
-import { type GamingRoomResponseDto } from './dto/gaming-room-response.dto';
-import { type GenerateOrganizerBracketDto } from './dto/generate-organizer-bracket.dto';
+} from '../dtos/captain-registration-standings-response.dto';
+import { type CancelTournamentDto } from '../dtos/cancel-tournament.dto';
+import { type CreateGamingRoomDto } from '../dtos/create-gaming-room.dto';
+import { type CreateTournamentRegistrationDto } from '../dtos/create-tournament-registration.dto';
+import { type CreateTournamentDto } from '../dtos/create-tournament.dto';
+import { type GamingRoomListResponseDto } from '../dtos/gaming-room-list-response.dto';
+import { type GamingRoomResponseDto } from '../dtos/gaming-room-response.dto';
+import { type GenerateOrganizerBracketDto } from '../dtos/generate-organizer-bracket.dto';
 import {
   type ListOrganizerTournamentsQueryDto,
   OrganizerTournamentSortBy,
   SortDirection,
-} from './dto/list-organizer-tournaments-query.dto';
+} from '../dtos/list-organizer-tournaments-query.dto';
 import {
   CaptainRegistrationSortDirection,
   CaptainRegistrationSortBy,
   CaptainRegistrationTimeFilter,
   type ListCaptainRegistrationsQueryDto,
-} from './dto/list-captain-registrations-query.dto';
+} from '../dtos/list-captain-registrations-query.dto';
 import {
   type ListPublicTournamentsQueryDto,
   PublicTournamentSortBy,
-} from './dto/list-public-tournaments-query.dto';
-import { type OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
-import { type OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
+} from '../dtos/list-public-tournaments-query.dto';
+import { type OrganizerTournamentDetailResponseDto } from '../dtos/organizer-tournament-detail-response.dto';
+import { type OrganizerTournamentListResponseDto } from '../dtos/organizer-tournament-list-response.dto';
 import {
   type OrganizerBracketMatchDto,
   type OrganizerBracketResponseDto,
-} from './dto/organizer-bracket-response.dto';
-import { type OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
-import { type PublicTournamentDetailResponseDto } from './dto/public-tournament-detail-response.dto';
-import { type PublicTournamentListResponseDto } from './dto/public-tournament-list-response.dto';
+} from '../dtos/organizer-bracket-response.dto';
+import { type OnlineConfigurationResponseDto } from '../dtos/online-configuration-response.dto';
+import { type PublicTournamentDetailResponseDto } from '../dtos/public-tournament-detail-response.dto';
+import { type PublicTournamentListResponseDto } from '../dtos/public-tournament-list-response.dto';
 import {
   type OrganizerRegistrationDetailResponseDto,
   type OrganizerRegistrationListItemDto,
   type OrganizerRegistrationListResponseDto,
-} from './dto/organizer-registration-response.dto';
-import { type RejectOrganizerRegistrationDto } from './dto/reject-organizer-registration.dto';
-import { type RejectPaymentProofDto } from './dto/reject-payment-proof.dto';
-import { type ScheduleOrganizerMatchDto } from './dto/schedule-organizer-match.dto';
-import { type SubmitPaymentProofDto } from './dto/submit-payment-proof.dto';
+} from '../dtos/organizer-registration-response.dto';
+import { type RejectOrganizerRegistrationDto } from '../dtos/reject-organizer-registration.dto';
+import { type RejectPaymentProofDto } from '../dtos/reject-payment-proof.dto';
+import { type ScheduleOrganizerMatchDto } from '../dtos/schedule-organizer-match.dto';
+import { type SubmitPaymentProofDto } from '../dtos/submit-payment-proof.dto';
 import {
   TournamentEligibilityIssueCode,
   type TournamentEligibilityIssueDto,
   type TournamentEligibilityResponseDto,
-} from './dto/tournament-eligibility-response.dto';
-import { type TournamentRegistrationResponseDto } from './dto/tournament-registration-response.dto';
-import { type TournamentResponseDto } from './dto/tournament-response.dto';
-import { type UpdateGamingRoomDto } from './dto/update-gaming-room.dto';
-import { type UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
-import { type UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.dto';
-import { type UpsertTournamentPaymentMethodDto } from './dto/upsert-tournament-payment-method.dto';
-import { type UpsertVenueDto } from './dto/upsert-venue.dto';
-import { type VenueResponseDto } from './dto/venue-response.dto';
-import { type WithdrawCaptainRegistrationDto } from './dto/withdraw-captain-registration.dto';
-import { toGamingRoomResponse } from './mappers/gaming-room.mapper';
-import { toOnlineConfigurationResponse } from './mappers/online-configuration.mapper';
-import { toPublicTournamentDetailResponse } from './mappers/public-tournament-detail.mapper';
-import { toPublicTournamentSummaryResponse } from './mappers/public-tournament.mapper';
-import { toTournamentResponse } from './mappers/tournament.mapper';
-import { toVenueResponse } from './mappers/venue.mapper';
+} from '../dtos/tournament-eligibility-response.dto';
+import { type TournamentRegistrationResponseDto } from '../dtos/tournament-registration-response.dto';
+import { type TournamentResponseDto } from '../dtos/tournament-response.dto';
+import { type UpdateGamingRoomDto } from '../dtos/update-gaming-room.dto';
+import { type UpdateTournamentDraftDto } from '../dtos/update-tournament-draft.dto';
+import { type UpsertOnlineConfigurationDto } from '../dtos/upsert-online-configuration.dto';
+import { type UpsertTournamentPaymentMethodDto } from '../dtos/upsert-tournament-payment-method.dto';
+import { type UpsertVenueDto } from '../dtos/upsert-venue.dto';
+import { type VenueResponseDto } from '../dtos/venue-response.dto';
+import { type WithdrawCaptainRegistrationDto } from '../dtos/withdraw-captain-registration.dto';
+import { toGamingRoomResponse } from '../mappers/gaming-room.mapper';
+import { toOnlineConfigurationResponse } from '../mappers/online-configuration.mapper';
+import { toPublicTournamentDetailResponse } from '../mappers/public-tournament-detail.mapper';
+import { toPublicTournamentSummaryResponse } from '../mappers/public-tournament.mapper';
+import { toTournamentResponse } from '../mappers/tournament.mapper';
+import { toVenueResponse } from '../mappers/venue.mapper';
 import {
   TournamentCoverImageStorageService,
   type TournamentCoverImageFile,
@@ -2007,7 +2007,9 @@ export class TournamentsService {
     }
 
     if (registration.paymentStatus === RegistrationPaymentStatus.NOT_REQUIRED) {
-      throw new ConflictException('This registration does not require payment.');
+      throw new ConflictException(
+        'This registration does not require payment.',
+      );
     }
 
     if (registration.paymentStatus === RegistrationPaymentStatus.VERIFIED) {
@@ -2047,22 +2049,23 @@ export class TournamentsService {
           },
         });
 
-        const created = await transaction.tournamentRegistrationPaymentProof.create({
-          data: {
-            registrationId,
-            paymentMethodId: paymentMethod.id,
-            expectedAmount: registration.tournament.registrationFee,
-            currency: registration.tournament.currency,
-            proofUrl,
-            originalName: file?.originalname ?? 'payment-proof',
-            mimeType: file?.mimetype ?? 'application/octet-stream',
-            fileSize: file?.size ?? 0,
-            transactionReference: dto.transactionReference,
-            paidAt: dto.paidAt ? new Date(dto.paidAt) : null,
-            captainNote: dto.captainNote,
-          },
-          include: { paymentMethod: true },
-        });
+        const created =
+          await transaction.tournamentRegistrationPaymentProof.create({
+            data: {
+              registrationId,
+              paymentMethodId: paymentMethod.id,
+              expectedAmount: registration.tournament.registrationFee,
+              currency: registration.tournament.currency,
+              proofUrl,
+              originalName: file?.originalname ?? 'payment-proof',
+              mimeType: file?.mimetype ?? 'application/octet-stream',
+              fileSize: file?.size ?? 0,
+              transactionReference: dto.transactionReference,
+              paidAt: dto.paidAt ? new Date(dto.paidAt) : null,
+              captainNote: dto.captainNote,
+            },
+            include: { paymentMethod: true },
+          });
 
         await transaction.tournamentRegistration.update({
           where: { id: registrationId },
@@ -3434,7 +3437,8 @@ export class TournamentsService {
     registration: OrganizerRegistrationDetailRecord,
   ): void {
     if (
-      registration.paymentStatus !== RegistrationPaymentStatus.PROOF_SUBMITTED &&
+      registration.paymentStatus !==
+        RegistrationPaymentStatus.PROOF_SUBMITTED &&
       registration.paymentStatus !== RegistrationPaymentStatus.VERIFIED &&
       registration.paymentStatus !== RegistrationPaymentStatus.NOT_REQUIRED
     ) {
@@ -4418,7 +4422,8 @@ export class TournamentsService {
     }
 
     if (
-      registration.paymentStatus !== RegistrationPaymentStatus.PROOF_SUBMITTED &&
+      registration.paymentStatus !==
+        RegistrationPaymentStatus.PROOF_SUBMITTED &&
       registration.paymentStatus !== RegistrationPaymentStatus.VERIFIED &&
       registration.paymentStatus !== RegistrationPaymentStatus.NOT_REQUIRED
     ) {
@@ -5204,15 +5209,17 @@ export class TournamentsService {
     registrationId: string,
   ) {
     const proof =
-      await this.databaseService.client.tournamentRegistrationPaymentProof.findFirst({
-        where: {
-          registrationId,
-          status: TournamentPaymentProofStatus.SUBMITTED,
-          registration: { tournamentId },
+      await this.databaseService.client.tournamentRegistrationPaymentProof.findFirst(
+        {
+          where: {
+            registrationId,
+            status: TournamentPaymentProofStatus.SUBMITTED,
+            registration: { tournamentId },
+          },
+          include: { paymentMethod: true },
+          orderBy: { submittedAt: 'desc' },
         },
-        include: { paymentMethod: true },
-        orderBy: { submittedAt: 'desc' },
-      });
+      );
 
     if (!proof) {
       throw new NotFoundException('Submitted payment proof was not found');
