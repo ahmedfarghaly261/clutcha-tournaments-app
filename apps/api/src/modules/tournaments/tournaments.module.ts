@@ -8,6 +8,7 @@ import { TournamentCoverImageStorageService } from './services/tournament-cover-
 import { TournamentPaymentProofStorageService } from './services/tournament-payment-proof-storage.service';
 import { TournamentPaymentService } from './services/tournament-payment.service';
 import { TournamentConfigurationService } from './services/tournament-configuration.service';
+import { TournamentBracketService } from './services/tournament-bracket.service';
 import { TournamentEligibilityService } from './services/tournament-eligibility.service';
 import { TournamentLifecycleService } from './services/tournament-lifecycle.service';
 import { TournamentQueryService } from './services/tournament-query.service';
@@ -25,6 +26,7 @@ import { TournamentQueryService } from './services/tournament-query.service';
     TournamentPaymentProofStorageService,
     TournamentPaymentService,
     TournamentConfigurationService,
+    TournamentBracketService,
     TournamentEligibilityService,
     TournamentLifecycleService,
     TournamentQueryService,
