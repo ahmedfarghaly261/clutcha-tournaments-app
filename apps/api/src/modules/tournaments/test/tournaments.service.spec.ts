@@ -45,6 +45,7 @@ import {
 } from '../services/tournament-cover-image-storage.service';
 import { TournamentPaymentProofStorageService } from '../services/tournament-payment-proof-storage.service';
 import { TournamentConfigurationService } from '../services/tournament-configuration.service';
+import { TournamentEligibilityService } from '../services/tournament-eligibility.service';
 import { TournamentQueryService } from '../services/tournament-query.service';
 import { TournamentsService } from '../services/tournaments.service';
 
@@ -922,6 +923,7 @@ describe('TournamentsService', () => {
         },
         TournamentQueryService,
         TournamentConfigurationService,
+        TournamentEligibilityService,
       ],
     }).compile();
 

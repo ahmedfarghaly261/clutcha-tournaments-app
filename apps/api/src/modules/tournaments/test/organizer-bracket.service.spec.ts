@@ -12,6 +12,7 @@ import {
 import { DatabaseService } from '../../../database/database.service';
 import { TournamentCoverImageStorageService } from '../services/tournament-cover-image-storage.service';
 import { TournamentConfigurationService } from '../services/tournament-configuration.service';
+import { TournamentEligibilityService } from '../services/tournament-eligibility.service';
 import { TournamentQueryService } from '../services/tournament-query.service';
 import { TournamentsService } from '../services/tournaments.service';
 
@@ -326,6 +327,9 @@ describe('TournamentsService organizer bracket', () => {
       {} as TournamentCoverImageStorageService,
       new TournamentQueryService({ client } as unknown as DatabaseService),
       new TournamentConfigurationService({
+        client,
+      } as unknown as DatabaseService),
+      new TournamentEligibilityService({
         client,
       } as unknown as DatabaseService),
       undefined,
