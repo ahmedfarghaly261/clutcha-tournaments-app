@@ -106,6 +106,7 @@ import {
 } from './single-elimination-bracket.generator';
 import { TournamentConfigurationService } from './tournament-configuration.service';
 import { TournamentEligibilityService } from './tournament-eligibility.service';
+import { TournamentLifecycleService } from './tournament-lifecycle.service';
 import { TournamentPaymentService } from './tournament-payment.service';
 import { TournamentQueryService } from './tournament-query.service';
 
@@ -724,6 +725,7 @@ export class TournamentsService {
     private readonly tournamentQueryService: TournamentQueryService,
     private readonly tournamentConfigurationService: TournamentConfigurationService,
     private readonly tournamentEligibilityService: TournamentEligibilityService,
+    private readonly tournamentLifecycleService: TournamentLifecycleService,
     private readonly tournamentPaymentService: TournamentPaymentService,
   ) {}
 
@@ -1512,108 +1514,30 @@ export class TournamentsService {
     organizerId: string,
     tournamentId: string,
   ): Promise<TournamentResponseDto> {
-    const updated = await this.databaseService.client.$transaction(
-      async (transaction) => {
-        const tournament = await this.findOwnedTournamentForLifecycleOrThrow(
-          transaction,
-          organizerId,
-          tournamentId,
-        );
-
-        this.assertLifecycleStatus(
-          tournament.status,
-          [TournamentStatus.PUBLISHED],
-          'Only published tournaments can open registration.',
-        );
-
-        const openedAt = new Date();
-
-        return transaction.tournament.update({
-          where: { id: tournament.id },
-          data: {
-            status: TournamentStatus.REGISTRATION_OPEN,
-            registrationOpenedAt: openedAt,
-            registrationOpensAt:
-              tournament.registrationOpensAt > openedAt
-                ? openedAt
-                : tournament.registrationOpensAt,
-            registrationClosedAt: null,
-          },
-          select: tournamentSelect,
-        });
-      },
+    return this.tournamentLifecycleService.openRegistration(
+      organizerId,
+      tournamentId,
     );
-
-    return toTournamentResponse(updated);
   }
 
   async closeOrganizerTournamentRegistration(
     organizerId: string,
     tournamentId: string,
   ): Promise<TournamentResponseDto> {
-    const updated = await this.databaseService.client.$transaction(
-      async (transaction) => {
-        const tournament = await this.findOwnedTournamentForLifecycleOrThrow(
-          transaction,
-          organizerId,
-          tournamentId,
-        );
-
-        this.assertLifecycleStatus(
-          tournament.status,
-          [TournamentStatus.REGISTRATION_OPEN],
-          'Only registration-open tournaments can close registration.',
-        );
-
-        return transaction.tournament.update({
-          where: { id: tournament.id },
-          data: {
-            status: TournamentStatus.REGISTRATION_CLOSED,
-            registrationClosedAt: new Date(),
-          },
-          select: tournamentSelect,
-        });
-      },
+    return this.tournamentLifecycleService.closeRegistration(
+      organizerId,
+      tournamentId,
     );
-
-    return toTournamentResponse(updated);
   }
 
   async openOrganizerTournamentCheckIn(
     organizerId: string,
     tournamentId: string,
   ): Promise<TournamentResponseDto> {
-    const updated = await this.databaseService.client.$transaction(
-      async (transaction) => {
-        const tournament = await this.findOwnedTournamentForLifecycleOrThrow(
-          transaction,
-          organizerId,
-          tournamentId,
-        );
-
-        this.assertLifecycleStatus(
-          tournament.status,
-          [TournamentStatus.REGISTRATION_CLOSED],
-          'Only registration-closed tournaments can open check-in.',
-        );
-
-        const openedAt = new Date();
-
-        return transaction.tournament.update({
-          where: { id: tournament.id },
-          data: {
-            status: TournamentStatus.CHECK_IN_OPEN,
-            checkInOpensAt:
-              !tournament.checkInOpensAt || tournament.checkInOpensAt > openedAt
-                ? openedAt
-                : tournament.checkInOpensAt,
-          },
-          select: tournamentSelect,
-        });
-      },
+    return this.tournamentLifecycleService.openCheckIn(
+      organizerId,
+      tournamentId,
     );
-
-    return toTournamentResponse(updated);
   }
 
   async cancelOrganizerTournament(
@@ -1621,41 +1545,11 @@ export class TournamentsService {
     tournamentId: string,
     dto: CancelTournamentDto,
   ): Promise<TournamentResponseDto> {
-    const updated = await this.databaseService.client.$transaction(
-      async (transaction) => {
-        const tournament = await this.findOwnedTournamentForLifecycleOrThrow(
-          transaction,
-          organizerId,
-          tournamentId,
-        );
-
-        this.assertLifecycleStatus(
-          tournament.status,
-          [
-            TournamentStatus.DRAFT,
-            TournamentStatus.PUBLISHED,
-            TournamentStatus.REGISTRATION_OPEN,
-            TournamentStatus.REGISTRATION_CLOSED,
-            TournamentStatus.CHECK_IN_OPEN,
-            TournamentStatus.IN_PROGRESS,
-            TournamentStatus.POSTPONED,
-          ],
-          'This tournament cannot be cancelled from its current status.',
-        );
-
-        return transaction.tournament.update({
-          where: { id: tournament.id },
-          data: {
-            status: TournamentStatus.CANCELLED,
-            cancelledAt: new Date(),
-            cancellationReason: dto.reason,
-          },
-          select: tournamentSelect,
-        });
-      },
+    return this.tournamentLifecycleService.cancel(
+      organizerId,
+      tournamentId,
+      dto.reason,
     );
-
-    return toTournamentResponse(updated);
   }
 
   async listGamingRooms(
