@@ -44,6 +44,7 @@ import {
   type TournamentCoverImageFile,
 } from '../services/tournament-cover-image-storage.service';
 import { TournamentPaymentProofStorageService } from '../services/tournament-payment-proof-storage.service';
+import { TournamentQueryService } from '../services/tournament-query.service';
 import { TournamentsService } from '../services/tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
@@ -918,6 +919,7 @@ describe('TournamentsService', () => {
           provide: TournamentPaymentProofStorageService,
           useValue: {},
         },
+        TournamentQueryService,
       ],
     }).compile();
 

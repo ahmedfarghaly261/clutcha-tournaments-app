@@ -11,6 +11,7 @@ import {
 } from '@clutcha/database';
 import { DatabaseService } from '../../../database/database.service';
 import { TournamentCoverImageStorageService } from '../services/tournament-cover-image-storage.service';
+import { TournamentQueryService } from '../services/tournament-query.service';
 import { TournamentsService } from '../services/tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
@@ -322,6 +323,8 @@ describe('TournamentsService organizer bracket', () => {
     service = new TournamentsService(
       { client } as unknown as DatabaseService,
       {} as TournamentCoverImageStorageService,
+      new TournamentQueryService({ client } as unknown as DatabaseService),
+      undefined,
     );
   });
 
