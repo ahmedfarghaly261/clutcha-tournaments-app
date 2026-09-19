@@ -41,8 +41,6 @@ import { type CancelTournamentDto } from '../dtos/cancel-tournament.dto';
 import { type CreateGamingRoomDto } from '../dtos/create-gaming-room.dto';
 import { type CreateTournamentRegistrationDto } from '../dtos/create-tournament-registration.dto';
 import { type CreateTournamentDto } from '../dtos/create-tournament.dto';
-import { type GamingRoomListResponseDto } from '../dtos/gaming-room-list-response.dto';
-import { type GamingRoomResponseDto } from '../dtos/gaming-room-response.dto';
 import { type GenerateOrganizerBracketDto } from '../dtos/generate-organizer-bracket.dto';
 import { type ListOrganizerTournamentsQueryDto } from '../dtos/list-organizer-tournaments-query.dto';
 import {
@@ -84,7 +82,6 @@ import { type UpsertTournamentPaymentMethodDto } from '../dtos/upsert-tournament
 import { type UpsertVenueDto } from '../dtos/upsert-venue.dto';
 import { type VenueResponseDto } from '../dtos/venue-response.dto';
 import { type WithdrawCaptainRegistrationDto } from '../dtos/withdraw-captain-registration.dto';
-import { toGamingRoomResponse } from '../mappers/gaming-room.mapper';
 import { toTournamentResponse } from '../mappers/tournament.mapper';
 import {
   TournamentCoverImageStorageService,
@@ -99,6 +96,7 @@ import { TournamentPaymentService } from './tournament-payment.service';
 import { TournamentQueryService } from './tournament-query.service';
 import { TournamentMatchService } from './tournament-match.service';
 import { TournamentCaptainMatchService } from './tournament-captain-match.service';
+import { TournamentGamingRoomService } from './tournament-gaming-room.service';
 
 type ValidationIssue = {
   field: string;
@@ -107,11 +105,6 @@ type ValidationIssue = {
 
 type PublicationReadinessIssue =
   OrganizerTournamentDetailResponseDto['publicationReadiness']['issues'][number];
-
-type GamingRoomData = Omit<
-  Prisma.TournamentGamingRoomUncheckedCreateInput,
-  'id' | 'venueId' | 'createdAt' | 'updatedAt'
->;
 
 type CaptainRegistrationListRecord = Prisma.TournamentRegistrationGetPayload<{
   select: typeof captainRegistrationListSelect;
@@ -269,35 +262,6 @@ const tournamentDetailSelect = {
     },
   },
 } satisfies Prisma.TournamentSelect;
-
-const gamingRoomSelect = {
-  id: true,
-  venueId: true,
-  name: true,
-  description: true,
-  purpose: true,
-  stationCount: true,
-  cpu: true,
-  gpu: true,
-  ram: true,
-  storage: true,
-  operatingSystem: true,
-  monitorBrand: true,
-  monitorModel: true,
-  monitorSizeInches: true,
-  monitorResolution: true,
-  monitorRefreshRateHz: true,
-  monitorResponseTimeMs: true,
-  mouse: true,
-  keyboard: true,
-  headset: true,
-  mousePad: true,
-  controller: true,
-  internetConnection: true,
-  equipmentNotes: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.TournamentGamingRoomSelect;
 
 const eligibilityTeamSelect = {
   id: true,
@@ -575,6 +539,7 @@ export class TournamentsService {
     private readonly tournamentPaymentService: TournamentPaymentService,
     private readonly tournamentMatchService: TournamentMatchService,
     private readonly tournamentCaptainMatchService: TournamentCaptainMatchService,
+    private readonly tournamentGamingRoomService: TournamentGamingRoomService,
   ) {}
 
   async listPublicTournaments(
@@ -1212,60 +1177,35 @@ export class TournamentsService {
     );
   }
 
-  async listGamingRooms(
-    organizerId: string,
-    tournamentId: string,
-  ): Promise<GamingRoomListResponseDto> {
-    const venue = await this.findOwnedOnsiteVenueOrThrow(
+  async listGamingRooms(organizerId: string, tournamentId: string) {
+    return this.tournamentGamingRoomService.listGamingRooms(
       organizerId,
       tournamentId,
     );
-
-    const rooms =
-      await this.databaseService.client.tournamentGamingRoom.findMany({
-        where: { venueId: venue.id },
-        orderBy: { createdAt: 'asc' },
-        select: gamingRoomSelect,
-      });
-
-    return {
-      items: rooms.map((room) => toGamingRoomResponse(room)),
-    };
   }
 
   async createGamingRoom(
     organizerId: string,
     tournamentId: string,
     dto: CreateGamingRoomDto,
-  ): Promise<GamingRoomResponseDto> {
-    const venue = await this.findOwnedOnsiteVenueOrThrow(
+  ) {
+    return this.tournamentGamingRoomService.createGamingRoom(
       organizerId,
       tournamentId,
+      dto,
     );
-
-    const room = await this.databaseService.client.tournamentGamingRoom.create({
-      data: {
-        venueId: venue.id,
-        ...this.toGamingRoomData(dto),
-      },
-      select: gamingRoomSelect,
-    });
-
-    return toGamingRoomResponse(room);
   }
 
   async getGamingRoom(
     organizerId: string,
     tournamentId: string,
     gamingRoomId: string,
-  ): Promise<GamingRoomResponseDto> {
-    const venue = await this.findOwnedOnsiteVenueOrThrow(
+  ) {
+    return this.tournamentGamingRoomService.getGamingRoom(
       organizerId,
       tournamentId,
+      gamingRoomId,
     );
-    const room = await this.findGamingRoomOrThrow(venue.id, gamingRoomId);
-
-    return toGamingRoomResponse(room);
   }
 
   async updateGamingRoom(
@@ -1273,20 +1213,13 @@ export class TournamentsService {
     tournamentId: string,
     gamingRoomId: string,
     dto: UpdateGamingRoomDto,
-  ): Promise<GamingRoomResponseDto> {
-    const venue = await this.findOwnedOnsiteVenueOrThrow(
+  ) {
+    return this.tournamentGamingRoomService.updateGamingRoom(
       organizerId,
       tournamentId,
+      gamingRoomId,
+      dto,
     );
-    await this.findGamingRoomOrThrow(venue.id, gamingRoomId);
-
-    const room = await this.databaseService.client.tournamentGamingRoom.update({
-      where: { id: gamingRoomId },
-      data: this.toGamingRoomUpdateData(dto),
-      select: gamingRoomSelect,
-    });
-
-    return toGamingRoomResponse(room);
   }
 
   async deleteGamingRoom(
@@ -1294,16 +1227,11 @@ export class TournamentsService {
     tournamentId: string,
     gamingRoomId: string,
   ): Promise<void> {
-    const venue = await this.findOwnedOnsiteVenueOrThrow(
+    return this.tournamentGamingRoomService.deleteGamingRoom(
       organizerId,
       tournamentId,
+      gamingRoomId,
     );
-    await this.findGamingRoomOrThrow(venue.id, gamingRoomId);
-
-    await this.databaseService.client.tournamentGamingRoom.delete({
-      where: { id: gamingRoomId },
-      select: { id: true },
-    });
   }
 
   async getVenue(
@@ -1715,62 +1643,6 @@ export class TournamentsService {
         'Online configuration is only available for online tournaments',
       );
     }
-  }
-
-  private async assertOwnedOnsiteTournament(
-    organizerId: string,
-    tournamentId: string,
-  ): Promise<void> {
-    const tournament = await this.findOwnedTournamentOrThrow(
-      organizerId,
-      tournamentId,
-    );
-
-    if (tournament.mode !== TournamentMode.ONSITE) {
-      throw new ConflictException(
-        'Venue configuration is only available for on-site tournaments',
-      );
-    }
-  }
-
-  private async findOwnedOnsiteVenueOrThrow(
-    organizerId: string,
-    tournamentId: string,
-  ): Promise<{ id: string }> {
-    await this.assertOwnedOnsiteTournament(organizerId, tournamentId);
-
-    const venue = await this.databaseService.client.tournamentVenue.findUnique({
-      where: { tournamentId },
-      select: { id: true },
-    });
-
-    if (!venue) {
-      throw new NotFoundException('Venue was not found');
-    }
-
-    return venue;
-  }
-
-  private async findGamingRoomOrThrow(
-    venueId: string,
-    gamingRoomId: string,
-  ): Promise<
-    Prisma.TournamentGamingRoomGetPayload<{ select: typeof gamingRoomSelect }>
-  > {
-    const room =
-      await this.databaseService.client.tournamentGamingRoom.findFirst({
-        where: {
-          id: gamingRoomId,
-          venueId,
-        },
-        select: gamingRoomSelect,
-      });
-
-    if (!room) {
-      throw new NotFoundException('Gaming room was not found');
-    }
-
-    return room;
   }
 
   private async findOrganizerRegistrationOrThrow(
@@ -2436,72 +2308,6 @@ export class TournamentsService {
         'Tournament lifecycle no longer allows withdrawal.',
       );
     }
-  }
-
-  private toGamingRoomData(dto: CreateGamingRoomDto): GamingRoomData {
-    return {
-      name: dto.name,
-      description: dto.description,
-      purpose: dto.purpose,
-      stationCount: dto.stationCount,
-      cpu: dto.cpu,
-      gpu: dto.gpu,
-      ram: dto.ram,
-      storage: dto.storage,
-      operatingSystem: dto.operatingSystem,
-      monitorBrand: dto.monitorBrand,
-      monitorModel: dto.monitorModel,
-      monitorSizeInches: this.toOptionalDecimalString(dto.monitorSizeInches),
-      monitorResolution: dto.monitorResolution,
-      monitorRefreshRateHz: dto.monitorRefreshRateHz,
-      monitorResponseTimeMs: this.toOptionalDecimalString(
-        dto.monitorResponseTimeMs,
-      ),
-      mouse: dto.mouse,
-      keyboard: dto.keyboard,
-      headset: dto.headset,
-      mousePad: dto.mousePad,
-      controller: dto.controller,
-      internetConnection: dto.internetConnection,
-      equipmentNotes: dto.equipmentNotes,
-    };
-  }
-
-  private toGamingRoomUpdateData(
-    dto: UpdateGamingRoomDto,
-  ): Prisma.TournamentGamingRoomUncheckedUpdateInput {
-    return {
-      name: dto.name,
-      description: dto.description,
-      purpose: dto.purpose,
-      stationCount: dto.stationCount,
-      cpu: dto.cpu,
-      gpu: dto.gpu,
-      ram: dto.ram,
-      storage: dto.storage,
-      operatingSystem: dto.operatingSystem,
-      monitorBrand: dto.monitorBrand,
-      monitorModel: dto.monitorModel,
-      monitorSizeInches: this.toOptionalDecimalString(dto.monitorSizeInches),
-      monitorResolution: dto.monitorResolution,
-      monitorRefreshRateHz: dto.monitorRefreshRateHz,
-      monitorResponseTimeMs: this.toOptionalDecimalString(
-        dto.monitorResponseTimeMs,
-      ),
-      mouse: dto.mouse,
-      keyboard: dto.keyboard,
-      headset: dto.headset,
-      mousePad: dto.mousePad,
-      controller: dto.controller,
-      internetConnection: dto.internetConnection,
-      equipmentNotes: dto.equipmentNotes,
-    };
-  }
-
-  private toOptionalDecimalString(
-    value: number | undefined,
-  ): string | undefined {
-    return value === undefined ? undefined : value.toFixed(1);
   }
 
   private assertDraftLifecycle(
