@@ -105,6 +105,7 @@ import { TournamentEligibilityService } from './tournament-eligibility.service';
 import { TournamentLifecycleService } from './tournament-lifecycle.service';
 import { TournamentPaymentService } from './tournament-payment.service';
 import { TournamentQueryService } from './tournament-query.service';
+import { TournamentMatchService } from './tournament-match.service';
 
 type ValidationIssue = {
   field: string;
@@ -168,10 +169,6 @@ type OrganizerRegistrationDetailRecord =
   Prisma.TournamentRegistrationGetPayload<{
     select: typeof organizerRegistrationDetailSelect;
   }>;
-
-type OrganizerBracketMatchRecord = Prisma.TournamentMatchGetPayload<{
-  select: typeof organizerBracketMatchSelect;
-}>;
 
 const withdrawalBlockedTournamentStatuses: readonly TournamentStatus[] = [
   TournamentStatus.CHECK_IN_OPEN,
@@ -661,43 +658,6 @@ const organizerRegistrationDetailSelect = {
   },
 } satisfies Prisma.TournamentRegistrationSelect;
 
-const organizerBracketMatchSelect = {
-  id: true,
-  stage: true,
-  round: true,
-  bracketPosition: true,
-  bestOf: true,
-  scheduledAt: true,
-  status: true,
-  teamAScore: true,
-  teamBScore: true,
-  winnerTeamId: true,
-  officialResultStatus: true,
-  onlineServerInfo: true,
-  gamingRoomId: true,
-  onsiteStationLabel: true,
-  teamA: {
-    select: {
-      id: true,
-      name: true,
-      logoUrl: true,
-    },
-  },
-  teamB: {
-    select: {
-      id: true,
-      name: true,
-      logoUrl: true,
-    },
-  },
-  gamingRoom: {
-    select: {
-      id: true,
-      name: true,
-    },
-  },
-} satisfies Prisma.TournamentMatchSelect;
-
 @Injectable()
 export class TournamentsService {
   constructor(
@@ -709,6 +669,7 @@ export class TournamentsService {
     private readonly tournamentEligibilityService: TournamentEligibilityService,
     private readonly tournamentLifecycleService: TournamentLifecycleService,
     private readonly tournamentPaymentService: TournamentPaymentService,
+    private readonly tournamentMatchService: TournamentMatchService,
   ) {}
 
   async listPublicTournaments(
@@ -1124,53 +1085,12 @@ export class TournamentsService {
     matchId: string,
     dto: ScheduleOrganizerMatchDto,
   ): Promise<OrganizerBracketMatchDto> {
-    const match = await this.databaseService.client.$transaction(
-      async (transaction) => {
-        const tournament = await this.findOwnedTournamentOrThrow(
-          organizerId,
-          tournamentId,
-          transaction,
-        );
-        this.assertTournamentCanScheduleMatches(tournament.status);
-
-        const existing = await transaction.tournamentMatch.findFirst({
-          where: {
-            id: matchId,
-            tournamentId,
-          },
-          select: organizerBracketMatchSelect,
-        });
-
-        if (!existing) {
-          throw new NotFoundException('Tournament match was not found.');
-        }
-
-        this.assertMatchCanBeScheduled(existing.status);
-        const scheduledAt = new Date(dto.scheduledAt);
-        this.assertMatchScheduleWithinTournament(tournament, scheduledAt);
-
-        const assignment =
-          tournament.mode === TournamentMode.ONLINE
-            ? this.toOnlineMatchAssignment(dto)
-            : await this.toOnsiteMatchAssignment(
-                transaction,
-                tournamentId,
-                dto,
-              );
-
-        return transaction.tournamentMatch.update({
-          where: { id: existing.id },
-          data: {
-            scheduledAt,
-            status: TournamentMatchStatus.SCHEDULED,
-            ...assignment,
-          },
-          select: organizerBracketMatchSelect,
-        });
-      },
+    return this.tournamentMatchService.scheduleOrganizerTournamentMatch(
+      organizerId,
+      tournamentId,
+      matchId,
+      dto,
     );
-
-    return this.toOrganizerBracketMatch(match);
   }
 
   async getOrganizerTournamentRegistration(
@@ -1910,165 +1830,6 @@ export class TournamentsService {
     }
 
     return tournament;
-  }
-
-  private assertTournamentCanScheduleMatches(status: TournamentStatus): void {
-    const allowedStatuses: readonly TournamentStatus[] = [
-      TournamentStatus.REGISTRATION_CLOSED,
-      TournamentStatus.CHECK_IN_OPEN,
-      TournamentStatus.IN_PROGRESS,
-      TournamentStatus.POSTPONED,
-    ];
-
-    if (!allowedStatuses.includes(status)) {
-      throw new ConflictException(
-        'Matches can only be scheduled after registration closes and before the tournament reaches a terminal status.',
-      );
-    }
-  }
-
-  private assertMatchCanBeScheduled(status: TournamentMatchStatus): void {
-    if (
-      status !== TournamentMatchStatus.SCHEDULED &&
-      status !== TournamentMatchStatus.POSTPONED
-    ) {
-      throw new ConflictException(
-        'Live, completed, cancelled, or forfeited matches cannot be rescheduled.',
-      );
-    }
-  }
-
-  private assertMatchScheduleWithinTournament(
-    tournament: Prisma.TournamentGetPayload<{
-      select: typeof tournamentSelect;
-    }>,
-    scheduledAt: Date,
-  ): void {
-    if (scheduledAt < tournament.startsAt) {
-      throw new UnprocessableEntityException(
-        'Match time cannot be earlier than the tournament start time.',
-      );
-    }
-
-    if (tournament.endsAt && scheduledAt > tournament.endsAt) {
-      throw new UnprocessableEntityException(
-        'Match time cannot be later than the tournament end time.',
-      );
-    }
-  }
-
-  private toOnlineMatchAssignment(dto: ScheduleOrganizerMatchDto): {
-    onlineServerInfo: Prisma.InputJsonObject;
-    gamingRoomId: null;
-    onsiteStationLabel: null;
-  } {
-    if (!dto.onlineServerInfo) {
-      throw new UnprocessableEntityException(
-        'onlineServerInfo is required for online tournament matches.',
-      );
-    }
-
-    if (
-      !dto.onlineServerInfo.serverRegion.trim() ||
-      !dto.onlineServerInfo.lobbyName.trim()
-    ) {
-      throw new UnprocessableEntityException(
-        'serverRegion and lobbyName are required for online tournament matches.',
-      );
-    }
-
-    if (dto.gamingRoomId || dto.onsiteStationLabel) {
-      throw new UnprocessableEntityException(
-        'gamingRoomId and onsiteStationLabel are only valid for on-site tournament matches.',
-      );
-    }
-
-    const onlineServerInfo: Prisma.InputJsonObject = {
-      serverRegion: dto.onlineServerInfo.serverRegion.trim(),
-      lobbyName: dto.onlineServerInfo.lobbyName.trim(),
-      ...(dto.onlineServerInfo.lobbyCode
-        ? { lobbyCode: dto.onlineServerInfo.lobbyCode.trim() }
-        : {}),
-      ...(dto.onlineServerInfo.lobbyPassword
-        ? { lobbyPassword: dto.onlineServerInfo.lobbyPassword.trim() }
-        : {}),
-      ...(dto.onlineServerInfo.notes
-        ? { notes: dto.onlineServerInfo.notes.trim() }
-        : {}),
-    };
-
-    return {
-      onlineServerInfo,
-      gamingRoomId: null,
-      onsiteStationLabel: null,
-    };
-  }
-
-  private async toOnsiteMatchAssignment(
-    transaction: Pick<Prisma.TransactionClient, 'tournamentGamingRoom'>,
-    tournamentId: string,
-    dto: ScheduleOrganizerMatchDto,
-  ): Promise<{
-    onlineServerInfo: typeof Prisma.DbNull;
-    gamingRoomId: string;
-    onsiteStationLabel: string;
-  }> {
-    if (dto.onlineServerInfo) {
-      throw new UnprocessableEntityException(
-        'onlineServerInfo is only valid for online tournament matches.',
-      );
-    }
-
-    if (!dto.gamingRoomId || !dto.onsiteStationLabel?.trim()) {
-      throw new UnprocessableEntityException(
-        'gamingRoomId and onsiteStationLabel are required for on-site tournament matches.',
-      );
-    }
-
-    const gamingRoom = await transaction.tournamentGamingRoom.findFirst({
-      where: {
-        id: dto.gamingRoomId,
-        venue: {
-          tournamentId,
-        },
-      },
-      select: { id: true },
-    });
-    if (!gamingRoom) {
-      throw new NotFoundException(
-        'Gaming room was not found for this tournament.',
-      );
-    }
-
-    return {
-      onlineServerInfo: Prisma.DbNull,
-      gamingRoomId: gamingRoom.id,
-      onsiteStationLabel: dto.onsiteStationLabel.trim(),
-    };
-  }
-
-  private toOrganizerBracketMatch(
-    match: OrganizerBracketMatchRecord,
-  ): OrganizerBracketMatchDto {
-    return {
-      id: match.id,
-      stage: match.stage,
-      round: match.round,
-      bracketPosition: match.bracketPosition ?? `R${match.round}`,
-      bestOf: match.bestOf,
-      scheduledAt: match.scheduledAt,
-      status: match.status,
-      teamA: match.teamA,
-      teamB: match.teamB,
-      teamAScore: match.teamAScore,
-      teamBScore: match.teamBScore,
-      winnerTeamId: match.winnerTeamId,
-      officialResultStatus: match.officialResultStatus,
-      onlineServerInfo: match.onlineServerInfo,
-      gamingRoomId: match.gamingRoomId,
-      gamingRoomName: match.gamingRoom?.name ?? null,
-      onsiteStationLabel: match.onsiteStationLabel,
-    };
   }
 
   private async findOwnedTournamentForLifecycleOrThrow(
