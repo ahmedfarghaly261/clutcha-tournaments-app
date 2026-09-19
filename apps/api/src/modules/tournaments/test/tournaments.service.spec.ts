@@ -51,6 +51,7 @@ import { TournamentEligibilityService } from '../services/tournament-eligibility
 import { TournamentLifecycleService } from '../services/tournament-lifecycle.service';
 import { TournamentQueryService } from '../services/tournament-query.service';
 import { TournamentMatchService } from '../services/tournament-match.service';
+import { TournamentCaptainMatchService } from '../services/tournament-captain-match.service';
 import { TournamentsService } from '../services/tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
@@ -932,6 +933,7 @@ describe('TournamentsService', () => {
         TournamentEligibilityService,
         TournamentLifecycleService,
         TournamentMatchService,
+        TournamentCaptainMatchService,
       ],
     }).compile();
 

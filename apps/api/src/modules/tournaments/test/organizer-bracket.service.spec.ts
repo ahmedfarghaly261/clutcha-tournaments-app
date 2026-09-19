@@ -18,6 +18,7 @@ import { TournamentLifecycleService } from '../services/tournament-lifecycle.ser
 import { TournamentPaymentService } from '../services/tournament-payment.service';
 import { TournamentQueryService } from '../services/tournament-query.service';
 import { TournamentMatchService } from '../services/tournament-match.service';
+import { TournamentCaptainMatchService } from '../services/tournament-captain-match.service';
 import { TournamentsService } from '../services/tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
@@ -346,6 +347,9 @@ describe('TournamentsService organizer bracket', () => {
         client,
       } as unknown as DatabaseService),
       new TournamentMatchService({
+        client,
+      } as unknown as DatabaseService),
+      new TournamentCaptainMatchService({
         client,
       } as unknown as DatabaseService),
     );
