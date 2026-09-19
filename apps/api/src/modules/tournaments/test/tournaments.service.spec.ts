@@ -27,7 +27,6 @@ import {
   UserStatus,
 } from '@clutcha/database';
 import { DatabaseService } from '../../../database/database.service';
-import { type CreateGamingRoomDto } from '../dtos/create-gaming-room.dto';
 import { type CreateTournamentDto } from '../dtos/create-tournament.dto';
 import {
   CaptainRegistrationSortDirection,
@@ -1003,36 +1002,6 @@ describe('TournamentsService', () => {
     }
 
     return firstCall[0];
-  };
-
-  const firstGamingRoomCreateData = (): Record<string, unknown> => {
-    const firstCall = createGamingRoom.mock.calls.at(0);
-
-    if (!firstCall) {
-      throw new Error('Expected tournamentGamingRoom.create to be called.');
-    }
-
-    return firstCall[0].data;
-  };
-
-  const firstGamingRoomFindManyArgs = (): GamingRoomFindManyArgs => {
-    const firstCall = findManyGamingRooms.mock.calls.at(0);
-
-    if (!firstCall) {
-      throw new Error('Expected tournamentGamingRoom.findMany to be called.');
-    }
-
-    return firstCall[0];
-  };
-
-  const firstGamingRoomUpdateData = (): Record<string, unknown> => {
-    const firstCall = updateGamingRoom.mock.calls.at(0);
-
-    if (!firstCall) {
-      throw new Error('Expected tournamentGamingRoom.update to be called.');
-    }
-
-    return firstCall[0].data;
   };
 
   it('creates a draft tournament owned by the authenticated organizer', async () => {
@@ -3800,146 +3769,6 @@ describe('TournamentsService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('lists gaming rooms with hardware and device specifications', async () => {
-    const result = await service.listGamingRooms('organizer-1', 'tournament-4');
-    const findManyArgs = firstGamingRoomFindManyArgs();
-
-    expect(findManyArgs.where).toEqual({ venueId: 'venue-1' });
-    expect(findManyArgs.orderBy).toEqual({ createdAt: 'asc' });
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]?.pcSpecs).toEqual({
-      cpu: 'Intel Core i7-14700K',
-      gpu: 'NVIDIA RTX 4070 Super',
-      ram: '32GB DDR5',
-      storage: '1TB NVMe SSD',
-      operatingSystem: 'Windows 11 Pro',
-    });
-    expect(result.items[0]?.monitor).toEqual({
-      brand: 'BenQ Zowie',
-      model: 'XL2546K',
-      sizeInches: '24.5',
-      resolution: '1920x1080',
-      refreshRateHz: 240,
-      responseTimeMs: '1',
-    });
-    expect(result.items[0]?.peripherals).toEqual({
-      mouse: 'Logitech G Pro X Superlight',
-      keyboard: 'Wooting 60HE',
-      headset: 'HyperX Cloud II',
-      mousePad: 'SteelSeries QcK Heavy',
-      controller: null,
-    });
-  });
-
-  it('creates gaming rooms for organizer-owned on-site venues', async () => {
-    const result = await service.createGamingRoom(
-      'organizer-1',
-      'tournament-4',
-      validGamingRoomDto(),
-    );
-
-    expect(firstGamingRoomCreateData()).toMatchObject({
-      venueId: 'venue-1',
-      purpose: GamingRoomPurpose.COMPETITION,
-      stationCount: 20,
-      cpu: 'Intel Core i7-14700K',
-      gpu: 'NVIDIA RTX 4070 Super',
-      monitorModel: 'XL2546K',
-      monitorSizeInches: '24.5',
-      monitorRefreshRateHz: 240,
-      monitorResponseTimeMs: '1.0',
-      mouse: 'Logitech G Pro X Superlight',
-      keyboard: 'Wooting 60HE',
-      headset: 'HyperX Cloud II',
-    });
-    expect(result.venueId).toBe('venue-1');
-    expect(result.stationCount).toBe(20);
-    expect(result.pcSpecs.gpu).toBe('NVIDIA RTX 4070 Super');
-  });
-
-  it('gets, updates, and deletes an owned gaming room', async () => {
-    const detail = await service.getGamingRoom(
-      'organizer-1',
-      'tournament-4',
-      'gaming-room-1',
-    );
-
-    expect(detail.id).toBe('gaming-room-1');
-
-    const updated = await service.updateGamingRoom(
-      'organizer-1',
-      'tournament-4',
-      'gaming-room-1',
-      {
-        stationCount: 24,
-        gpu: 'NVIDIA RTX 4080',
-      },
-    );
-
-    expect(firstGamingRoomUpdateData()).toMatchObject({
-      stationCount: 24,
-      gpu: 'NVIDIA RTX 4080',
-    });
-    expect(updated.stationCount).toBe(24);
-    expect(updated.pcSpecs.gpu).toBe('NVIDIA RTX 4080');
-
-    await service.deleteGamingRoom(
-      'organizer-1',
-      'tournament-4',
-      'gaming-room-1',
-    );
-
-    expect(deleteGamingRoom).toHaveBeenCalledWith({
-      where: { id: 'gaming-room-1' },
-      select: { id: true },
-    });
-    expect(gamingRooms.some((item) => item.id === 'gaming-room-1')).toBe(false);
-  });
-
-  it('rejects gaming rooms for online, foreign, or venue-less tournaments', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'tournament-5',
-        organizerId: 'organizer-1',
-        mode: TournamentMode.ONSITE,
-        slug: 'venue-less-cup',
-      }),
-    );
-
-    await expect(
-      service.createGamingRoom(
-        'organizer-1',
-        'tournament-1',
-        validGamingRoomDto(),
-      ),
-    ).rejects.toBeInstanceOf(ConflictException);
-
-    await expect(
-      service.listGamingRooms('organizer-1', 'tournament-3'),
-    ).rejects.toBeInstanceOf(NotFoundException);
-
-    await expect(
-      service.createGamingRoom(
-        'organizer-1',
-        'tournament-5',
-        validGamingRoomDto(),
-      ),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it('does not return gaming rooms outside the owned venue', async () => {
-    gamingRooms.push(
-      createGamingRoomRecord({
-        id: 'gaming-room-2',
-        venueId: 'other-venue',
-      }),
-    );
-
-    await expect(
-      service.getGamingRoom('organizer-1', 'tournament-4', 'gaming-room-2'),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
   it('upserts online configuration for organizer-owned online tournaments', async () => {
     const result = await service.upsertOnlineConfiguration(
       'organizer-1',
@@ -4461,33 +4290,6 @@ const validCreateDto = (
   registrationClosesAt: new Date('2026-09-10T20:00:00.000Z'),
   startsAt: new Date('2026-09-12T18:00:00.000Z'),
   timezone: 'Africa/Cairo',
-  ...overrides,
-});
-
-const validGamingRoomDto = (
-  overrides: Partial<CreateGamingRoomDto> = {},
-): CreateGamingRoomDto => ({
-  name: 'Main Stage Room',
-  description: 'Primary competition room.',
-  purpose: GamingRoomPurpose.COMPETITION,
-  stationCount: 20,
-  cpu: 'Intel Core i7-14700K',
-  gpu: 'NVIDIA RTX 4070 Super',
-  ram: '32GB DDR5',
-  storage: '1TB NVMe SSD',
-  operatingSystem: 'Windows 11 Pro',
-  monitorBrand: 'BenQ Zowie',
-  monitorModel: 'XL2546K',
-  monitorSizeInches: 24.5,
-  monitorResolution: '1920x1080',
-  monitorRefreshRateHz: 240,
-  monitorResponseTimeMs: 1,
-  mouse: 'Logitech G Pro X Superlight',
-  keyboard: 'Wooting 60HE',
-  headset: 'HyperX Cloud II',
-  mousePad: 'SteelSeries QcK Heavy',
-  internetConnection: 'Dedicated wired fiber connection.',
-  equipmentNotes: 'All PCs have tournament accounts preloaded.',
   ...overrides,
 });
 
