@@ -12,6 +12,7 @@ import { TournamentBracketService } from './services/tournament-bracket.service'
 import { TournamentEligibilityService } from './services/tournament-eligibility.service';
 import { TournamentLifecycleService } from './services/tournament-lifecycle.service';
 import { TournamentQueryService } from './services/tournament-query.service';
+import { TournamentMatchService } from './services/tournament-match.service';
 
 @Module({
   controllers: [
@@ -30,6 +31,7 @@ import { TournamentQueryService } from './services/tournament-query.service';
     TournamentEligibilityService,
     TournamentLifecycleService,
     TournamentQueryService,
+    TournamentMatchService,
   ],
 })
 export class TournamentsModule {}
