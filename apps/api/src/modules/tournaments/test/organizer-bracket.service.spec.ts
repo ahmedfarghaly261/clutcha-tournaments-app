@@ -10,7 +10,6 @@ import {
   TournamentStatus,
 } from '@clutcha/database';
 import { DatabaseService } from '../../../database/database.service';
-import { TournamentCoverImageStorageService } from '../services/tournament-cover-image-storage.service';
 import { TournamentConfigurationService } from '../services/tournament-configuration.service';
 import { TournamentBracketService } from '../services/tournament-bracket.service';
 import { TournamentEligibilityService } from '../services/tournament-eligibility.service';
@@ -21,6 +20,7 @@ import { TournamentMatchService } from '../services/tournament-match.service';
 import { TournamentCaptainMatchService } from '../services/tournament-captain-match.service';
 import { TournamentGamingRoomService } from '../services/tournament-gaming-room.service';
 import { TournamentRegistrationService } from '../services/tournament-registration.service';
+import { TournamentManagementService } from '../services/tournament-management.service';
 import { TournamentsService } from '../services/tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
@@ -330,8 +330,6 @@ describe('TournamentsService organizer bracket', () => {
     };
 
     service = new TournamentsService(
-      { client } as unknown as DatabaseService,
-      {} as TournamentCoverImageStorageService,
       new TournamentQueryService({ client } as unknown as DatabaseService),
       new TournamentConfigurationService({
         client,
@@ -358,6 +356,7 @@ describe('TournamentsService organizer bracket', () => {
       new TournamentGamingRoomService({
         client,
       } as unknown as DatabaseService),
+      {} as TournamentManagementService,
     );
   });
 
