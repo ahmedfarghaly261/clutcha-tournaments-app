@@ -1,6 +1,5 @@
 import { Test } from '@nestjs/testing';
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -26,25 +25,31 @@ import {
   UserRole,
   UserStatus,
 } from '@clutcha/database';
-import { DatabaseService } from '../../database/database.service';
-import { type CreateGamingRoomDto } from './dto/create-gaming-room.dto';
-import { type CreateTournamentDto } from './dto/create-tournament.dto';
+import { DatabaseService } from '../../../database/database.service';
+import { type CreateTournamentDto } from '../dtos/create-tournament.dto';
 import {
   CaptainRegistrationSortDirection,
   CaptainRegistrationSortBy,
   CaptainRegistrationTimeFilter,
-} from './dto/list-captain-registrations-query.dto';
-import {
-  OrganizerTournamentSortBy,
-  SortDirection,
-} from './dto/list-organizer-tournaments-query.dto';
-import { PublicTournamentSortBy } from './dto/list-public-tournaments-query.dto';
+} from '../dtos/list-captain-registrations-query.dto';
+import { SortDirection } from '../dtos/list-organizer-tournaments-query.dto';
 import {
   TournamentCoverImageStorageService,
   type TournamentCoverImageFile,
-} from './tournament-cover-image-storage.service';
-import { TournamentPaymentProofStorageService } from './tournament-payment-proof-storage.service';
-import { TournamentsService } from './tournaments.service';
+} from '../services/tournament-cover-image-storage.service';
+import { TournamentPaymentProofStorageService } from '../services/tournament-payment-proof-storage.service';
+import { TournamentPaymentService } from '../services/tournament-payment.service';
+import { TournamentConfigurationService } from '../services/tournament-configuration.service';
+import { TournamentBracketService } from '../services/tournament-bracket.service';
+import { TournamentEligibilityService } from '../services/tournament-eligibility.service';
+import { TournamentLifecycleService } from '../services/tournament-lifecycle.service';
+import { TournamentQueryService } from '../services/tournament-query.service';
+import { TournamentMatchService } from '../services/tournament-match.service';
+import { TournamentCaptainMatchService } from '../services/tournament-captain-match.service';
+import { TournamentGamingRoomService } from '../services/tournament-gaming-room.service';
+import { TournamentRegistrationService } from '../services/tournament-registration.service';
+import { TournamentManagementService } from '../services/tournament-management.service';
+import { TournamentsService } from '../services/tournaments.service';
 
 jest.mock('@clutcha/database', () => ({
   Prisma: {
@@ -918,6 +923,17 @@ describe('TournamentsService', () => {
           provide: TournamentPaymentProofStorageService,
           useValue: {},
         },
+        TournamentPaymentService,
+        TournamentQueryService,
+        TournamentConfigurationService,
+        TournamentBracketService,
+        TournamentEligibilityService,
+        TournamentRegistrationService,
+        TournamentLifecycleService,
+        TournamentMatchService,
+        TournamentCaptainMatchService,
+        TournamentGamingRoomService,
+        TournamentManagementService,
       ],
     }).compile();
 
@@ -932,16 +948,6 @@ describe('TournamentsService', () => {
     }
 
     return firstCall[0].data;
-  };
-
-  const firstFindManyArgs = (): TournamentFindManyArgs => {
-    const firstCall = findMany.mock.calls.at(0);
-
-    if (!firstCall) {
-      throw new Error('Expected tournament.findMany to be called.');
-    }
-
-    return firstCall[0];
   };
 
   const firstFindFirstArgs = (): TournamentFindFirstArgs => {
@@ -959,59 +965,6 @@ describe('TournamentsService', () => {
 
     if (!firstCall) {
       throw new Error('Expected tournament.update to be called.');
-    }
-
-    return firstCall[0].data;
-  };
-
-  const firstOnlineConfigurationUpsertArgs =
-    (): OnlineConfigurationUpsertArgs => {
-      const firstCall = upsertOnlineConfiguration.mock.calls.at(0);
-
-      if (!firstCall) {
-        throw new Error(
-          'Expected tournamentOnlineConfiguration.upsert to be called.',
-        );
-      }
-
-      return firstCall[0];
-    };
-
-  const firstVenueUpsertArgs = (): VenueUpsertArgs => {
-    const firstCall = upsertVenue.mock.calls.at(0);
-
-    if (!firstCall) {
-      throw new Error('Expected tournamentVenue.upsert to be called.');
-    }
-
-    return firstCall[0];
-  };
-
-  const firstGamingRoomCreateData = (): Record<string, unknown> => {
-    const firstCall = createGamingRoom.mock.calls.at(0);
-
-    if (!firstCall) {
-      throw new Error('Expected tournamentGamingRoom.create to be called.');
-    }
-
-    return firstCall[0].data;
-  };
-
-  const firstGamingRoomFindManyArgs = (): GamingRoomFindManyArgs => {
-    const firstCall = findManyGamingRooms.mock.calls.at(0);
-
-    if (!firstCall) {
-      throw new Error('Expected tournamentGamingRoom.findMany to be called.');
-    }
-
-    return firstCall[0];
-  };
-
-  const firstGamingRoomUpdateData = (): Record<string, unknown> => {
-    const firstCall = updateGamingRoom.mock.calls.at(0);
-
-    if (!firstCall) {
-      throw new Error('Expected tournamentGamingRoom.update to be called.');
     }
 
     return firstCall[0].data;
@@ -1065,533 +1018,6 @@ describe('TournamentsService', () => {
     );
   });
 
-  it('lists only tournaments owned by the authenticated organizer', async () => {
-    const result = await service.listOrganizerTournaments('organizer-1', {});
-
-    expect(result.items).toHaveLength(3);
-    expect(
-      result.items.every((item) => item.organizerId === 'organizer-1'),
-    ).toBe(true);
-    expect(result.meta).toEqual({
-      page: 1,
-      limit: 20,
-      totalItems: 3,
-      totalPages: 1,
-      hasNextPage: false,
-      hasPreviousPage: false,
-    });
-    expect(firstFindManyArgs()).toMatchObject({
-      where: { organizerId: 'organizer-1' },
-      orderBy: { createdAt: 'desc' },
-      skip: 0,
-      take: 20,
-    });
-  });
-
-  it('supports pagination, filters, search, and sorting', async () => {
-    const result = await service.listOrganizerTournaments('organizer-1', {
-      page: 2,
-      limit: 1,
-      status: TournamentStatus.PUBLISHED,
-      mode: TournamentMode.ONLINE,
-      visibility: TournamentVisibility.PUBLIC,
-      gameKey: 'valorant',
-      search: 'beta',
-      sortBy: OrganizerTournamentSortBy.STARTS_AT,
-      sortDirection: SortDirection.ASC,
-    });
-
-    expect(result.items).toHaveLength(0);
-    expect(result.meta).toEqual({
-      page: 2,
-      limit: 1,
-      totalItems: 1,
-      totalPages: 1,
-      hasNextPage: false,
-      hasPreviousPage: true,
-    });
-    expect(firstFindManyArgs()).toMatchObject({
-      where: {
-        organizerId: 'organizer-1',
-        status: TournamentStatus.PUBLISHED,
-        mode: TournamentMode.ONLINE,
-        visibility: TournamentVisibility.PUBLIC,
-        gameKey: 'valorant',
-      },
-      orderBy: { startsAt: 'asc' },
-      skip: 1,
-      take: 1,
-    });
-    expect(firstFindManyArgs().where).toHaveProperty('OR');
-  });
-
-  it('lists only discoverable public tournaments with safe summary fields', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'tournament-5',
-        organizerId: 'organizer-1',
-        name: 'Private Published Cup',
-        slug: 'private-published-cup',
-        status: TournamentStatus.PUBLISHED,
-        visibility: TournamentVisibility.PRIVATE,
-      }),
-      createTournamentRecord({
-        id: 'tournament-6',
-        organizerId: 'organizer-1',
-        name: 'Open Registration Cup',
-        slug: 'open-registration-cup',
-        status: TournamentStatus.REGISTRATION_OPEN,
-        registrationOpenedAt: new Date('2026-08-03T12:00:00.000Z'),
-      }),
-      createTournamentRecord({
-        id: 'tournament-7',
-        organizerId: 'organizer-1',
-        name: 'Cancelled Public Cup',
-        slug: 'cancelled-public-cup',
-        status: TournamentStatus.CANCELLED,
-      }),
-    );
-
-    const result = await service.listPublicTournaments({});
-
-    expect(result.items.map((item) => item.id)).toEqual([
-      'tournament-2',
-      'tournament-6',
-    ]);
-    expect(result.items[0]).not.toHaveProperty('organizerId');
-    expect(result.items[0]).not.toHaveProperty('rules');
-    expect(result.items[0]).not.toHaveProperty('visibility');
-    expect(result.items[0]).not.toHaveProperty('cancellationReason');
-    expect(result.items[0]).toMatchObject({
-      slug: 'beta-valorant-cup',
-      status: TournamentStatus.PUBLISHED,
-    });
-    expect(result.meta).toEqual({
-      page: 1,
-      limit: 20,
-      totalItems: 2,
-      totalPages: 1,
-      hasNextPage: false,
-      hasPreviousPage: false,
-    });
-  });
-
-  it('supports public tournament pagination, filters, search, and sorting', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'tournament-5',
-        name: 'Apex Public Cup',
-        slug: 'apex-public-cup',
-        status: TournamentStatus.REGISTRATION_OPEN,
-        gameKey: 'apex-legends',
-        mode: TournamentMode.ONLINE,
-        startsAt: new Date('2026-09-20T18:00:00.000Z'),
-      }),
-      createTournamentRecord({
-        id: 'tournament-6',
-        name: 'Apex On-site Cup',
-        slug: 'apex-onsite-cup',
-        status: TournamentStatus.PUBLISHED,
-        gameKey: 'apex-legends',
-        mode: TournamentMode.ONSITE,
-        startsAt: new Date('2026-09-19T18:00:00.000Z'),
-      }),
-    );
-
-    const result = await service.listPublicTournaments({
-      page: 1,
-      limit: 1,
-      search: 'apex',
-      status: TournamentStatus.REGISTRATION_OPEN,
-      mode: TournamentMode.ONLINE,
-      gameKey: 'apex-legends',
-      sortBy: PublicTournamentSortBy.STARTS_AT,
-      sortDirection: SortDirection.ASC,
-    });
-
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]?.id).toBe('tournament-5');
-    expect(result.meta).toEqual({
-      page: 1,
-      limit: 1,
-      totalItems: 1,
-      totalPages: 1,
-      hasNextPage: false,
-      hasPreviousPage: false,
-    });
-    expect(firstFindManyArgs()).toMatchObject({
-      where: {
-        visibility: TournamentVisibility.PUBLIC,
-        status: TournamentStatus.REGISTRATION_OPEN,
-        mode: TournamentMode.ONLINE,
-        gameKey: 'apex-legends',
-      },
-      orderBy: { startsAt: 'asc' },
-      skip: 0,
-      take: 1,
-    });
-    expect(firstFindManyArgs().where).toHaveProperty('OR');
-  });
-
-  it('does not return draft tournaments when a non-public status is requested', async () => {
-    const result = await service.listPublicTournaments({
-      status: TournamentStatus.DRAFT,
-    });
-
-    expect(result.items).toHaveLength(0);
-    expect(firstFindManyArgs().where).toMatchObject({
-      visibility: TournamentVisibility.PUBLIC,
-      status: { in: [] },
-    });
-  });
-
-  it('returns public online tournament details without private online fields', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'tournament-5',
-        name: 'Public Online Detail Cup',
-        slug: 'public-online-detail-cup',
-        status: TournamentStatus.PUBLISHED,
-        onlineConfiguration: createOnlineConfigurationRecord({
-          tournamentId: 'tournament-5',
-          discordServerUrl: 'https://discord.gg/private',
-          lobbyInstructions: 'Private lobby credentials.',
-          privateSupportContact: 'private support',
-        }),
-      }),
-    );
-
-    const result = await service.getPublicTournamentDetails(
-      'public-online-detail-cup',
-    );
-
-    expect(firstFindFirstArgs()).toMatchObject({
-      where: {
-        slug: 'public-online-detail-cup',
-        visibility: TournamentVisibility.PUBLIC,
-      },
-    });
-    expect(result.slug).toBe('public-online-detail-cup');
-    expect(result.onlineConfiguration).toEqual({
-      serverRegion: 'EU West',
-      publicInstructions: 'Join the lobby 15 minutes before match time.',
-      connectionRules: 'Use the assigned lobby.',
-      evidenceRequired: true,
-      screenshotRequirements: 'Upload final scoreboard screenshots.',
-      resultSubmissionDeadlineMinutes: 30,
-    });
-    expect(result.venue).toBeNull();
-    expect(result).not.toHaveProperty('organizerId');
-    expect(result.onlineConfiguration).not.toHaveProperty('discordServerUrl');
-    expect(result.onlineConfiguration).not.toHaveProperty('lobbyInstructions');
-    expect(result.onlineConfiguration).not.toHaveProperty(
-      'privateSupportContact',
-    );
-  });
-
-  it('returns eligible when the Captain team satisfies available tournament checks', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'eligibility-open-cup',
-        status: TournamentStatus.REGISTRATION_OPEN,
-        registrationOpensAt: new Date('2026-08-20T10:00:00.000Z'),
-        registrationClosesAt: new Date('2026-09-10T20:00:00.000Z'),
-        allowedRegion: 'MENA',
-        allowedCountries: ['EG'],
-      }),
-    );
-
-    const result = await service.getCaptainTournamentEligibility(
-      'captain-1',
-      'eligibility-open-cup',
-    );
-
-    expect(result).toEqual({
-      eligible: true,
-      team: {
-        id: 'team-1',
-        name: 'Cairo Titans',
-      },
-      issues: [],
-    });
-  });
-
-  it('returns structured eligibility issues for profile, tournament, team, and roster problems', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'eligibility-problem-cup',
-        status: TournamentStatus.PUBLISHED,
-        visibility: TournamentVisibility.PUBLIC,
-        gameKey: 'apex-legends',
-        minimumStarters: 5,
-        maximumStarters: 5,
-        maximumSubstitutes: 0,
-        requiredGameAccountId: true,
-        allowedRegion: 'EU',
-        allowedCountries: ['DE'],
-        minimumRank: 'Gold',
-        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
-        registrationClosesAt: new Date('2026-08-02T20:00:00.000Z'),
-      }),
-    );
-    teams = [
-      createTeamRecord({
-        id: 'team-with-issues',
-        captainId: 'captain-without-phone',
-        status: TeamStatus.SUSPENDED,
-        gameKey: 'valorant',
-        region: 'MENA',
-        rosterPlayers: [
-          createRosterPlayerRecord({
-            id: 'starter-with-issues',
-            gamerTag: 'Starter With Issues',
-            gameAccountId: '',
-            phoneNumber: '',
-            country: 'EG',
-            rank: null,
-            rosterType: RosterType.STARTER,
-            eligibilityStatus: EligibilityStatus.INELIGIBLE,
-          }),
-        ],
-      }),
-    ];
-
-    const result = await service.getCaptainTournamentEligibility(
-      'captain-without-phone',
-      'eligibility-problem-cup',
-    );
-
-    expect(result.eligible).toBe(false);
-    expect(result.team).toEqual({
-      id: 'team-with-issues',
-      name: 'Cairo Titans',
-    });
-    expect(result.issues.map((issue) => issue.code)).toEqual(
-      expect.arrayContaining([
-        'CAPTAIN_PROFILE_INCOMPLETE',
-        'TEAM_INACTIVE',
-        'REGISTRATION_NOT_OPEN',
-        'REGISTRATION_DEADLINE_PASSED',
-        'GAME_MISMATCH',
-        'INSUFFICIENT_STARTERS',
-        'REGION_NOT_ALLOWED',
-        'MISSING_GAME_ACCOUNT_ID',
-        'MISSING_PLAYER_PHONE',
-        'COUNTRY_NOT_ALLOWED',
-        'RANK_NOT_ALLOWED',
-        'PLAYER_INELIGIBLE',
-      ]),
-    );
-  });
-
-  it('returns 422 when the Captain has no team', async () => {
-    users.push(
-      createUserRecord({
-        id: 'captain-without-team',
-        role: UserRole.CAPTAIN,
-      }),
-    );
-
-    await expect(
-      service.getCaptainTournamentEligibility(
-        'captain-without-team',
-        'tournament-1',
-      ),
-    ).rejects.toBeInstanceOf(UnprocessableEntityException);
-  });
-
-  it('returns 404 when checking eligibility for a missing tournament', async () => {
-    await expect(
-      service.getCaptainTournamentEligibility('captain-1', 'missing-cup'),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it('creates a free tournament registration with private snapshots', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'free-registration-cup',
-        slug: 'free-registration-cup',
-        status: TournamentStatus.REGISTRATION_OPEN,
-        registrationOpensAt: new Date('2026-08-20T10:00:00.000Z'),
-        registrationClosesAt: new Date('2026-09-10T20:00:00.000Z'),
-        allowedRegion: 'MENA',
-        allowedCountries: ['EG'],
-        rulesVersion: '2.1',
-      }),
-    );
-
-    const result = await service.createCaptainTournamentRegistration(
-      'captain-1',
-      'free-registration-cup',
-      { acceptRules: true },
-    );
-    const createArgs = createTournamentRegistration.mock.calls[0][0];
-
-    expect(result).toMatchObject({
-      id: 'registration-1',
-      status: TournamentRegistrationStatus.PENDING_APPROVAL,
-      paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
-      approvalStatus: RegistrationApprovalStatus.PENDING,
-      rulesVersion: '2.1',
-      tournament: {
-        id: 'free-registration-cup',
-        slug: 'free-registration-cup',
-        name: 'CLUTCHA Valorant Cairo Cup',
-        gameKey: 'valorant',
-        mode: TournamentMode.ONLINE,
-        registrationFee: '0',
-        currency: 'EGP',
-      },
-      team: {
-        id: 'team-1',
-        name: 'Cairo Titans',
-      },
-    });
-    expect(createArgs.data).toMatchObject({
-      tournamentId: 'free-registration-cup',
-      teamId: 'team-1',
-      captainId: 'captain-1',
-      status: TournamentRegistrationStatus.PENDING_APPROVAL,
-      paymentStatus: RegistrationPaymentStatus.NOT_REQUIRED,
-      approvalStatus: RegistrationApprovalStatus.PENDING,
-      rulesVersion: '2.1',
-    });
-    expect(createArgs.data).not.toHaveProperty('teamIdFromClient');
-    expect(createArgs.data).not.toHaveProperty('captainIdFromClient');
-    expect(createArgs.data.rosterSnapshot).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          rosterPlayerId: 'starter-1',
-          gamerTag: 'Starter One',
-          gameAccountId: 'VALORANT#1234',
-          phoneNumber: '+201001234567',
-          rosterType: RosterType.STARTER,
-        }),
-      ]),
-    );
-    expect(createArgs.data.captainContactSnapshot).toEqual({
-      displayName: 'Captain One',
-      email: 'captain@example.com',
-      phoneNumber: '+201001234567',
-      discordUsername: null,
-    });
-    expect(result).not.toHaveProperty('rosterSnapshot');
-    expect(result).not.toHaveProperty('captainContactSnapshot');
-  });
-
-  it('creates a paid tournament registration in pending-payment status', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'paid-registration-cup',
-        slug: 'paid-registration-cup',
-        status: TournamentStatus.REGISTRATION_OPEN,
-        registrationFee: { toString: () => '150.00' },
-        registrationOpensAt: new Date('2026-08-20T10:00:00.000Z'),
-        registrationClosesAt: new Date('2026-09-10T20:00:00.000Z'),
-        allowedRegion: 'MENA',
-        allowedCountries: ['EG'],
-      }),
-    );
-
-    const result = await service.createCaptainTournamentRegistration(
-      'captain-1',
-      'paid-registration-cup',
-      { acceptRules: true },
-    );
-
-    expect(result.status).toBe(TournamentRegistrationStatus.PENDING_PAYMENT);
-    expect(result.paymentStatus).toBe(RegistrationPaymentStatus.AWAITING_PROOF);
-    expect(result.approvalStatus).toBe(RegistrationApprovalStatus.PENDING);
-    expect(result.tournament.registrationFee).toBe('150.00');
-  });
-
-  it('requires accepting tournament rules before registration', async () => {
-    await expect(
-      service.createCaptainTournamentRegistration('captain-1', 'tournament-1', {
-        acceptRules: false,
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('returns conflict when the team is already registered', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'duplicate-registration-cup',
-        status: TournamentStatus.REGISTRATION_OPEN,
-        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
-        registrationClosesAt: new Date('2026-08-10T20:00:00.000Z'),
-        allowedRegion: 'MENA',
-        allowedCountries: ['EG'],
-      }),
-    );
-    tournamentRegistrations.push(
-      createTournamentRegistrationRecord({
-        tournamentId: 'duplicate-registration-cup',
-        teamId: 'team-1',
-        captainId: 'captain-1',
-      }),
-    );
-
-    await expect(
-      service.createCaptainTournamentRegistration(
-        'captain-1',
-        'duplicate-registration-cup',
-        { acceptRules: true },
-      ),
-    ).rejects.toBeInstanceOf(ConflictException);
-  });
-
-  it('returns structured eligibility issues for duplicate and full tournaments', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'full-registration-cup',
-        status: TournamentStatus.REGISTRATION_OPEN,
-        maximumTeams: 1,
-        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
-        registrationClosesAt: new Date('2026-08-10T20:00:00.000Z'),
-        allowedRegion: 'MENA',
-        allowedCountries: ['EG'],
-      }),
-    );
-    tournamentRegistrations.push(
-      createTournamentRegistrationRecord({
-        tournamentId: 'full-registration-cup',
-        teamId: 'team-1',
-        captainId: 'captain-1',
-        status: TournamentRegistrationStatus.CONFIRMED,
-      }),
-    );
-
-    const result = await service.getCaptainTournamentEligibility(
-      'captain-1',
-      'full-registration-cup',
-    );
-
-    expect(result.eligible).toBe(false);
-    expect(result.issues.map((issue) => issue.code)).toEqual(
-      expect.arrayContaining(['TOURNAMENT_FULL', 'ALREADY_REGISTERED']),
-    );
-  });
-
-  it('rejects registration when eligibility checks fail', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'ineligible-registration-cup',
-        status: TournamentStatus.PUBLISHED,
-        registrationOpensAt: new Date('2026-08-01T10:00:00.000Z'),
-        registrationClosesAt: new Date('2026-08-10T20:00:00.000Z'),
-      }),
-    );
-
-    await expect(
-      service.createCaptainTournamentRegistration(
-        'captain-1',
-        'ineligible-registration-cup',
-        { acceptRules: true },
-      ),
-    ).rejects.toBeInstanceOf(UnprocessableEntityException);
-  });
-
   it('lists only the authenticated Captain registrations with pagination and filters', async () => {
     const upcomingTournament = createTournamentRecord({
       id: 'captain-registration-upcoming-cup',
@@ -1600,7 +1026,7 @@ describe('TournamentsService', () => {
       gameKey: 'valorant',
       mode: TournamentMode.ONLINE,
       status: TournamentStatus.REGISTRATION_OPEN,
-      startsAt: new Date('2026-09-12T18:00:00.000Z'),
+      startsAt: new Date('2030-09-12T18:00:00.000Z'),
     });
     const otherGameTournament = createTournamentRecord({
       id: 'captain-registration-other-game-cup',
@@ -1609,7 +1035,7 @@ describe('TournamentsService', () => {
       gameKey: 'apex',
       mode: TournamentMode.ONLINE,
       status: TournamentStatus.REGISTRATION_OPEN,
-      startsAt: new Date('2026-09-13T18:00:00.000Z'),
+      startsAt: new Date('2030-09-13T18:00:00.000Z'),
     });
     tournamentRegistrations = [
       createTournamentRegistrationRecord({
@@ -1951,7 +1377,7 @@ describe('TournamentsService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('lists only matches involving the approved Captain team', async () => {
+  it('lists only matches involving the approved Captain team (facade regression)', async () => {
     const tournament = createTournamentRecord({
       id: 'captain-match-cup',
       name: 'Captain Match Cup',
@@ -2285,7 +1711,7 @@ describe('TournamentsService', () => {
         teamA: captainTeam,
         teamBId: opponent.id,
         teamB: opponent,
-        scheduledAt: new Date('2026-09-13T18:00:00.000Z'),
+        scheduledAt: new Date('2030-09-13T18:00:00.000Z'),
         status: TournamentMatchStatus.SCHEDULED,
       }),
     ];
@@ -2316,7 +1742,7 @@ describe('TournamentsService', () => {
           teamId: 'team-opponent',
           teamName: 'Falcons',
         },
-        scheduledAt: new Date('2026-09-13T18:00:00.000Z'),
+        scheduledAt: new Date('2030-09-13T18:00:00.000Z'),
         status: TournamentMatchStatus.SCHEDULED,
       },
       upcomingMatches: [
@@ -2329,7 +1755,7 @@ describe('TournamentsService', () => {
             teamId: 'team-opponent',
             teamName: 'Falcons',
           },
-          scheduledAt: new Date('2026-09-13T18:00:00.000Z'),
+          scheduledAt: new Date('2030-09-13T18:00:00.000Z'),
           status: TournamentMatchStatus.SCHEDULED,
         },
       ],
@@ -2784,7 +2210,7 @@ describe('TournamentsService', () => {
       id: 'captain-information-gated-cup',
       name: 'Captain Information Gated Cup',
       status: TournamentStatus.REGISTRATION_CLOSED,
-      startsAt: new Date('2026-09-12T18:00:00.000Z'),
+      startsAt: new Date('2030-09-12T18:00:00.000Z'),
       onlineConfiguration: createOnlineConfigurationRecord({
         tournamentId: 'captain-information-gated-cup',
         lobbyInstructions: 'Hidden until release.',
@@ -2819,7 +2245,7 @@ describe('TournamentsService', () => {
 
     expect(result.releaseGate).toEqual({
       lobbyInformationReleased: false,
-      lobbyInformationReleasesAt: new Date('2026-09-11T18:00:00.000Z'),
+      lobbyInformationReleasesAt: new Date('2030-09-11T18:00:00.000Z'),
     });
     expect(result.onlineInformation?.lobbyInformation).toBeNull();
     expect(result.onlineInformation?.nextMatchServerInformation).toBeNull();
@@ -3568,104 +2994,6 @@ describe('TournamentsService', () => {
     expect(result.rejectedAt).toBeInstanceOf(Date);
   });
 
-  it('returns public on-site tournament details with venue and gaming-room hardware only', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'tournament-5',
-        name: 'Public On-site Detail Cup',
-        slug: 'public-onsite-detail-cup',
-        status: TournamentStatus.PUBLISHED,
-        mode: TournamentMode.ONSITE,
-        venue: createVenueRecord({
-          id: 'venue-public-detail',
-          tournamentId: 'tournament-5',
-          emergencyContact: 'private emergency phone',
-          gamingRooms: [
-            createGamingRoomRecord({
-              id: 'gaming-room-public-detail',
-              venueId: 'venue-public-detail',
-              equipmentNotes: 'Internal station account password.',
-            }),
-          ],
-        }),
-      }),
-    );
-
-    const result = await service.getPublicTournamentDetails(
-      'public-onsite-detail-cup',
-    );
-
-    expect(result.mode).toBe(TournamentMode.ONSITE);
-    expect(result.onlineConfiguration).toBeNull();
-    expect(result.venue?.location).toEqual({
-      name: 'CLUTCHA Arena Cairo',
-      country: 'EG',
-      city: 'Cairo',
-      address: '90 Street, New Cairo',
-      mapUrl: 'https://maps.example.com/clutcha-arena',
-      checkInLocation: 'Main reception',
-    });
-    expect(result.venue?.policy).toEqual({
-      parkingInfo: 'Underground parking is available.',
-      spectatorPolicy: 'Spectators must register at reception.',
-      venueRules: 'No food near gaming stations.',
-    });
-    expect(result.venue).not.toHaveProperty('emergencyContact');
-    expect(result.venue?.gamingRooms).toHaveLength(1);
-    expect(result.venue?.gamingRooms[0]).toMatchObject({
-      id: 'gaming-room-public-detail',
-      stationCount: 20,
-      pcSpecs: {
-        cpu: 'Intel Core i7-14700K',
-        gpu: 'NVIDIA RTX 4070 Super',
-        ram: '32GB DDR5',
-        storage: '1TB NVMe SSD',
-        operatingSystem: 'Windows 11 Pro',
-      },
-      monitor: {
-        model: 'XL2546K',
-        refreshRateHz: 240,
-      },
-      peripherals: {
-        mouse: 'Logitech G Pro X Superlight',
-        keyboard: 'Wooting 60HE',
-        headset: 'HyperX Cloud II',
-      },
-    });
-    expect(result.venue?.gamingRooms[0]).not.toHaveProperty('equipmentNotes');
-    expect(result.venue?.gamingRooms[0]).not.toHaveProperty(
-      'internetConnection',
-    );
-  });
-
-  it('does not return non-public public tournament details', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'tournament-5',
-        slug: 'private-detail-cup',
-        status: TournamentStatus.PUBLISHED,
-        visibility: TournamentVisibility.PRIVATE,
-      }),
-      createTournamentRecord({
-        id: 'tournament-6',
-        slug: 'cancelled-detail-cup',
-        status: TournamentStatus.CANCELLED,
-      }),
-    );
-
-    await expect(
-      service.getPublicTournamentDetails('alpha-valorant-cup'),
-    ).rejects.toBeInstanceOf(NotFoundException);
-
-    await expect(
-      service.getPublicTournamentDetails('private-detail-cup'),
-    ).rejects.toBeInstanceOf(NotFoundException);
-
-    await expect(
-      service.getPublicTournamentDetails('cancelled-detail-cup'),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
   it('returns private organizer tournament details with publication readiness', async () => {
     const result = await service.getOrganizerTournamentDetails(
       'organizer-1',
@@ -3684,288 +3012,6 @@ describe('TournamentsService', () => {
       ready: true,
       issues: [],
     });
-  });
-
-  it('returns online configuration with public and private details separated', async () => {
-    const result = await service.getOnlineConfiguration(
-      'organizer-1',
-      'tournament-1',
-    );
-
-    expect(result.tournamentId).toBe('tournament-1');
-    expect(result.publicDetails).toEqual({
-      serverRegion: 'EU West',
-      publicInstructions: 'Join the lobby 15 minutes before match time.',
-      connectionRules: 'Use the assigned lobby.',
-      evidenceRequired: true,
-      screenshotRequirements: 'Upload final scoreboard screenshots.',
-      resultSubmissionDeadlineMinutes: 30,
-    });
-    expect(result.privateDetails).toEqual({
-      discordServerUrl: 'https://discord.gg/clutcha',
-      captainSupportChannel: '#captain-support',
-      matchReportingChannel: '#match-reporting',
-      lobbyInstructions: 'Private lobby instructions.',
-      privateSupportContact: '+20 100 000 0000',
-    });
-  });
-
-  it('returns venue configuration with location, policy, and equipment policy separated', async () => {
-    const result = await service.getVenue('organizer-1', 'tournament-4');
-
-    expect(result.tournamentId).toBe('tournament-4');
-    expect(result.location).toEqual({
-      name: 'CLUTCHA Arena Cairo',
-      country: 'EG',
-      city: 'Cairo',
-      address: '90 Street, New Cairo',
-      mapUrl: 'https://maps.example.com/clutcha-arena',
-      checkInLocation: 'Main reception',
-    });
-    expect(result.policy).toEqual({
-      parkingInfo: 'Underground parking is available.',
-      spectatorPolicy: 'Spectators must register at reception.',
-      venueRules: 'No food near gaming stations.',
-      emergencyContact: '+20 100 000 0000',
-    });
-    expect(result.equipmentPolicy).toMatchObject({
-      equipmentProvided: { pc: true, monitor: true },
-      playersMayBring: { mouse: true, keyboard: true },
-      playersMustBring: { nationalId: true },
-      personalPeripheralsAllowed: true,
-      controllersAllowed: false,
-      usbDevicesAllowed: false,
-      driverInstallationAllowed: false,
-    });
-  });
-
-  it('upserts venue configuration for organizer-owned on-site tournaments', async () => {
-    const result = await service.upsertVenue('organizer-1', 'tournament-4', {
-      name: 'Updated Venue',
-      country: 'EG',
-      city: 'Giza',
-      address: 'Smart Village',
-      checkInLocation: 'Gate 2',
-      equipmentProvided: { pc: true },
-      playersMayBring: { headset: true },
-      playersMustBring: { nationalId: true },
-      personalPeripheralsAllowed: true,
-    });
-
-    const upsertArgs = firstVenueUpsertArgs();
-    expect(upsertArgs.where).toEqual({ tournamentId: 'tournament-4' });
-    expect(upsertArgs.create).toMatchObject({
-      tournamentId: 'tournament-4',
-      name: 'Updated Venue',
-    });
-    expect(upsertArgs.update).toMatchObject({
-      name: 'Updated Venue',
-      city: 'Giza',
-    });
-    expect(result.location.name).toBe('Updated Venue');
-    expect(result.equipmentPolicy.personalPeripheralsAllowed).toBe(true);
-  });
-
-  it('rejects venue configuration for online or foreign tournaments', async () => {
-    await expect(
-      service.upsertVenue('organizer-1', 'tournament-1', {
-        name: 'Invalid Venue',
-        country: 'EG',
-        city: 'Cairo',
-        address: '90 Street',
-        checkInLocation: 'Reception',
-      }),
-    ).rejects.toBeInstanceOf(ConflictException);
-
-    await expect(
-      service.getVenue('organizer-1', 'tournament-3'),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it('lists gaming rooms with hardware and device specifications', async () => {
-    const result = await service.listGamingRooms('organizer-1', 'tournament-4');
-    const findManyArgs = firstGamingRoomFindManyArgs();
-
-    expect(findManyArgs.where).toEqual({ venueId: 'venue-1' });
-    expect(findManyArgs.orderBy).toEqual({ createdAt: 'asc' });
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]?.pcSpecs).toEqual({
-      cpu: 'Intel Core i7-14700K',
-      gpu: 'NVIDIA RTX 4070 Super',
-      ram: '32GB DDR5',
-      storage: '1TB NVMe SSD',
-      operatingSystem: 'Windows 11 Pro',
-    });
-    expect(result.items[0]?.monitor).toEqual({
-      brand: 'BenQ Zowie',
-      model: 'XL2546K',
-      sizeInches: '24.5',
-      resolution: '1920x1080',
-      refreshRateHz: 240,
-      responseTimeMs: '1',
-    });
-    expect(result.items[0]?.peripherals).toEqual({
-      mouse: 'Logitech G Pro X Superlight',
-      keyboard: 'Wooting 60HE',
-      headset: 'HyperX Cloud II',
-      mousePad: 'SteelSeries QcK Heavy',
-      controller: null,
-    });
-  });
-
-  it('creates gaming rooms for organizer-owned on-site venues', async () => {
-    const result = await service.createGamingRoom(
-      'organizer-1',
-      'tournament-4',
-      validGamingRoomDto(),
-    );
-
-    expect(firstGamingRoomCreateData()).toMatchObject({
-      venueId: 'venue-1',
-      purpose: GamingRoomPurpose.COMPETITION,
-      stationCount: 20,
-      cpu: 'Intel Core i7-14700K',
-      gpu: 'NVIDIA RTX 4070 Super',
-      monitorModel: 'XL2546K',
-      monitorSizeInches: '24.5',
-      monitorRefreshRateHz: 240,
-      monitorResponseTimeMs: '1.0',
-      mouse: 'Logitech G Pro X Superlight',
-      keyboard: 'Wooting 60HE',
-      headset: 'HyperX Cloud II',
-    });
-    expect(result.venueId).toBe('venue-1');
-    expect(result.stationCount).toBe(20);
-    expect(result.pcSpecs.gpu).toBe('NVIDIA RTX 4070 Super');
-  });
-
-  it('gets, updates, and deletes an owned gaming room', async () => {
-    const detail = await service.getGamingRoom(
-      'organizer-1',
-      'tournament-4',
-      'gaming-room-1',
-    );
-
-    expect(detail.id).toBe('gaming-room-1');
-
-    const updated = await service.updateGamingRoom(
-      'organizer-1',
-      'tournament-4',
-      'gaming-room-1',
-      {
-        stationCount: 24,
-        gpu: 'NVIDIA RTX 4080',
-      },
-    );
-
-    expect(firstGamingRoomUpdateData()).toMatchObject({
-      stationCount: 24,
-      gpu: 'NVIDIA RTX 4080',
-    });
-    expect(updated.stationCount).toBe(24);
-    expect(updated.pcSpecs.gpu).toBe('NVIDIA RTX 4080');
-
-    await service.deleteGamingRoom(
-      'organizer-1',
-      'tournament-4',
-      'gaming-room-1',
-    );
-
-    expect(deleteGamingRoom).toHaveBeenCalledWith({
-      where: { id: 'gaming-room-1' },
-      select: { id: true },
-    });
-    expect(gamingRooms.some((item) => item.id === 'gaming-room-1')).toBe(false);
-  });
-
-  it('rejects gaming rooms for online, foreign, or venue-less tournaments', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'tournament-5',
-        organizerId: 'organizer-1',
-        mode: TournamentMode.ONSITE,
-        slug: 'venue-less-cup',
-      }),
-    );
-
-    await expect(
-      service.createGamingRoom(
-        'organizer-1',
-        'tournament-1',
-        validGamingRoomDto(),
-      ),
-    ).rejects.toBeInstanceOf(ConflictException);
-
-    await expect(
-      service.listGamingRooms('organizer-1', 'tournament-3'),
-    ).rejects.toBeInstanceOf(NotFoundException);
-
-    await expect(
-      service.createGamingRoom(
-        'organizer-1',
-        'tournament-5',
-        validGamingRoomDto(),
-      ),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it('does not return gaming rooms outside the owned venue', async () => {
-    gamingRooms.push(
-      createGamingRoomRecord({
-        id: 'gaming-room-2',
-        venueId: 'other-venue',
-      }),
-    );
-
-    await expect(
-      service.getGamingRoom('organizer-1', 'tournament-4', 'gaming-room-2'),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it('upserts online configuration for organizer-owned online tournaments', async () => {
-    const result = await service.upsertOnlineConfiguration(
-      'organizer-1',
-      'tournament-2',
-      {
-        serverRegion: 'MENA',
-        publicInstructions: 'Public instructions',
-        evidenceRequired: false,
-        discordServerUrl: 'https://discord.gg/new-config',
-        privateSupportContact: 'private support',
-      },
-    );
-
-    const upsertArgs = firstOnlineConfigurationUpsertArgs();
-    expect(upsertArgs.where).toEqual({ tournamentId: 'tournament-2' });
-    expect(upsertArgs.create).toMatchObject({
-      tournamentId: 'tournament-2',
-      serverRegion: 'MENA',
-    });
-    expect(upsertArgs.update).toMatchObject({
-      serverRegion: 'MENA',
-    });
-    expect(result.publicDetails.serverRegion).toBe('MENA');
-    expect(result.privateDetails.discordServerUrl).toBe(
-      'https://discord.gg/new-config',
-    );
-  });
-
-  it('rejects online configuration for on-site or foreign tournaments', async () => {
-    await expect(
-      service.upsertOnlineConfiguration('organizer-1', 'tournament-4', {
-        serverRegion: 'MENA',
-      }),
-    ).rejects.toBeInstanceOf(ConflictException);
-
-    await expect(
-      service.getOnlineConfiguration('organizer-1', 'tournament-3'),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it('returns not found when online configuration has not been created', async () => {
-    await expect(
-      service.getOnlineConfiguration('organizer-1', 'tournament-2'),
-    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('updates organizer-owned draft tournaments and regenerates slug when the name changes', async () => {
@@ -4221,112 +3267,6 @@ describe('TournamentsService', () => {
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
   });
 
-  it('opens and closes tournament registration atomically', async () => {
-    const publishedTournament = createdTournaments.find(
-      (item) => item.id === 'tournament-2',
-    );
-
-    if (!publishedTournament) {
-      throw new Error('Expected tournament-2 to exist.');
-    }
-
-    publishedTournament.registrationOpensAt = new Date(
-      '2026-09-20T10:00:00.000Z',
-    );
-    publishedTournament.checkInOpensAt = new Date('2026-09-12T16:00:00.000Z');
-    publishedTournament.checkInClosesAt = new Date('2026-09-12T17:00:00.000Z');
-
-    const opened = await service.openOrganizerTournamentRegistration(
-      'organizer-1',
-      'tournament-2',
-    );
-
-    expect(opened.status).toBe(TournamentStatus.REGISTRATION_OPEN);
-    expect(opened.registrationOpenedAt).toBeInstanceOf(Date);
-    expect(opened.registrationOpensAt).toEqual(opened.registrationOpenedAt);
-
-    publishedTournament.status = TournamentStatus.REGISTRATION_OPEN;
-    expect(publishedTournament.registrationOpensAt).toEqual(
-      publishedTournament.registrationOpenedAt,
-    );
-
-    const closed = await service.closeOrganizerTournamentRegistration(
-      'organizer-1',
-      'tournament-2',
-    );
-
-    expect(closed.status).toBe(TournamentStatus.REGISTRATION_CLOSED);
-    expect(closed.registrationClosedAt).toBeInstanceOf(Date);
-
-    const checkInOpened = await service.openOrganizerTournamentCheckIn(
-      'organizer-1',
-      'tournament-2',
-    );
-
-    expect(checkInOpened.status).toBe(TournamentStatus.CHECK_IN_OPEN);
-    expect(checkInOpened.checkInOpensAt).toBeInstanceOf(Date);
-    expect(checkInOpened.checkInOpensAt).not.toEqual(
-      new Date('2026-09-12T16:00:00.000Z'),
-    );
-  });
-
-  it('rejects invalid registration lifecycle transitions', async () => {
-    await expect(
-      service.openOrganizerTournamentRegistration(
-        'organizer-1',
-        'tournament-1',
-      ),
-    ).rejects.toBeInstanceOf(ConflictException);
-
-    await expect(
-      service.closeOrganizerTournamentRegistration(
-        'organizer-1',
-        'tournament-2',
-      ),
-    ).rejects.toBeInstanceOf(ConflictException);
-
-    await expect(
-      service.openOrganizerTournamentCheckIn('organizer-1', 'tournament-2'),
-    ).rejects.toBeInstanceOf(ConflictException);
-  });
-
-  it('cancels cancellable tournaments with a reason', async () => {
-    const result = await service.cancelOrganizerTournament(
-      'organizer-1',
-      'tournament-2',
-      {
-        reason: 'Venue became unavailable.',
-      },
-    );
-
-    expect(result.status).toBe(TournamentStatus.CANCELLED);
-    expect(result.cancelledAt).toBeInstanceOf(Date);
-    expect(result.cancellationReason).toBe('Venue became unavailable.');
-  });
-
-  it('rejects cancelling terminal or foreign tournaments', async () => {
-    createdTournaments.push(
-      createTournamentRecord({
-        id: 'tournament-5',
-        organizerId: 'organizer-1',
-        slug: 'completed-cup',
-        status: TournamentStatus.COMPLETED,
-      }),
-    );
-
-    await expect(
-      service.cancelOrganizerTournament('organizer-1', 'tournament-5', {
-        reason: 'Cannot cancel completed tournament.',
-      }),
-    ).rejects.toBeInstanceOf(ConflictException);
-
-    await expect(
-      service.cancelOrganizerTournament('organizer-1', 'tournament-3', {
-        reason: 'Foreign tournament.',
-      }),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
   it('does not return details for tournaments owned by another organizer', async () => {
     await expect(
       service.getOrganizerTournamentDetails('organizer-1', 'tournament-3'),
@@ -4443,33 +3383,6 @@ const validCreateDto = (
   registrationClosesAt: new Date('2026-09-10T20:00:00.000Z'),
   startsAt: new Date('2026-09-12T18:00:00.000Z'),
   timezone: 'Africa/Cairo',
-  ...overrides,
-});
-
-const validGamingRoomDto = (
-  overrides: Partial<CreateGamingRoomDto> = {},
-): CreateGamingRoomDto => ({
-  name: 'Main Stage Room',
-  description: 'Primary competition room.',
-  purpose: GamingRoomPurpose.COMPETITION,
-  stationCount: 20,
-  cpu: 'Intel Core i7-14700K',
-  gpu: 'NVIDIA RTX 4070 Super',
-  ram: '32GB DDR5',
-  storage: '1TB NVMe SSD',
-  operatingSystem: 'Windows 11 Pro',
-  monitorBrand: 'BenQ Zowie',
-  monitorModel: 'XL2546K',
-  monitorSizeInches: 24.5,
-  monitorResolution: '1920x1080',
-  monitorRefreshRateHz: 240,
-  monitorResponseTimeMs: 1,
-  mouse: 'Logitech G Pro X Superlight',
-  keyboard: 'Wooting 60HE',
-  headset: 'HyperX Cloud II',
-  mousePad: 'SteelSeries QcK Heavy',
-  internetConnection: 'Dedicated wired fiber connection.',
-  equipmentNotes: 'All PCs have tournament accounts preloaded.',
   ...overrides,
 });
 

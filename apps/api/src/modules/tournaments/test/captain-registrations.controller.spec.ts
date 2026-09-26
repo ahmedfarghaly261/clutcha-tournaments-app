@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { UserRole } from '@clutcha/database';
-import { ROLES_KEY } from '../auth/decorators/roles.decorator';
-import { CaptainRegistrationsController } from './captain-registrations.controller';
+import { ROLES_KEY } from '../../auth/decorators/roles.decorator';
+import { CaptainRegistrationsController } from '../controllers/captain-registrations.controller';
 
 jest.mock('@clutcha/database', () => ({
   RegistrationApprovalStatus: {

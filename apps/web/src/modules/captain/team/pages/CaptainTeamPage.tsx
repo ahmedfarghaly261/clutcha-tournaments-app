@@ -56,7 +56,7 @@ export function CaptainTeamPage() {
                 : 'Create the team identity you will use to build a roster and enter CLUTCHA tournaments.'}
             </p>
           </div>
-          <span className="text-xs font-black uppercase tracking-[0.1em] text-[#92a0b0]">
+          <span className="text-xs font-black uppercase tracking-widest text-[#92a0b0]">
             {team ? isEditing ? 'Edit mode' : 'Registered team' : 'Team setup'}
           </span>
         </div>

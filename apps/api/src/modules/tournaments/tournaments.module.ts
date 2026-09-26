@@ -1,11 +1,22 @@
 import { Module } from '@nestjs/common';
-import { CaptainRegistrationsController } from './captain-registrations.controller';
-import { CaptainTournamentEligibilityController } from './captain-tournament-eligibility.controller';
-import { OrganizerTournamentsController } from './organizer-tournaments.controller';
-import { PublicTournamentsController } from './public-tournaments.controller';
-import { TournamentsService } from './tournaments.service';
-import { TournamentCoverImageStorageService } from './tournament-cover-image-storage.service';
-import { TournamentPaymentProofStorageService } from './tournament-payment-proof-storage.service';
+import { CaptainRegistrationsController } from './controllers/captain-registrations.controller';
+import { CaptainTournamentEligibilityController } from './controllers/captain-tournament-eligibility.controller';
+import { OrganizerTournamentsController } from './controllers/organizer-tournaments.controller';
+import { PublicTournamentsController } from './controllers/public-tournaments.controller';
+import { TournamentsService } from './services/tournaments.service';
+import { TournamentCoverImageStorageService } from './services/tournament-cover-image-storage.service';
+import { TournamentPaymentProofStorageService } from './services/tournament-payment-proof-storage.service';
+import { TournamentPaymentService } from './services/tournament-payment.service';
+import { TournamentConfigurationService } from './services/tournament-configuration.service';
+import { TournamentBracketService } from './services/tournament-bracket.service';
+import { TournamentEligibilityService } from './services/tournament-eligibility.service';
+import { TournamentLifecycleService } from './services/tournament-lifecycle.service';
+import { TournamentQueryService } from './services/tournament-query.service';
+import { TournamentMatchService } from './services/tournament-match.service';
+import { TournamentCaptainMatchService } from './services/tournament-captain-match.service';
+import { TournamentGamingRoomService } from './services/tournament-gaming-room.service';
+import { TournamentRegistrationService } from './services/tournament-registration.service';
+import { TournamentManagementService } from './services/tournament-management.service';
 
 @Module({
   controllers: [
@@ -18,6 +29,17 @@ import { TournamentPaymentProofStorageService } from './tournament-payment-proof
     TournamentsService,
     TournamentCoverImageStorageService,
     TournamentPaymentProofStorageService,
+    TournamentPaymentService,
+    TournamentConfigurationService,
+    TournamentBracketService,
+    TournamentEligibilityService,
+    TournamentLifecycleService,
+    TournamentQueryService,
+    TournamentMatchService,
+    TournamentCaptainMatchService,
+    TournamentGamingRoomService,
+    TournamentRegistrationService,
+    TournamentManagementService,
   ],
 })
 export class TournamentsModule {}

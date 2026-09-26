@@ -13,14 +13,14 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { UserRole } from '@clutcha/database';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
-import { CreateTournamentRegistrationDto } from './dto/create-tournament-registration.dto';
-import { TournamentPaymentMethodResponseDto } from './dto/tournament-payment-method-response.dto';
-import { TournamentEligibilityResponseDto } from './dto/tournament-eligibility-response.dto';
-import { TournamentRegistrationResponseDto } from './dto/tournament-registration-response.dto';
-import { TournamentsService } from './tournaments.service';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { type AuthenticatedUser } from '../../auth/types/authenticated-user.type';
+import { CreateTournamentRegistrationDto } from '../dtos/create-tournament-registration.dto';
+import { TournamentPaymentMethodResponseDto } from '../dtos/tournament-payment-method-response.dto';
+import { TournamentEligibilityResponseDto } from '../dtos/tournament-eligibility-response.dto';
+import { TournamentRegistrationResponseDto } from '../dtos/tournament-registration-response.dto';
+import { TournamentsService } from '../services/tournaments.service';
 
 @ApiTags('Captain Tournaments')
 @ApiBearerAuth('access-token')

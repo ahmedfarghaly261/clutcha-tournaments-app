@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { TournamentCoverImageStorageService } from './tournament-cover-image-storage.service';
+import { TournamentCoverImageStorageService } from '../services/tournament-cover-image-storage.service';
 
 describe('TournamentCoverImageStorageService', () => {
   const service = new TournamentCoverImageStorageService();

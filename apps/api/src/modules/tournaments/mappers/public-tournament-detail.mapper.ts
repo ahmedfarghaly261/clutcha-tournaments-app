@@ -5,7 +5,7 @@ import {
   type TournamentSeedingMethod,
   type TournamentStatus,
 } from '@clutcha/database';
-import { type PublicTournamentDetailResponseDto } from '../dto/public-tournament-detail-response.dto';
+import { type PublicTournamentDetailResponseDto } from '../dtos/public-tournament-detail-response.dto';
 
 type DecimalLike = { toString(): string };
 

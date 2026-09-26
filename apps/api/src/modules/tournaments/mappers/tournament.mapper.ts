@@ -5,7 +5,7 @@ import {
   type TournamentStatus,
   type TournamentVisibility,
 } from '@clutcha/database';
-import { type TournamentResponseDto } from '../dto/tournament-response.dto';
+import { type TournamentResponseDto } from '../dtos/tournament-response.dto';
 
 export type TournamentRecord = Omit<
   TournamentResponseDto,

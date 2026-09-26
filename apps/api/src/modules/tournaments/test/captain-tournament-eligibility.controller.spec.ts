@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { UserRole } from '@clutcha/database';
-import { ROLES_KEY } from '../auth/decorators/roles.decorator';
-import { CaptainTournamentEligibilityController } from './captain-tournament-eligibility.controller';
+import { ROLES_KEY } from '../../auth/decorators/roles.decorator';
+import { CaptainTournamentEligibilityController } from '../controllers/captain-tournament-eligibility.controller';
 
 jest.mock('@clutcha/database', () => ({
   Prisma: {},

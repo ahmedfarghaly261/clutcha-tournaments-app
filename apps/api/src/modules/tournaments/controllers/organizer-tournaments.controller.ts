@@ -33,41 +33,41 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { type Request } from 'express';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
-import { CancelTournamentDto } from './dto/cancel-tournament.dto';
-import { CreateTournamentDto } from './dto/create-tournament.dto';
-import { CreateGamingRoomDto } from './dto/create-gaming-room.dto';
-import { GenerateOrganizerBracketDto } from './dto/generate-organizer-bracket.dto';
-import { GamingRoomListResponseDto } from './dto/gaming-room-list-response.dto';
-import { GamingRoomResponseDto } from './dto/gaming-room-response.dto';
-import { ListOrganizerTournamentsQueryDto } from './dto/list-organizer-tournaments-query.dto';
-import { OrganizerTournamentDetailResponseDto } from './dto/organizer-tournament-detail-response.dto';
-import { OrganizerTournamentListResponseDto } from './dto/organizer-tournament-list-response.dto';
-import { OnlineConfigurationResponseDto } from './dto/online-configuration-response.dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { type AuthenticatedUser } from '../../auth/types/authenticated-user.type';
+import { CancelTournamentDto } from '../dtos/cancel-tournament.dto';
+import { CreateTournamentDto } from '../dtos/create-tournament.dto';
+import { CreateGamingRoomDto } from '../dtos/create-gaming-room.dto';
+import { GenerateOrganizerBracketDto } from '../dtos/generate-organizer-bracket.dto';
+import { GamingRoomListResponseDto } from '../dtos/gaming-room-list-response.dto';
+import { GamingRoomResponseDto } from '../dtos/gaming-room-response.dto';
+import { ListOrganizerTournamentsQueryDto } from '../dtos/list-organizer-tournaments-query.dto';
+import { OrganizerTournamentDetailResponseDto } from '../dtos/organizer-tournament-detail-response.dto';
+import { OrganizerTournamentListResponseDto } from '../dtos/organizer-tournament-list-response.dto';
+import { OnlineConfigurationResponseDto } from '../dtos/online-configuration-response.dto';
 import {
   OrganizerBracketMatchDto,
   OrganizerBracketResponseDto,
-} from './dto/organizer-bracket-response.dto';
+} from '../dtos/organizer-bracket-response.dto';
 import {
   OrganizerRegistrationDetailResponseDto,
   OrganizerRegistrationListResponseDto,
-} from './dto/organizer-registration-response.dto';
-import { PaymentProofResponseDto } from './dto/payment-proof-response.dto';
-import { RejectPaymentProofDto } from './dto/reject-payment-proof.dto';
-import { TournamentResponseDto } from './dto/tournament-response.dto';
-import { RejectOrganizerRegistrationDto } from './dto/reject-organizer-registration.dto';
-import { ScheduleOrganizerMatchDto } from './dto/schedule-organizer-match.dto';
-import { TournamentPaymentMethodResponseDto } from './dto/tournament-payment-method-response.dto';
-import { UpdateGamingRoomDto } from './dto/update-gaming-room.dto';
-import { UpdateTournamentDraftDto } from './dto/update-tournament-draft.dto';
-import { UpsertOnlineConfigurationDto } from './dto/upsert-online-configuration.dto';
-import { UpsertTournamentPaymentMethodDto } from './dto/upsert-tournament-payment-method.dto';
-import { UpsertVenueDto } from './dto/upsert-venue.dto';
-import { VenueResponseDto } from './dto/venue-response.dto';
-import { TournamentsService } from './tournaments.service';
-import { type TournamentCoverImageFile } from './tournament-cover-image-storage.service';
+} from '../dtos/organizer-registration-response.dto';
+import { PaymentProofResponseDto } from '../dtos/payment-proof-response.dto';
+import { RejectPaymentProofDto } from '../dtos/reject-payment-proof.dto';
+import { TournamentResponseDto } from '../dtos/tournament-response.dto';
+import { RejectOrganizerRegistrationDto } from '../dtos/reject-organizer-registration.dto';
+import { ScheduleOrganizerMatchDto } from '../dtos/schedule-organizer-match.dto';
+import { TournamentPaymentMethodResponseDto } from '../dtos/tournament-payment-method-response.dto';
+import { UpdateGamingRoomDto } from '../dtos/update-gaming-room.dto';
+import { UpdateTournamentDraftDto } from '../dtos/update-tournament-draft.dto';
+import { UpsertOnlineConfigurationDto } from '../dtos/upsert-online-configuration.dto';
+import { UpsertTournamentPaymentMethodDto } from '../dtos/upsert-tournament-payment-method.dto';
+import { UpsertVenueDto } from '../dtos/upsert-venue.dto';
+import { VenueResponseDto } from '../dtos/venue-response.dto';
+import { TournamentsService } from '../services/tournaments.service';
+import { type TournamentCoverImageFile } from '../services/tournament-cover-image-storage.service';
 
 const tournamentCoverImageUploadOptions = {
   limits: {

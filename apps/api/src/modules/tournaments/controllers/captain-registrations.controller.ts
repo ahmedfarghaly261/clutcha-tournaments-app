@@ -26,29 +26,29 @@ import {
 } from '@nestjs/swagger';
 import { UserRole } from '@clutcha/database';
 import { type Request } from 'express';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { type AuthenticatedUser } from '../auth/types/authenticated-user.type';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { type AuthenticatedUser } from '../../auth/types/authenticated-user.type';
 import {
   CaptainRegistrationDetailResponseDto,
   CaptainRegistrationListResponseDto,
-} from './dto/captain-registration-response.dto';
-import { CaptainRegistrationBracketResponseDto } from './dto/captain-registration-bracket-response.dto';
-import { CaptainRegistrationCheckInResponseDto } from './dto/captain-registration-check-in-response.dto';
-import { CaptainRegistrationHubResponseDto } from './dto/captain-registration-hub-response.dto';
-import { CaptainRegistrationInformationResponseDto } from './dto/captain-registration-information-response.dto';
+} from '../dtos/captain-registration-response.dto';
+import { CaptainRegistrationBracketResponseDto } from '../dtos/captain-registration-bracket-response.dto';
+import { CaptainRegistrationCheckInResponseDto } from '../dtos/captain-registration-check-in-response.dto';
+import { CaptainRegistrationHubResponseDto } from '../dtos/captain-registration-hub-response.dto';
+import { CaptainRegistrationInformationResponseDto } from '../dtos/captain-registration-information-response.dto';
 import {
   CaptainMatchListResponseDto,
   CaptainMatchResponseDto,
-} from './dto/captain-registration-match-response.dto';
-import { CaptainRegistrationProgressResponseDto } from './dto/captain-registration-progress-response.dto';
-import { CaptainRegistrationStandingsResponseDto } from './dto/captain-registration-standings-response.dto';
-import { ListCaptainRegistrationsQueryDto } from './dto/list-captain-registrations-query.dto';
-import { PaymentProofResponseDto } from './dto/payment-proof-response.dto';
-import { SubmitPaymentProofDto } from './dto/submit-payment-proof.dto';
-import { WithdrawCaptainRegistrationDto } from './dto/withdraw-captain-registration.dto';
-import { type TournamentPaymentProofFile } from './tournament-payment-proof-storage.service';
-import { TournamentsService } from './tournaments.service';
+} from '../dtos/captain-registration-match-response.dto';
+import { CaptainRegistrationProgressResponseDto } from '../dtos/captain-registration-progress-response.dto';
+import { CaptainRegistrationStandingsResponseDto } from '../dtos/captain-registration-standings-response.dto';
+import { ListCaptainRegistrationsQueryDto } from '../dtos/list-captain-registrations-query.dto';
+import { PaymentProofResponseDto } from '../dtos/payment-proof-response.dto';
+import { SubmitPaymentProofDto } from '../dtos/submit-payment-proof.dto';
+import { WithdrawCaptainRegistrationDto } from '../dtos/withdraw-captain-registration.dto';
+import { type TournamentPaymentProofFile } from '../services/tournament-payment-proof-storage.service';
+import { TournamentsService } from '../services/tournaments.service';
 
 const paymentProofUploadOptions = {
   limits: { fileSize: 10 * 1024 * 1024 },

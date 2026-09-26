@@ -1,5 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import {
+  Prisma,
   RegistrationApprovalStatus,
   TournamentFormat,
   TournamentMatchOfficialResultStatus,
@@ -9,124 +10,146 @@ import {
   TournamentSeedingMethod,
   TournamentStatus,
 } from '@clutcha/database';
-import { DatabaseService } from '../../database/database.service';
-import { TournamentCoverImageStorageService } from './tournament-cover-image-storage.service';
-import { TournamentsService } from './tournaments.service';
+import { DatabaseService } from '../../../database/database.service';
+import { TournamentConfigurationService } from '../services/tournament-configuration.service';
+import { TournamentBracketService } from '../services/tournament-bracket.service';
+import { TournamentEligibilityService } from '../services/tournament-eligibility.service';
+import { TournamentLifecycleService } from '../services/tournament-lifecycle.service';
+import { TournamentPaymentService } from '../services/tournament-payment.service';
+import { TournamentQueryService } from '../services/tournament-query.service';
+import { TournamentMatchService } from '../services/tournament-match.service';
+import { TournamentCaptainMatchService } from '../services/tournament-captain-match.service';
+import { TournamentGamingRoomService } from '../services/tournament-gaming-room.service';
+import { TournamentRegistrationService } from '../services/tournament-registration.service';
+import { TournamentManagementService } from '../services/tournament-management.service';
+import { TournamentsService } from '../services/tournaments.service';
 
-jest.mock('@clutcha/database', () => ({
-  Prisma: {
-    PrismaClientKnownRequestError: class PrismaClientKnownRequestError extends Error {},
-  },
-  EligibilityStatus: {
-    ELIGIBLE: 'ELIGIBLE',
-    INELIGIBLE: 'INELIGIBLE',
-    PENDING_REVIEW: 'PENDING_REVIEW',
-  },
-  GamingRoomPurpose: {
-    COMPETITION: 'COMPETITION',
-    PRACTICE: 'PRACTICE',
-    WARMUP: 'WARMUP',
-    FINAL_STAGE: 'FINAL_STAGE',
-    BACKUP: 'BACKUP',
-  },
-  RegistrationApprovalStatus: {
-    PENDING: 'PENDING',
-    APPROVED: 'APPROVED',
-    REJECTED: 'REJECTED',
-  },
-  RegistrationPaymentStatus: {
-    NOT_REQUIRED: 'NOT_REQUIRED',
-    PENDING: 'PENDING',
-    PAID: 'PAID',
-    FAILED: 'FAILED',
-    REFUND_PENDING: 'REFUND_PENDING',
-    REFUNDED: 'REFUNDED',
-  },
-  RosterType: {
-    STARTER: 'STARTER',
-    SUBSTITUTE: 'SUBSTITUTE',
-  },
-  TeamStatus: {
-    ACTIVE: 'ACTIVE',
-    INACTIVE: 'INACTIVE',
-    SUSPENDED: 'SUSPENDED',
-  },
-  TournamentFormat: {
-    SINGLE_ELIMINATION: 'SINGLE_ELIMINATION',
-    DOUBLE_ELIMINATION: 'DOUBLE_ELIMINATION',
-    ROUND_ROBIN: 'ROUND_ROBIN',
-    GROUPS_THEN_PLAYOFFS: 'GROUPS_THEN_PLAYOFFS',
-    SWISS: 'SWISS',
-    BATTLE_ROYALE: 'BATTLE_ROYALE',
-  },
-  TournamentMatchDisputeStatus: {
-    NONE: 'NONE',
-    OPEN: 'OPEN',
-    RESOLVED: 'RESOLVED',
-    REJECTED: 'REJECTED',
-  },
-  TournamentMatchForfeitStatus: {
-    NONE: 'NONE',
-    TEAM_A: 'TEAM_A',
-    TEAM_B: 'TEAM_B',
-    BOTH: 'BOTH',
-  },
-  TournamentMatchOfficialResultStatus: {
-    PENDING: 'PENDING',
-    CONFIRMED: 'CONFIRMED',
-    OVERTURNED: 'OVERTURNED',
-  },
-  TournamentMatchStatus: {
-    SCHEDULED: 'SCHEDULED',
-    LIVE: 'LIVE',
-    COMPLETED: 'COMPLETED',
-    POSTPONED: 'POSTPONED',
-    CANCELLED: 'CANCELLED',
-    FORFEIT: 'FORFEIT',
-  },
-  TournamentMode: {
-    ONLINE: 'ONLINE',
-    ONSITE: 'ONSITE',
-  },
-  TournamentRegistrationStatus: {
-    PENDING_PAYMENT: 'PENDING_PAYMENT',
-    PENDING_APPROVAL: 'PENDING_APPROVAL',
-    CONFIRMED: 'CONFIRMED',
-    REJECTED: 'REJECTED',
-    WAITLISTED: 'WAITLISTED',
-    WITHDRAWN: 'WITHDRAWN',
-    CHECKED_IN: 'CHECKED_IN',
-    DISQUALIFIED: 'DISQUALIFIED',
-    REFUND_PENDING: 'REFUND_PENDING',
-    REFUNDED: 'REFUNDED',
-  },
-  TournamentSeedingMethod: {
-    MANUAL: 'MANUAL',
-    RANDOM: 'RANDOM',
-    RANKED: 'RANKED',
-  },
-  TournamentStatus: {
-    DRAFT: 'DRAFT',
-    PUBLISHED: 'PUBLISHED',
-    REGISTRATION_OPEN: 'REGISTRATION_OPEN',
-    REGISTRATION_CLOSED: 'REGISTRATION_CLOSED',
-    CHECK_IN_OPEN: 'CHECK_IN_OPEN',
-    IN_PROGRESS: 'IN_PROGRESS',
-    COMPLETED: 'COMPLETED',
-    POSTPONED: 'POSTPONED',
-    CANCELLED: 'CANCELLED',
-    ARCHIVED: 'ARCHIVED',
-  },
-  TournamentVisibility: {
-    PUBLIC: 'PUBLIC',
-    UNLISTED: 'UNLISTED',
-    PRIVATE: 'PRIVATE',
-  },
-  UserRole: {
-    CAPTAIN: 'CAPTAIN',
-    ORGANIZER: 'ORGANIZER',
-  },
-}));
+jest.mock('@clutcha/database', () => {
+  class PrismaClientKnownRequestError extends Error {
+    code: string;
+
+    constructor(message: string, options: { code: string }) {
+      super(message);
+      this.code = options.code;
+    }
+  }
+
+  return {
+    Prisma: {
+      PrismaClientKnownRequestError,
+      TransactionIsolationLevel: { Serializable: 'Serializable' },
+    },
+    EligibilityStatus: {
+      ELIGIBLE: 'ELIGIBLE',
+      INELIGIBLE: 'INELIGIBLE',
+      PENDING_REVIEW: 'PENDING_REVIEW',
+    },
+    GamingRoomPurpose: {
+      COMPETITION: 'COMPETITION',
+      PRACTICE: 'PRACTICE',
+      WARMUP: 'WARMUP',
+      FINAL_STAGE: 'FINAL_STAGE',
+      BACKUP: 'BACKUP',
+    },
+    RegistrationApprovalStatus: {
+      PENDING: 'PENDING',
+      APPROVED: 'APPROVED',
+      REJECTED: 'REJECTED',
+    },
+    RegistrationPaymentStatus: {
+      NOT_REQUIRED: 'NOT_REQUIRED',
+      PENDING: 'PENDING',
+      PAID: 'PAID',
+      FAILED: 'FAILED',
+      REFUND_PENDING: 'REFUND_PENDING',
+      REFUNDED: 'REFUNDED',
+    },
+    RosterType: {
+      STARTER: 'STARTER',
+      SUBSTITUTE: 'SUBSTITUTE',
+    },
+    TeamStatus: {
+      ACTIVE: 'ACTIVE',
+      INACTIVE: 'INACTIVE',
+      SUSPENDED: 'SUSPENDED',
+    },
+    TournamentFormat: {
+      SINGLE_ELIMINATION: 'SINGLE_ELIMINATION',
+      DOUBLE_ELIMINATION: 'DOUBLE_ELIMINATION',
+      ROUND_ROBIN: 'ROUND_ROBIN',
+      GROUPS_THEN_PLAYOFFS: 'GROUPS_THEN_PLAYOFFS',
+      SWISS: 'SWISS',
+      BATTLE_ROYALE: 'BATTLE_ROYALE',
+    },
+    TournamentMatchDisputeStatus: {
+      NONE: 'NONE',
+      OPEN: 'OPEN',
+      RESOLVED: 'RESOLVED',
+      REJECTED: 'REJECTED',
+    },
+    TournamentMatchForfeitStatus: {
+      NONE: 'NONE',
+      TEAM_A: 'TEAM_A',
+      TEAM_B: 'TEAM_B',
+      BOTH: 'BOTH',
+    },
+    TournamentMatchOfficialResultStatus: {
+      PENDING: 'PENDING',
+      CONFIRMED: 'CONFIRMED',
+      OVERTURNED: 'OVERTURNED',
+    },
+    TournamentMatchStatus: {
+      SCHEDULED: 'SCHEDULED',
+      LIVE: 'LIVE',
+      COMPLETED: 'COMPLETED',
+      POSTPONED: 'POSTPONED',
+      CANCELLED: 'CANCELLED',
+      FORFEIT: 'FORFEIT',
+    },
+    TournamentMode: {
+      ONLINE: 'ONLINE',
+      ONSITE: 'ONSITE',
+    },
+    TournamentRegistrationStatus: {
+      PENDING_PAYMENT: 'PENDING_PAYMENT',
+      PENDING_APPROVAL: 'PENDING_APPROVAL',
+      CONFIRMED: 'CONFIRMED',
+      REJECTED: 'REJECTED',
+      WAITLISTED: 'WAITLISTED',
+      WITHDRAWN: 'WITHDRAWN',
+      CHECKED_IN: 'CHECKED_IN',
+      DISQUALIFIED: 'DISQUALIFIED',
+      REFUND_PENDING: 'REFUND_PENDING',
+      REFUNDED: 'REFUNDED',
+    },
+    TournamentSeedingMethod: {
+      MANUAL: 'MANUAL',
+      RANDOM: 'RANDOM',
+      RANKED: 'RANKED',
+    },
+    TournamentStatus: {
+      DRAFT: 'DRAFT',
+      PUBLISHED: 'PUBLISHED',
+      REGISTRATION_OPEN: 'REGISTRATION_OPEN',
+      REGISTRATION_CLOSED: 'REGISTRATION_CLOSED',
+      CHECK_IN_OPEN: 'CHECK_IN_OPEN',
+      IN_PROGRESS: 'IN_PROGRESS',
+      COMPLETED: 'COMPLETED',
+      POSTPONED: 'POSTPONED',
+      CANCELLED: 'CANCELLED',
+      ARCHIVED: 'ARCHIVED',
+    },
+    TournamentVisibility: {
+      PUBLIC: 'PUBLIC',
+      UNLISTED: 'UNLISTED',
+      PRIVATE: 'PRIVATE',
+    },
+    UserRole: {
+      CAPTAIN: 'CAPTAIN',
+      ORGANIZER: 'ORGANIZER',
+    },
+  };
+});
 
 type CreatedMatch = {
   tournamentId: string;
@@ -194,6 +217,7 @@ describe('TournamentsService organizer bracket', () => {
   let tournamentMode: TournamentMode;
   let createMany: jest.Mock;
   let updateMatch: jest.Mock;
+  let transaction: jest.Mock;
   let service: TournamentsService;
 
   beforeEach(() => {
@@ -310,18 +334,43 @@ describe('TournamentsService organizer bracket', () => {
         ),
       },
     };
+    transaction = jest.fn(
+      (callback: (transaction: typeof transactionClient) => Promise<unknown>) =>
+        callback(transactionClient),
+    );
     const client = {
       ...transactionClient,
-      $transaction: jest.fn(
-        (
-          callback: (transaction: typeof transactionClient) => Promise<unknown>,
-        ) => callback(transactionClient),
-      ),
+      $transaction: transaction,
     };
 
     service = new TournamentsService(
-      { client } as unknown as DatabaseService,
-      {} as TournamentCoverImageStorageService,
+      new TournamentQueryService({ client } as unknown as DatabaseService),
+      new TournamentConfigurationService({
+        client,
+      } as unknown as DatabaseService),
+      new TournamentBracketService({
+        client,
+      } as unknown as DatabaseService),
+      new TournamentEligibilityService({
+        client,
+      } as unknown as DatabaseService),
+      {} as TournamentRegistrationService,
+      new TournamentLifecycleService({
+        client,
+      } as unknown as DatabaseService),
+      new TournamentPaymentService({
+        client,
+      } as unknown as DatabaseService),
+      new TournamentMatchService({
+        client,
+      } as unknown as DatabaseService),
+      new TournamentCaptainMatchService({
+        client,
+      } as unknown as DatabaseService),
+      new TournamentGamingRoomService({
+        client,
+      } as unknown as DatabaseService),
+      {} as TournamentManagementService,
     );
   });
 
@@ -349,6 +398,26 @@ describe('TournamentsService organizer bracket', () => {
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it('converts serializable transaction conflicts into a bracket conflict', async () => {
+    transaction.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('Serialization conflict', {
+        code: 'P2034',
+        clientVersion: 'test',
+      }),
+    );
+
+    await expect(
+      service.generateOrganizerTournamentBracket(organizerId, tournamentId, {
+        orderedTeamIds: teams.map((team) => team.id),
+      }),
+    ).rejects.toMatchObject({
+      message: 'A bracket has already been generated for this tournament.',
+    });
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: 'Serializable',
+    });
   });
 
   it('schedules an online match with private lobby information', async () => {
