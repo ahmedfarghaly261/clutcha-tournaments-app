@@ -45,7 +45,10 @@ jest.mock('@clutcha/database', () => ({
     SUPERSEDED: 'SUPERSEDED',
   },
   TournamentRegistrationStatus: {
+    PENDING_PAYMENT: 'PENDING_PAYMENT',
     PENDING_APPROVAL: 'PENDING_APPROVAL',
+    WITHDRAWN: 'WITHDRAWN',
+    REJECTED: 'REJECTED',
   },
   TournamentStatus: {
     DRAFT: 'DRAFT',
@@ -134,6 +137,7 @@ describe('TournamentPaymentService', () => {
     registrationFindFirst = jest.fn().mockResolvedValue({
       id: 'registration-1',
       captainId: 'captain-1',
+      status: TournamentRegistrationStatus.PENDING_PAYMENT,
       paymentStatus: RegistrationPaymentStatus.AWAITING_PROOF,
       tournament: {
         id: tournamentId,
@@ -327,6 +331,38 @@ describe('TournamentPaymentService', () => {
       },
     });
   });
+
+  it.each([
+    TournamentRegistrationStatus.WITHDRAWN,
+    TournamentRegistrationStatus.REJECTED,
+  ])(
+    'rejects payment proof submission for %s registrations',
+    async (status) => {
+      registrationFindFirst.mockResolvedValueOnce({
+        id: 'registration-1',
+        captainId: 'captain-1',
+        status,
+        paymentStatus: RegistrationPaymentStatus.AWAITING_PROOF,
+        tournament: {
+          id: tournamentId,
+          registrationClosesAt: new Date('2030-01-01T00:00:00.000Z'),
+        },
+      });
+
+      await expect(
+        service.submitCaptainRegistrationPaymentProof(
+          'captain-1',
+          'registration-1',
+          { paymentMethodId },
+          undefined,
+          'http://localhost',
+        ),
+      ).rejects.toMatchObject({
+        message: 'This registration no longer allows payment proof submission.',
+      });
+      expect(saveProofFile).not.toHaveBeenCalled();
+    },
+  );
 
   it('verifies and rejects submitted payment proofs through transactions', async () => {
     const verified = (await service.verifyOrganizerRegistrationPaymentProof(
