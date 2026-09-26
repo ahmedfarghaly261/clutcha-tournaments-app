@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import {
   RegistrationApprovalStatus,
   RegistrationPaymentStatus,
@@ -245,6 +245,18 @@ describe('TournamentCaptainMatchService', () => {
     });
   });
 
+  it('returns not found when a requested match is outside the captain scope', async () => {
+    matchFindFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.getCaptainRegistrationMatch(
+        captainId,
+        registrationId,
+        'foreign-match',
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it('returns progress from official completed matches and future matches', async () => {
     const completedMatch = match({
       id: 'match-completed',
@@ -408,6 +420,54 @@ describe('TournamentCaptainMatchService', () => {
     expect(afterRelease.onlineInformation).toMatchObject({
       lobbyInformation: 'Lobby code: ALPHA-123.',
       nextMatchServerInformation: { lobbyId: 'private-lobby-1' },
+    });
+  });
+
+  it('returns private venue and station information for on-site tournaments', async () => {
+    registrationFindFirst.mockResolvedValueOnce(
+      informationRegistration({
+        tournament: {
+          ...informationRegistration().tournament,
+          mode: TournamentMode.ONSITE,
+          status: TournamentStatus.CHECK_IN_OPEN,
+          onlineConfiguration: null,
+          venue: {
+            name: 'CLUTCHA Arena',
+            country: 'Egypt',
+            city: 'Cairo',
+            address: '123 Arena Street',
+            mapUrl: 'https://maps.example.com/arena',
+            checkInLocation: 'Main entrance desk',
+            venueRules: 'Bring your national ID.',
+            parkingInfo: 'Use gate B parking.',
+          },
+        },
+      }),
+    );
+    matchFindFirst.mockResolvedValueOnce(
+      match({
+        tournament: {
+          id: tournamentId,
+          name: 'Alpha Cup',
+          mode: TournamentMode.ONSITE,
+          timezone: 'Africa/Cairo',
+        },
+        gamingRoom: { id: 'room-1', name: 'Main Stage Room' },
+        onsiteStationLabel: 'Station A-04',
+      }),
+    );
+
+    const result = await service.getCaptainRegistrationInformation(
+      captainId,
+      registrationId,
+    );
+
+    expect(result.onlineInformation).toBeNull();
+    expect(result.venueInformation).toMatchObject({
+      name: 'CLUTCHA Arena',
+      assignedRoomId: 'room-1',
+      assignedRoomName: 'Main Stage Room',
+      assignedStation: 'Station A-04',
     });
   });
 

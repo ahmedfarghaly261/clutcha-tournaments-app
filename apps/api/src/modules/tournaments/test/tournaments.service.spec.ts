@@ -1024,7 +1024,7 @@ describe('TournamentsService', () => {
       gameKey: 'valorant',
       mode: TournamentMode.ONLINE,
       status: TournamentStatus.REGISTRATION_OPEN,
-      startsAt: new Date('2026-09-12T18:00:00.000Z'),
+      startsAt: new Date('2030-09-12T18:00:00.000Z'),
     });
     const otherGameTournament = createTournamentRecord({
       id: 'captain-registration-other-game-cup',
@@ -1033,7 +1033,7 @@ describe('TournamentsService', () => {
       gameKey: 'apex',
       mode: TournamentMode.ONLINE,
       status: TournamentStatus.REGISTRATION_OPEN,
-      startsAt: new Date('2026-09-13T18:00:00.000Z'),
+      startsAt: new Date('2030-09-13T18:00:00.000Z'),
     });
     tournamentRegistrations = [
       createTournamentRegistrationRecord({
@@ -1375,7 +1375,7 @@ describe('TournamentsService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('lists only matches involving the approved Captain team', async () => {
+  it('lists only matches involving the approved Captain team (facade regression)', async () => {
     const tournament = createTournamentRecord({
       id: 'captain-match-cup',
       name: 'Captain Match Cup',
@@ -1709,7 +1709,7 @@ describe('TournamentsService', () => {
         teamA: captainTeam,
         teamBId: opponent.id,
         teamB: opponent,
-        scheduledAt: new Date('2026-09-13T18:00:00.000Z'),
+        scheduledAt: new Date('2030-09-13T18:00:00.000Z'),
         status: TournamentMatchStatus.SCHEDULED,
       }),
     ];
@@ -1740,7 +1740,7 @@ describe('TournamentsService', () => {
           teamId: 'team-opponent',
           teamName: 'Falcons',
         },
-        scheduledAt: new Date('2026-09-13T18:00:00.000Z'),
+        scheduledAt: new Date('2030-09-13T18:00:00.000Z'),
         status: TournamentMatchStatus.SCHEDULED,
       },
       upcomingMatches: [
@@ -1753,7 +1753,7 @@ describe('TournamentsService', () => {
             teamId: 'team-opponent',
             teamName: 'Falcons',
           },
-          scheduledAt: new Date('2026-09-13T18:00:00.000Z'),
+          scheduledAt: new Date('2030-09-13T18:00:00.000Z'),
           status: TournamentMatchStatus.SCHEDULED,
         },
       ],
@@ -2208,7 +2208,7 @@ describe('TournamentsService', () => {
       id: 'captain-information-gated-cup',
       name: 'Captain Information Gated Cup',
       status: TournamentStatus.REGISTRATION_CLOSED,
-      startsAt: new Date('2026-09-12T18:00:00.000Z'),
+      startsAt: new Date('2030-09-12T18:00:00.000Z'),
       onlineConfiguration: createOnlineConfigurationRecord({
         tournamentId: 'captain-information-gated-cup',
         lobbyInstructions: 'Hidden until release.',
@@ -2243,7 +2243,7 @@ describe('TournamentsService', () => {
 
     expect(result.releaseGate).toEqual({
       lobbyInformationReleased: false,
-      lobbyInformationReleasesAt: new Date('2026-09-11T18:00:00.000Z'),
+      lobbyInformationReleasesAt: new Date('2030-09-11T18:00:00.000Z'),
     });
     expect(result.onlineInformation?.lobbyInformation).toBeNull();
     expect(result.onlineInformation?.nextMatchServerInformation).toBeNull();
