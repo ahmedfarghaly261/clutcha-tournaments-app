@@ -163,6 +163,15 @@ export class TournamentPaymentService {
       throw new NotFoundException('Captain registration was not found');
     }
 
+    if (
+      registration.status !== TournamentRegistrationStatus.PENDING_PAYMENT &&
+      registration.status !== TournamentRegistrationStatus.PENDING_APPROVAL
+    ) {
+      throw new ConflictException(
+        'This registration no longer allows payment proof submission.',
+      );
+    }
+
     if (registration.paymentStatus === RegistrationPaymentStatus.NOT_REQUIRED) {
       throw new ConflictException(
         'This registration does not require payment.',
