@@ -172,66 +172,83 @@ export class TournamentBracketService {
     tournamentId: string,
     dto: GenerateOrganizerBracketDto,
   ): Promise<OrganizerBracketResponseDto> {
-    await this.databaseService.client.$transaction(async (transaction) => {
-      const tournament = await this.findOwnedTournamentOrThrow(
-        organizerId,
-        tournamentId,
-        transaction,
-      );
+    try {
+      await this.databaseService.client.$transaction(
+        async (transaction) => {
+          const tournament = await this.findOwnedTournamentOrThrow(
+            organizerId,
+            tournamentId,
+            transaction,
+          );
 
-      this.assertTournamentCanGenerateBracket(tournament);
+          this.assertTournamentCanGenerateBracket(tournament);
 
-      const registrations = await this.findApprovedBracketRegistrations(
-        tournamentId,
-        transaction,
-      );
-      const approvedTeamIds = registrations.map(
-        (registration) => registration.team.id,
-      );
+          const registrations = await this.findApprovedBracketRegistrations(
+            tournamentId,
+            transaction,
+          );
+          const approvedTeamIds = registrations.map(
+            (registration) => registration.team.id,
+          );
 
-      if (approvedTeamIds.length < 2) {
-        throw new ConflictException(
-          'At least two approved teams are required to generate a bracket.',
-        );
+          if (approvedTeamIds.length < 2) {
+            throw new ConflictException(
+              'At least two approved teams are required to generate a bracket.',
+            );
+          }
+
+          this.assertOrderedTeamsMatchApprovedTeams(
+            dto.orderedTeamIds,
+            approvedTeamIds,
+          );
+
+          const existingMatchCount = await transaction.tournamentMatch.count({
+            where: { tournamentId },
+          });
+          if (existingMatchCount > 0) {
+            throw new ConflictException(
+              'A bracket has already been generated for this tournament.',
+            );
+          }
+
+          const orderedTeamIds =
+            tournament.seedingMethod === TournamentSeedingMethod.RANDOM
+              ? this.shuffleTeamIds(dto.orderedTeamIds)
+              : dto.orderedTeamIds;
+          const generated = generateSingleEliminationBracket(
+            orderedTeamIds,
+            tournament.defaultBestOf,
+            tournament.finalBestOf,
+            tournament.thirdPlaceMatch,
+          );
+
+          await transaction.tournamentMatch.createMany({
+            data: generated.matches.map((match) => ({
+              tournamentId,
+              stage: match.stage,
+              round: match.round,
+              bracketPosition: match.bracketPosition,
+              bestOf: match.bestOf,
+              teamAId: match.teamAId,
+              teamBId: match.teamBId,
+            })),
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
       }
 
-      this.assertOrderedTeamsMatchApprovedTeams(
-        dto.orderedTeamIds,
-        approvedTeamIds,
-      );
-
-      const existingMatchCount = await transaction.tournamentMatch.count({
-        where: { tournamentId },
-      });
-      if (existingMatchCount > 0) {
+      if (this.isPrismaTransactionConflictError(error)) {
         throw new ConflictException(
           'A bracket has already been generated for this tournament.',
         );
       }
 
-      const orderedTeamIds =
-        tournament.seedingMethod === TournamentSeedingMethod.RANDOM
-          ? this.shuffleTeamIds(dto.orderedTeamIds)
-          : dto.orderedTeamIds;
-      const generated = generateSingleEliminationBracket(
-        orderedTeamIds,
-        tournament.defaultBestOf,
-        tournament.finalBestOf,
-        tournament.thirdPlaceMatch,
-      );
-
-      await transaction.tournamentMatch.createMany({
-        data: generated.matches.map((match) => ({
-          tournamentId,
-          stage: match.stage,
-          round: match.round,
-          bracketPosition: match.bracketPosition,
-          bestOf: match.bestOf,
-          teamAId: match.teamAId,
-          teamBId: match.teamBId,
-        })),
-      });
-    });
+      throw error;
+    }
 
     return this.getOrganizerTournamentBracket(organizerId, tournamentId);
   }
@@ -334,6 +351,13 @@ export class TournamentBracketService {
       ];
     }
     return shuffled;
+  }
+
+  private isPrismaTransactionConflictError(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2034'
+    );
   }
 
   private toOrganizerBracketResponse(
