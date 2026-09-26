@@ -343,6 +343,7 @@ export class TournamentEligibilityService {
             select: tournamentRegistrationSelect,
           });
         },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
 
       return this.toTournamentRegistrationResponse(registration);
@@ -350,6 +351,12 @@ export class TournamentEligibilityService {
       if (this.isPrismaUniqueConstraintError(error)) {
         throw new ConflictException(
           'Team is already registered for this tournament.',
+        );
+      }
+
+      if (this.isPrismaTransactionConflictError(error)) {
+        throw new ConflictException(
+          'Tournament capacity changed while registering. Please try again.',
         );
       }
 
@@ -667,6 +674,13 @@ export class TournamentEligibilityService {
     return (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
+    );
+  }
+
+  private isPrismaTransactionConflictError(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2034'
     );
   }
 }

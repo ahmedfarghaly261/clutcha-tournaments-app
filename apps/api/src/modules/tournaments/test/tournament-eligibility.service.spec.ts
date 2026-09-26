@@ -4,6 +4,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  Prisma,
   EligibilityStatus,
   RegistrationApprovalStatus,
   RegistrationPaymentStatus,
@@ -17,45 +18,50 @@ import {
 import { DatabaseService } from '../../../database/database.service';
 import { TournamentEligibilityService } from '../services/tournament-eligibility.service';
 
-jest.mock('@clutcha/database', () => ({
-  Prisma: {
-    PrismaClientKnownRequestError: class PrismaClientKnownRequestError extends Error {
-      code: string;
+jest.mock('@clutcha/database', () => {
+  class PrismaClientKnownRequestError extends Error {
+    code: string;
 
-      constructor(message: string, options: { code: string }) {
-        super(message);
-        this.code = options.code;
-      }
+    constructor(message: string, options: { code: string }) {
+      super(message);
+      this.code = options.code;
+    }
+  }
+
+  return {
+    Prisma: {
+      PrismaClientKnownRequestError,
+      TransactionIsolationLevel: { Serializable: 'Serializable' },
     },
-  },
-  EligibilityStatus: {
-    ELIGIBLE: 'ELIGIBLE',
-    INELIGIBLE: 'INELIGIBLE',
-    PENDING_REVIEW: 'PENDING_REVIEW',
-  },
-  RegistrationApprovalStatus: {
-    PENDING: 'PENDING',
-    APPROVED: 'APPROVED',
-    REJECTED: 'REJECTED',
-  },
-  RegistrationPaymentStatus: {
-    NOT_REQUIRED: 'NOT_REQUIRED',
-    AWAITING_PROOF: 'AWAITING_PROOF',
-  },
-  RosterType: { STARTER: 'STARTER', SUBSTITUTE: 'SUBSTITUTE' },
-  TeamStatus: { ACTIVE: 'ACTIVE', SUSPENDED: 'SUSPENDED' },
-  TournamentRegistrationStatus: {
-    PENDING_PAYMENT: 'PENDING_PAYMENT',
-    PENDING_APPROVAL: 'PENDING_APPROVAL',
-    CONFIRMED: 'CONFIRMED',
-    WAITLISTED: 'WAITLISTED',
-    CHECKED_IN: 'CHECKED_IN',
-    REFUND_PENDING: 'REFUND_PENDING',
-  },
-  TournamentStatus: { REGISTRATION_OPEN: 'REGISTRATION_OPEN' },
-  TournamentVisibility: { PUBLIC: 'PUBLIC' },
-  UserRole: { CAPTAIN: 'CAPTAIN' },
-}));
+    EligibilityStatus: {
+      ELIGIBLE: 'ELIGIBLE',
+      INELIGIBLE: 'INELIGIBLE',
+      PENDING_REVIEW: 'PENDING_REVIEW',
+    },
+    RegistrationApprovalStatus: {
+      PENDING: 'PENDING',
+      APPROVED: 'APPROVED',
+      REJECTED: 'REJECTED',
+    },
+    RegistrationPaymentStatus: {
+      NOT_REQUIRED: 'NOT_REQUIRED',
+      AWAITING_PROOF: 'AWAITING_PROOF',
+    },
+    RosterType: { STARTER: 'STARTER', SUBSTITUTE: 'SUBSTITUTE' },
+    TeamStatus: { ACTIVE: 'ACTIVE', SUSPENDED: 'SUSPENDED' },
+    TournamentRegistrationStatus: {
+      PENDING_PAYMENT: 'PENDING_PAYMENT',
+      PENDING_APPROVAL: 'PENDING_APPROVAL',
+      CONFIRMED: 'CONFIRMED',
+      WAITLISTED: 'WAITLISTED',
+      CHECKED_IN: 'CHECKED_IN',
+      REFUND_PENDING: 'REFUND_PENDING',
+    },
+    TournamentStatus: { REGISTRATION_OPEN: 'REGISTRATION_OPEN' },
+    TournamentVisibility: { PUBLIC: 'PUBLIC' },
+    UserRole: { CAPTAIN: 'CAPTAIN' },
+  };
+});
 
 describe('TournamentEligibilityService', () => {
   const captainId = 'captain-1';
@@ -66,6 +72,7 @@ describe('TournamentEligibilityService', () => {
   let tournamentFindUnique: jest.Mock;
   let registrationCount: jest.Mock;
   let registrationCreate: jest.Mock;
+  let transaction: jest.Mock;
   let client: Record<string, unknown>;
 
   const captain = (overrides: Record<string, unknown> = {}) => ({
@@ -169,9 +176,10 @@ describe('TournamentEligibilityService', () => {
       },
     };
 
-    client.$transaction = jest.fn((callback: (value: unknown) => unknown) =>
+    transaction = jest.fn((callback: (value: unknown) => unknown) =>
       callback(client),
     );
+    client.$transaction = transaction;
 
     service = new TournamentEligibilityService({
       client,
@@ -255,5 +263,26 @@ describe('TournamentEligibilityService', () => {
     await expect(
       service.getCaptainTournamentEligibility(captainId, tournamentId),
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
+  });
+
+  it('uses a serializable transaction and maps capacity conflicts', async () => {
+    transaction.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('Serialization conflict', {
+        code: 'P2034',
+        clientVersion: 'test',
+      }),
+    );
+
+    await expect(
+      service.createCaptainTournamentRegistration(captainId, tournamentId, {
+        acceptRules: true,
+      }),
+    ).rejects.toMatchObject({
+      message:
+        'Tournament capacity changed while registering. Please try again.',
+    });
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: 'Serializable',
+    });
   });
 });
