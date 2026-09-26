@@ -10,6 +10,7 @@ import {
   TournamentPaymentProofStatus,
   TournamentRegistrationStatus,
   TournamentStatus,
+  TournamentVisibility,
 } from '@clutcha/database';
 import { DatabaseService } from '../../../database/database.service';
 import { type RejectPaymentProofDto } from '../dtos/reject-payment-proof.dto';
@@ -65,9 +66,8 @@ export class TournamentPaymentService {
     const tournament = await this.databaseService.client.tournament.findFirst({
       where: {
         id: tournamentId,
-        status: {
-          notIn: [TournamentStatus.DRAFT, TournamentStatus.ARCHIVED],
-        },
+        visibility: TournamentVisibility.PUBLIC,
+        status: TournamentStatus.REGISTRATION_OPEN,
       },
       select: { id: true },
     });

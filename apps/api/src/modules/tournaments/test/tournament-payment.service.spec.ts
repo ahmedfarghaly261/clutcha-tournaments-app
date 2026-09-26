@@ -4,6 +4,8 @@ import {
   TournamentPaymentMethodType,
   TournamentPaymentProofStatus,
   TournamentRegistrationStatus,
+  TournamentStatus,
+  TournamentVisibility,
 } from '@clutcha/database';
 import { DatabaseService } from '../../../database/database.service';
 import { type SubmitPaymentProofDto } from '../dtos/submit-payment-proof.dto';
@@ -45,7 +47,17 @@ jest.mock('@clutcha/database', () => ({
   TournamentRegistrationStatus: {
     PENDING_APPROVAL: 'PENDING_APPROVAL',
   },
-  TournamentStatus: { DRAFT: 'DRAFT', ARCHIVED: 'ARCHIVED' },
+  TournamentStatus: {
+    DRAFT: 'DRAFT',
+    ARCHIVED: 'ARCHIVED',
+    REGISTRATION_OPEN: 'REGISTRATION_OPEN',
+    CANCELLED: 'CANCELLED',
+  },
+  TournamentVisibility: {
+    PUBLIC: 'PUBLIC',
+    UNLISTED: 'UNLISTED',
+    PRIVATE: 'PRIVATE',
+  },
 }));
 
 describe('TournamentPaymentService', () => {
@@ -227,7 +239,7 @@ describe('TournamentPaymentService', () => {
     });
   });
 
-  it('lists only enabled payment methods for captains of published tournaments', async () => {
+  it('lists only enabled payment methods for public tournaments with open registration', async () => {
     const result = (await service.listCaptainTournamentPaymentMethods(
       tournamentId,
     )) as unknown as Array<Record<string, unknown>>;
@@ -240,6 +252,36 @@ describe('TournamentPaymentService', () => {
       where: { tournamentId, enabled: true },
       orderBy: { createdAt: 'asc' },
     });
+    expect(tournamentFindFirst).toHaveBeenCalledWith({
+      where: {
+        id: tournamentId,
+        visibility: TournamentVisibility.PUBLIC,
+        status: TournamentStatus.REGISTRATION_OPEN,
+      },
+      select: { id: true },
+    });
+  });
+
+  it.each([
+    [
+      'private',
+      TournamentVisibility.PRIVATE,
+      TournamentStatus.REGISTRATION_OPEN,
+    ],
+    [
+      'unlisted',
+      TournamentVisibility.UNLISTED,
+      TournamentStatus.REGISTRATION_OPEN,
+    ],
+    ['cancelled', TournamentVisibility.PUBLIC, TournamentStatus.CANCELLED],
+    ['not yet open', TournamentVisibility.PUBLIC, TournamentStatus.DRAFT],
+  ])('does not expose payment methods for %s tournaments', async () => {
+    tournamentFindFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.listCaptainTournamentPaymentMethods(tournamentId),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(paymentMethodFindMany).not.toHaveBeenCalled();
   });
 
   it('submits a payment proof and moves the registration to pending approval', async () => {
