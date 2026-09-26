@@ -16,6 +16,7 @@ import { TournamentMatchService } from './services/tournament-match.service';
 import { TournamentCaptainMatchService } from './services/tournament-captain-match.service';
 import { TournamentGamingRoomService } from './services/tournament-gaming-room.service';
 import { TournamentRegistrationService } from './services/tournament-registration.service';
+import { TournamentManagementService } from './services/tournament-management.service';
 
 @Module({
   controllers: [
@@ -38,6 +39,7 @@ import { TournamentRegistrationService } from './services/tournament-registratio
     TournamentCaptainMatchService,
     TournamentGamingRoomService,
     TournamentRegistrationService,
+    TournamentManagementService,
   ],
 })
 export class TournamentsModule {}
