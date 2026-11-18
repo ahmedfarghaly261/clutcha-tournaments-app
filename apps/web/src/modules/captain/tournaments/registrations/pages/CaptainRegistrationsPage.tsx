@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { CreditCard, FileUp, ShieldCheck, Trophy } from 'lucide-react'
+import { CreditCard, FileUp, LogOut, ShieldCheck, Trophy } from 'lucide-react'
 import {
   getCaptainRegistrationsControllerGetRegistrationQueryKey,
   getCaptainRegistrationsControllerListRegistrationsQueryKey,
@@ -10,6 +10,17 @@ import {
 } from '@/api/generated/captain-registrations/captain-registrations'
 import { useCaptainTournamentEligibilityControllerListPaymentMethods } from '@/api/generated/captain-tournaments/captain-tournaments'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,8 +31,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { PaymentMethodDetails } from '../../payment/components/PaymentMethodDetails'
+import { useCaptainRegistrationMutations } from '../mutations/captain-registration.mutations'
 
 const paymentNeedsProof = new Set(['AWAITING_PROOF', 'REJECTED'])
+const paymentSubmissionAllowedStatuses = new Set(['PENDING_PAYMENT', 'PENDING_APPROVAL'])
+const withdrawalBlockedRegistrationStatuses = new Set(['WITHDRAWN', 'CHECKED_IN', 'DISQUALIFIED', 'REFUNDED'])
+const withdrawalBlockedTournamentStatuses = new Set(['CHECK_IN_OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'ARCHIVED'])
 
 function formatLabel(value: string) {
   return value.toLowerCase().split('_').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
@@ -81,6 +96,7 @@ function CaptainRegistrationDetail({ registrationId }: { registrationId: string 
       },
     },
   })
+  const { withdrawRegistration, isWithdrawing } = useCaptainRegistrationMutations(registrationId)
   const registration = detailQuery.data
   const tournamentId = registration?.tournament.id ?? ''
   const paidTournament = Number(registration?.tournament.registrationFee ?? '0') > 0
@@ -92,24 +108,22 @@ function CaptainRegistrationDetail({ registrationId }: { registrationId: string 
   const [transactionReference, setTransactionReference] = useState('')
   const [paidAt, setPaidAt] = useState('')
   const [captainNote, setCaptainNote] = useState('')
+  const [withdrawalReason, setWithdrawalReason] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!paymentMethodId && methodsQuery.data?.[0]) {
-      setPaymentMethodId(methodsQuery.data[0].id)
-    }
-  }, [methodsQuery.data, paymentMethodId])
+  const [withdrawalMessage, setWithdrawalMessage] = useState<string | null>(null)
+  const [withdrawalError, setWithdrawalError] = useState<string | null>(null)
 
   const submitProof = async () => {
-    if (!file || !paymentMethodId) return
+    const selectedMethodId = paymentMethodId || methodsQuery.data?.[0]?.id
+    if (!file || !selectedMethodId) return
     setMessage(null)
     setError(null)
     try {
       await mutation.mutateAsync({
         registrationId,
         data: {
-          paymentMethodId,
+          paymentMethodId: selectedMethodId,
           file,
           transactionReference: transactionReference.trim() || undefined,
           paidAt: paidAt ? new Date(paidAt).toISOString() : undefined,
@@ -126,11 +140,29 @@ function CaptainRegistrationDetail({ registrationId }: { registrationId: string 
     }
   }
 
+  const withdraw = async () => {
+    setWithdrawalMessage(null)
+    setWithdrawalError(null)
+    try {
+      await withdrawRegistration({
+        registrationId,
+        data: { reason: withdrawalReason.trim() || undefined },
+      })
+      setWithdrawalReason('')
+      setWithdrawalMessage('Registration withdrawn successfully.')
+    } catch {
+      setWithdrawalError('Registration could not be withdrawn. It may no longer be eligible.')
+    }
+  }
+
   if (detailQuery.isLoading) return <Skeleton className="h-[560px]" />
   if (detailQuery.isError || !registration) return <Alert className="border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Registration could not be loaded</AlertTitle><AlertDescription className="text-[#ffcbc7]">It may no longer exist.</AlertDescription></Alert>
 
-  const requiresProof = paymentNeedsProof.has(registration.lifecycle.paymentStatus)
-  const selectedPaymentMethod = methodsQuery.data?.find((method) => method.id === paymentMethodId)
+  const requiresProof = paymentNeedsProof.has(registration.lifecycle.paymentStatus) && paymentSubmissionAllowedStatuses.has(registration.lifecycle.status)
+  const canWithdraw = !withdrawalBlockedRegistrationStatuses.has(registration.lifecycle.status) &&
+    !withdrawalBlockedTournamentStatuses.has(registration.tournament.status) &&
+    registration.lifecycle.paymentStatus !== 'REFUNDED'
+  const selectedPaymentMethod = methodsQuery.data?.find((method) => method.id === (paymentMethodId || methodsQuery.data[0]?.id))
 
   return (
     <div className="space-y-5">
@@ -142,6 +174,34 @@ function CaptainRegistrationDetail({ registrationId }: { registrationId: string 
           <Status label="Approval" value={registration.lifecycle.approvalStatus} />
         </CardContent>
       </Card>
+
+      {withdrawalMessage && <Alert className="border-[#276f5c] bg-[#15382f] text-[#8ff5d8]"><AlertTitle>Registration withdrawn</AlertTitle><AlertDescription className="text-[#a7ead7]">{withdrawalMessage}</AlertDescription></Alert>}
+      {withdrawalError && <Alert className="border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Withdrawal failed</AlertTitle><AlertDescription className="text-[#ffcbc7]">{withdrawalError}</AlertDescription></Alert>}
+
+      {canWithdraw && (
+        <Card>
+          <CardHeader><LogOut className="h-5 w-5 text-[#ff9d92]" /><CardTitle>Withdraw registration</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-sm leading-6 text-[#bfb5c4]">Withdraw your team before tournament operations begin. This keeps the registration record but removes it from the active tournament flow.</p>
+            <AlertDialog>
+              <AlertDialogTrigger render={<Button variant="destructive" className="mt-4" />}>
+                <LogOut className="h-4 w-4" /> Withdraw registration
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Withdraw this registration?</AlertDialogTitle>
+                  <AlertDialogDescription>Your team will no longer participate in this tournament. This action cannot be undone after withdrawal.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <Field label="Reason (optional)"><Textarea value={withdrawalReason} maxLength={500} onChange={(event) => setWithdrawalReason(event.target.value)} placeholder="Tell the organizer why your team is withdrawing." /></Field>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep registration</AlertDialogCancel>
+                  <AlertDialogAction variant="destructive" disabled={isWithdrawing} onClick={() => void withdraw()}>{isWithdrawing ? 'Withdrawing...' : 'Confirm withdrawal'}</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader><CreditCard className="h-5 w-5 text-[#d7a5ff]" /><CardTitle>Manual payment</CardTitle></CardHeader>
@@ -160,14 +220,14 @@ function CaptainRegistrationDetail({ registrationId }: { registrationId: string 
           {requiresProof && (
             <div className="space-y-4">
               <Alert className="border-[#735f2c] bg-[#332916] text-[#f1d384]"><AlertTitle>Pay the organizer directly</AlertTitle><AlertDescription className="text-[#d9c387]">CLUTCHA does not process or verify payments automatically. Complete the payment using one method below, then upload proof.</AlertDescription></Alert>
-              <Field label="Payment method"><Select value={paymentMethodId} onValueChange={(value) => setPaymentMethodId(value ?? '')}><SelectTrigger><SelectValue placeholder={methodsQuery.isLoading ? 'Loading methods...' : 'Choose payment method'} /></SelectTrigger><SelectContent>{methodsQuery.data?.map((method) => <SelectItem key={method.id} value={method.id}>{method.displayName}</SelectItem>)}</SelectContent></Select></Field>
+              <Field label="Payment method"><Select value={paymentMethodId || methodsQuery.data?.[0]?.id || ''} onValueChange={(value) => setPaymentMethodId(value ?? '')}><SelectTrigger><SelectValue placeholder={methodsQuery.isLoading ? 'Loading methods...' : 'Choose payment method'} /></SelectTrigger><SelectContent>{methodsQuery.data?.map((method) => <SelectItem key={method.id} value={method.id}>{method.displayName}</SelectItem>)}</SelectContent></Select></Field>
               {selectedPaymentMethod && <p className="text-xs text-[#a99ead]">Selected method: <span className="font-bold text-[#f0eaf2]">{selectedPaymentMethod.displayName}</span></p>}
               <div className="grid gap-3 sm:grid-cols-2"><Field label="Transaction reference"><Input value={transactionReference} onChange={(event) => setTransactionReference(event.target.value)} /></Field><Field label="Payment date/time"><Input type="datetime-local" value={paidAt} onChange={(event) => setPaidAt(event.target.value)} /></Field></div>
               <Field label="Proof file"><Input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></Field>
               <Field label="Note to organizer"><Textarea value={captainNote} onChange={(event) => setCaptainNote(event.target.value)} /></Field>
               {message && <Alert className="border-[#276f5c] bg-[#15382f] text-[#8ff5d8]"><AlertTitle>Proof submitted</AlertTitle><AlertDescription className="text-[#a7ead7]">{message}</AlertDescription></Alert>}
               {error && <Alert className="border-[#7e3e45] bg-[#361b20] text-[#ffcbc7]"><AlertTitle>Upload failed</AlertTitle><AlertDescription className="text-[#ffcbc7]">{error}</AlertDescription></Alert>}
-              <Button disabled={!file || !paymentMethodId || mutation.isPending} onClick={() => void submitProof()}><FileUp className="h-4 w-4" /> {mutation.isPending ? 'Uploading...' : 'Submit payment proof'}</Button>
+              <Button disabled={!file || !(paymentMethodId || methodsQuery.data?.[0]?.id) || mutation.isPending} onClick={() => void submitProof()}><FileUp className="h-4 w-4" /> {mutation.isPending ? 'Uploading...' : 'Submit payment proof'}</Button>
             </div>
           )}
         </CardContent>
