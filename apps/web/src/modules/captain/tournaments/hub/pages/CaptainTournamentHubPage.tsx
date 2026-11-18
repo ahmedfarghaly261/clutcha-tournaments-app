@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CalendarDays, CheckCircle2, CircleAlert, Gamepad2, MapPin, Radio, ShieldCheck, Trophy, UsersRound } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CheckCircle2, CircleAlert, Gamepad2, GitBranch, MapPin, Medal, Radio, ShieldCheck, Trophy, UsersRound } from 'lucide-react'
 import { useCaptainRegistrationsControllerGetRegistrationHub } from '@/api/generated/captain-registrations/captain-registrations'
 import type { CaptainRegistrationHubResponseDto } from '@/api/generated/captain-registrations'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -136,6 +136,17 @@ export function CaptainTournamentHubPage() {
               <Info label="Placement" value={progress.placement ? `#${progress.placement}` : '-'} />
               <Info label="Qualification" value={progress.qualificationState ?? '-'} />
               <Info label="Upcoming matches" value={String(progress.upcomingMatches.length)} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><Trophy className="h-5 w-5 text-[#d7a5ff]" /><CardTitle>Competition</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-sm leading-6 text-[#a99ead]">Review the tournament bracket and official standings for your team.</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button render={<Link to={`/captain/registrations/${registrationId}/competition?view=bracket`} />}><GitBranch className="h-4 w-4" /> View bracket</Button>
+                <Button render={<Link to={`/captain/registrations/${registrationId}/competition?view=standings`} />} variant="secondary"><Medal className="h-4 w-4" /> View standings</Button>
+              </div>
             </CardContent>
           </Card>
 
