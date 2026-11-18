@@ -11,6 +11,7 @@ import { CaptainTournamentDiscoveryPage } from '@/modules/captain/tournaments/di
 import { CaptainCheckInPage } from '@/modules/captain/tournaments/check-in'
 import { CaptainTournamentDetailsPage } from '@/modules/captain/tournaments/details'
 import { CaptainTournamentHubPage } from '@/modules/captain/tournaments/hub'
+import { CaptainTournamentCompetitionPage } from '@/modules/captain/tournaments/competition'
 import { CaptainMatchesPage } from '@/modules/captain/tournaments/matches'
 import { CaptainRegistrationsPage } from '@/modules/captain/tournaments/registrations'
 import { CaptainRegisteredTournamentsPage } from '@/modules/captain/tournaments/registered'
@@ -40,6 +41,10 @@ export const captainRoutes: RouteObject[] = [
               {
                 path: 'registrations/:registrationId/hub',
                 element: <CaptainTournamentHubPage />,
+              },
+              {
+                path: 'registrations/:registrationId/competition',
+                element: <CaptainTournamentCompetitionPage />,
               },
               {
                 path: 'registered',
