@@ -368,8 +368,13 @@ export function OrganizerTournamentDetailsPage() {
       <nav className="mt-5 flex gap-6 border-b border-[#302b33]" aria-label="Tournament details">
         <Button variant="ghost" className={cn('h-auto rounded-none border-b-2 px-0 py-4 text-xs font-black uppercase tracking-[0.06em] hover:bg-transparent', activeTab === 'overview' ? 'border-[#d7a5ff] text-[#e1baff]' : 'border-transparent text-[#b2a7b7] hover:text-white')} type="button" onClick={() => setActiveTab('overview')}>Overview</Button>
         <Button variant="ghost" className={cn('h-auto rounded-none border-b-2 px-0 py-4 text-xs font-black uppercase tracking-[0.06em] hover:bg-transparent', activeTab === 'participants' ? 'border-[#d7a5ff] text-[#e1baff]' : 'border-transparent text-[#b2a7b7] hover:text-white')} type="button" onClick={() => setActiveTab('participants')}>Participants</Button>
-        <Button variant="ghost" className="h-auto cursor-not-allowed rounded-none border-b-2 border-transparent px-0 py-4 text-xs font-black uppercase tracking-[0.06em] text-[#5f5763]" type="button" disabled title="Organizer bracket view is not available in the API yet">Bracket</Button>
-        <Button variant="ghost" className="h-auto cursor-not-allowed rounded-none border-b-2 border-transparent px-0 py-4 text-xs font-black uppercase tracking-[0.06em] text-[#5f5763]" type="button" disabled title="Organizer match view is not available in the API yet">Matches</Button>
+        <Button
+          render={<Link to={`/organizer/tournaments/${tournament.id}/manage/bracket`} />}
+          variant="ghost"
+          className="h-auto rounded-none border-b-2 border-transparent px-0 py-4 text-xs font-black uppercase tracking-[0.06em] text-[#b2a7b7] hover:bg-transparent hover:text-white"
+        >
+          Bracket & matches
+        </Button>
       </nav>
 
       <div className="mt-7 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_340px]">
