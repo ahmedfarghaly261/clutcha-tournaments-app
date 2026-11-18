@@ -1,4 +1,4 @@
-import type { RouteObject } from 'react-router-dom'
+import { Navigate, type RouteObject } from 'react-router-dom'
 import { CurrentUserResponseDtoRole } from '@/api/generated/authentication'
 import { CaptainLayout } from '@/layouts/CaptainLayout'
 import { AuthGuard } from '../guards/AuthGuard'
@@ -52,15 +52,15 @@ export const captainRoutes: RouteObject[] = [
               },
               {
                 path: 'registered-tournaments',
-                element: <CaptainRegisteredTournamentsPage />,
+                element: <Navigate to="/captain/registered" replace />,
               },
               {
                 path: 'registered-tournments',
-                element: <CaptainRegisteredTournamentsPage />,
+                element: <Navigate to="/captain/registered" replace />,
               },
               {
                 path: 'registerd-tournments',
-                element: <CaptainRegisteredTournamentsPage />,
+                element: <Navigate to="/captain/registered" replace />,
               },
               {
                 path: 'matches',
